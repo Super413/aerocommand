@@ -104,8 +104,8 @@ const UNIT_TYPES = {
     ] },
     DESTROYER: { name: 'Destroyer', type: 'ship', role: 'Escort', cost: 1500, hp: 1200, speed: 0.8, turn: 0.05, fuel: 9999, ammo: 1, icon: '🛳️', hardpoints: [
         { name: 'Main Gun', types: ['GUN'], equipped: 'CANNON_127MM', x: 0, y: -40 },
-        { name: 'VLS 1', types: ['AAM_HEAVY', 'CRUISE', 'AGM'], equipped: 'EMPTY', x: 0, y: -10, ammoByWeapon: { AMRAAM: 4, TOMAHAWK: 1, MAVERICK: 2, HELLFIRE: 2, ARAD: 2 } },
-        { name: 'VLS 2', types: ['AAM_HEAVY', 'CRUISE', 'AGM'], equipped: 'EMPTY', x: 0, y: 10, ammoByWeapon: { AMRAAM: 4, TOMAHAWK: 1, MAVERICK: 2, HELLFIRE: 2, ARAD: 2 } },
+        { name: 'VLS 1', types: ['AAM_HEAVY', 'CRUISE', 'AGM'], equipped: 'EMPTY', x: 0, y: -10, ammoByWeapon: { AMRAAM: 16, TOMAHAWK: 8, MAVERICK: 32, HELLFIRE: 32, ARAD: 12 } },
+        { name: 'VLS 2', types: ['AAM_HEAVY', 'CRUISE', 'AGM'], equipped: 'EMPTY', x: 0, y: 10, ammoByWeapon: { AMRAAM: 16, TOMAHAWK: 8, MAVERICK: 32, HELLFIRE: 32, ARAD: 12 } },
         { name: 'Aft AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: 50 }
     ] },
     CRUISE_MISSILE_UNIT: { name: 'Tomahawk', type: 'cruise', role: 'Strategic', cost: 0, hp: 20, speed: 2.5, turn: 0.05, fuel: 600, ammo: 0, icon: '🐢', hardpoints: [] }
