@@ -39,6 +39,29 @@ function rectContains(rect, point) {
     return point.x >= rX && point.x <= rX + rW && point.y >= rY && point.y <= rY + rH;
 }
 
+function getDefaultWeaponAmmo(unit, slot, weaponKey) {
+    const def = WEAPONS[weaponKey];
+    if (!def) return 0;
+    if (def.type === 'GUN' || def.passive) return 9999;
+    if (def.type === 'DEPLOY') return def.capacity || 1;
+    if (slot && slot.ammoByWeapon && slot.ammoByWeapon[weaponKey] !== undefined) return slot.ammoByWeapon[weaponKey];
+    if (weaponKey === 'HELLFIRE' && unit.data.type === 'heli') return 4;
+    if (def.ammo !== undefined) return def.ammo;
+    if (def.type === 'ROCKET') return 3;
+    return 1;
+}
+
+function getConfiguredSlotAmmo(unitKey, slotIndex, weaponKey) {
+    const unit = UNIT_TYPES[unitKey];
+    if (!unit) return 0;
+    const slot = unit.hardpoints[slotIndex];
+    if (!slot || !weaponKey || weaponKey === 'EMPTY') return 0;
+    if (slot.customAmmoByWeapon && slot.customAmmoByWeapon[weaponKey] !== undefined) {
+        return Math.max(1, slot.customAmmoByWeapon[weaponKey]);
+    }
+    return getDefaultWeaponAmmo({ data: unit }, slot, weaponKey);
+}
+
 // --- Classes ---
 
 class Island {
@@ -157,7 +180,7 @@ class Unit extends Entity {
 
     initLoadout() {
         this.weapons = [];
-        this.data.hardpoints.forEach(slot => {
+        this.data.hardpoints.forEach((slot, slotIndex) => {
             let wKey = slot.equipped;
             if (this.team === TEAM_AI || (this.team === TEAM_PLAYER && isSpectator)) {
                let best = WEAPONS[wKey];
@@ -174,12 +197,17 @@ class Unit extends Entity {
             }
             if (wKey && wKey !== 'EMPTY') {
                 const def = WEAPONS[wKey];
-                let ammoCount = 1;
-                if (def.type === 'GUN' || def.passive) ammoCount = 9999;
-                else if (def.type === 'ROCKET') ammoCount = 3; 
-                else if (def.type === 'DEPLOY') ammoCount = def.capacity || 1;
-                else if (def.name === 'AGM-114') ammoCount = (this.data.type === 'heli') ? 4 : 2;
-                this.weapons.push({ def: def, cooldown: 0, ammo: ammoCount, burstCount: 0, burstTimer: 0, jammedTargets: [] });
+                const ammoCount = getConfiguredSlotAmmo(this.typeKey, slotIndex, wKey);
+                this.weapons.push({
+                    def: def,
+                    hardpointIndex: slotIndex,
+                    cooldown: 0,
+                    ammo: ammoCount,
+                    maxAmmo: ammoCount,
+                    burstCount: 0,
+                    burstTimer: 0,
+                    jammedTargets: []
+                });
             }
         });
     }
@@ -221,12 +249,12 @@ class Unit extends Entity {
             this.hp = Math.min(this.hp + 1 * SPEED_SCALE, this.maxHp);
             this.weapons.forEach(w => {
                 if (w.def.type === 'DEPLOY') {
-                    if (w.ammo < (w.def.capacity || 1) && TEAMS[this.team].money >= 100 && gameTime % 30 === 0) {
+                    if (w.ammo < w.maxAmmo && TEAMS[this.team].money >= 100 && gameTime % 30 === 0) {
                         TEAMS[this.team].money -= 100; w.ammo++; addParticle(this.x, this.y, 'text', '+' + w.def.name);
                     }
                 }
             });
-            let fullyLoaded = this.weapons.every(w => w.ammo > 0 || w.def.passive || w.def.type === 'GUN');
+            let fullyLoaded = this.weapons.every(w => w.ammo >= w.maxAmmo || w.def.passive || w.def.type === 'GUN');
             if (this.typeKey === 'TRANSPORT') fullyLoaded = this.weapons.some(w => w.def.type === 'DEPLOY' && w.ammo > 0);
             if (this.fuel >= this.data.fuel && this.hp >= this.maxHp && fullyLoaded) {
                 this.state = 'IDLE'; this.rtb = false; this.visible = true; 
@@ -812,7 +840,9 @@ function openLoadoutMenu(unitKey) {
         const div = document.createElement('div');
         div.className = 'slot';
         div.style.left = `calc(50% + ${hp.x}px - 40px)`; div.style.top = `calc(50% + ${hp.y}px - 17px)`;
-        div.innerHTML = `<span class="slot-name">${hp.name}</span>${WEAPONS[hp.equipped].name}`;
+        const currentAmmo = getConfiguredSlotAmmo(unitKey, index, hp.equipped);
+        const ammoLabel = hp.equipped !== 'EMPTY' ? ` (${currentAmmo})` : '';
+        div.innerHTML = `<span class="slot-name">${hp.name}</span>${WEAPONS[hp.equipped].name}${ammoLabel}`;
         div.onclick = () => selectSlot(index, div);
         container.appendChild(div);
     });
@@ -824,7 +854,11 @@ function selectSlot(index, domElement) {
     const allSlots = document.querySelectorAll('.slot'); allSlots.forEach(s => s.style.borderColor = '#555');
     const selector = document.getElementById('weapon-selector'); selector.innerHTML = '';
 
-    if (index === null) { selector.innerHTML = '<div style="color:#666; width:100%; text-align:center; padding-top:40px;">Select a slot</div>'; return; }
+    if (index === null) {
+        selector.innerHTML = '<div style="color:#666; width:100%; text-align:center; padding-top:40px;">Select a slot</div>';
+        renderSlotAmmoConfig();
+        return;
+    }
     if (domElement) domElement.style.borderColor = '#ffd700';
 
     const slotDef = UNIT_TYPES[editingUnitKey].hardpoints[index];
@@ -839,6 +873,9 @@ function selectSlot(index, domElement) {
             if (!isUnlocked(TEAM_PLAYER, wKey)) opt.classList.add('locked');
             
             let html = `<div style="font-size:24px">${w.icon}</div><div>${w.name}</div>`;
+            if (wKey !== 'EMPTY') {
+                html += `<div class="weapon-cap">Cap: ${getConfiguredSlotAmmo(editingUnitKey, index, wKey)}</div>`;
+            }
             if (!isUnlocked(TEAM_PLAYER, wKey)) html += `<div class="lock-icon">🔒</div>`;
             
             opt.innerHTML = html;
@@ -846,6 +883,7 @@ function selectSlot(index, domElement) {
             selector.appendChild(opt);
         }
     });
+    renderSlotAmmoConfig();
 }
 
 function equipWeapon(weaponKey) {
@@ -854,6 +892,62 @@ function equipWeapon(weaponKey) {
         openLoadoutMenu(editingUnitKey);
         const slots = document.querySelectorAll('.slot'); selectSlot(selectedSlotIndex, slots[selectedSlotIndex]);
     }
+}
+
+function adjustSlotAmmo(delta) {
+    if (!editingUnitKey || selectedSlotIndex === null) return;
+    const unit = UNIT_TYPES[editingUnitKey];
+    const slot = unit.hardpoints[selectedSlotIndex];
+    if (!slot || !slot.equipped || slot.equipped === 'EMPTY') return;
+    const weaponKey = slot.equipped;
+    const defaultAmmo = getDefaultWeaponAmmo({ data: unit }, slot, weaponKey);
+    if (defaultAmmo >= 9999) return;
+
+    if (!slot.customAmmoByWeapon) slot.customAmmoByWeapon = {};
+    const currentAmmo = getConfiguredSlotAmmo(editingUnitKey, selectedSlotIndex, weaponKey);
+    const nextAmmo = Math.max(1, Math.min(12, currentAmmo + delta));
+
+    if (nextAmmo === defaultAmmo) delete slot.customAmmoByWeapon[weaponKey];
+    else slot.customAmmoByWeapon[weaponKey] = nextAmmo;
+
+    openLoadoutMenu(editingUnitKey);
+    const slots = document.querySelectorAll('.slot');
+    selectSlot(selectedSlotIndex, slots[selectedSlotIndex]);
+}
+
+function renderSlotAmmoConfig() {
+    const panel = document.getElementById('slot-config-panel');
+    if (!panel) return;
+
+    if (!editingUnitKey || selectedSlotIndex === null) {
+        panel.innerHTML = '<div class="slot-config-title">Select a hardpoint to configure ammo.</div>';
+        return;
+    }
+
+    const unit = UNIT_TYPES[editingUnitKey];
+    const slot = unit.hardpoints[selectedSlotIndex];
+    if (!slot || !slot.equipped || slot.equipped === 'EMPTY') {
+        panel.innerHTML = '<div class="slot-config-title">Equip a weapon to configure ammo capacity.</div>';
+        return;
+    }
+
+    const weapon = WEAPONS[slot.equipped];
+    const ammo = getConfiguredSlotAmmo(editingUnitKey, selectedSlotIndex, slot.equipped);
+    const defaultAmmo = getDefaultWeaponAmmo({ data: unit }, slot, slot.equipped);
+    if (!weapon || defaultAmmo >= 9999) {
+        panel.innerHTML = `<div class="slot-config-title">${slot.name}: ${weapon ? weapon.name : 'N/A'} has unlimited ammo.</div>`;
+        return;
+    }
+
+    panel.innerHTML = `
+        <div class="slot-config-title">${slot.name}: ${weapon.name} ammo capacity</div>
+        <div class="slot-ammo-controls">
+            <button class="btn-ammo" onclick="adjustSlotAmmo(-1)">−</button>
+            <div class="slot-ammo-value">${ammo}</div>
+            <button class="btn-ammo" onclick="adjustSlotAmmo(1)">+</button>
+            <div class="slot-config-title">(Default: ${defaultAmmo})</div>
+        </div>
+    `;
 }
 
 function openResearch() {

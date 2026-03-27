@@ -18,19 +18,19 @@ const WEAPONS = {
     RAILGUN: { name: 'Railcannon', type: 'GUN', damage: 100, cooldown: 60, speed: 30, range: 250, targets: ['air','heli','ground','ship'], icon: '⚡' },
     CIWS: { name: 'Phalanx CIWS', type: 'GUN', damage: 10, cooldown: 4, speed: 12, range: 120, targets: ['air','heli', 'cruise'], icon: '🛡️' },
     RIFLE: { name: 'Assault Rifle', type: 'GUN', damage: 2, cooldown: 30, speed: 8, range: 100, targets: ['ground'], icon: '🔫' },
-    ROCKET_HYDRA: { name: 'Hydra 70', type: 'ROCKET', damage: 15, cooldown: 5, speed: 6, range: 160, targets: ['ground', 'ship', 'structure'], burst: 3, icon: '🎇' },
-    ROCKET_DAGR: { name: 'DAGR', type: 'ROCKET', damage: 25, cooldown: 5, speed: 7, range: 200, targets: ['ground', 'ship', 'structure'], burst: 1, guided: true, icon: '🎯' },
-    ROCKET_DU: { name: 'DU Rocket', type: 'ROCKET', damage: 60, cooldown: 5, speed: 8, range: 220, targets: ['ground', 'ship', 'structure'], burst: 2, guided: true, icon: '☢️' },
-    BOMB_IRON: { name: 'Mk82', type: 'BOMB', damage: 150, cooldown: 40, range: 20, targets: ['structure', 'ship', 'ground'], icon: '💣' },
-    BOMB_GUIDED: { name: 'GBU-12', type: 'BOMB', damage: 200, cooldown: 30, range: 30, targets: ['structure', 'ship', 'ground'], speed: 3, guided: true, icon: '🎯💣' },
-    BOMB_CLUSTER: { name: 'CBU-87', type: 'BOMB', damage: 80, cooldown: 20, range: 50, targets: ['ground', 'ship'], area: 80, icon: '✨' },
-    BOMB_SDB: { name: 'SDB Glide', type: 'BOMB', damage: 120, cooldown: 20, range: 400, targets: ['structure', 'ship', 'ground'], speed: 4, guided: true, icon: '🦅' },
-    SIDEWINDER: { name: 'AIM-9X', type: 'AAM_LIGHT', damage: 30, cooldown: 60, speed: 6, range: 250, turn: 0.12, targets: ['air', 'heli', 'cruise'], guidance: 'heat', icon: '🚀' },
-    AMRAAM: { name: 'AIM-120', type: 'AAM_HEAVY', damage: 45, cooldown: 90, speed: 5, range: 350, turn: 0.09, targets: ['air', 'heli', 'cruise'], guidance: 'radar', icon: '🚀+' },
-    MAVERICK: { name: 'AGM-65', type: 'AGM', damage: 50, cooldown: 80, speed: 4, range: 220, turn: 0.08, targets: ['ground', 'ship', 'structure'], icon: '🧨' },
-    HELLFIRE: { name: 'AGM-114', type: 'AGM', damage: 50, cooldown: 45, speed: 5, range: 180, turn: 0.1, targets: ['ground', 'ship', 'structure'], icon: '🔥' },
-    TOMAHAWK: { name: 'Tomahawk', type: 'CRUISE', damage: 300, cooldown: 400, speed: 10, range: 800, turn: 0.05, targets: ['structure', 'ship'], icon: '🐢' },
-    ARAD: { name: 'HARM', type: 'AGM', damage: 100, cooldown: 100, speed: 15, range: 800, turn: 0.15, targets: ['structure'], priorityTag: 'SAM_SITE', icon: '📡💥' },
+    ROCKET_HYDRA: { name: 'Hydra 70', type: 'ROCKET', damage: 15, cooldown: 5, speed: 6, range: 160, targets: ['ground', 'ship', 'structure'], burst: 3, ammo: 3, icon: '🎇' },
+    ROCKET_DAGR: { name: 'DAGR', type: 'ROCKET', damage: 25, cooldown: 5, speed: 7, range: 200, targets: ['ground', 'ship', 'structure'], burst: 1, guided: true, ammo: 2, icon: '🎯' },
+    ROCKET_DU: { name: 'DU Rocket', type: 'ROCKET', damage: 60, cooldown: 5, speed: 8, range: 220, targets: ['ground', 'ship', 'structure'], burst: 2, guided: true, ammo: 2, icon: '☢️' },
+    BOMB_IRON: { name: 'Mk82', type: 'BOMB', damage: 150, cooldown: 40, range: 20, targets: ['structure', 'ship', 'ground'], ammo: 1, icon: '💣' },
+    BOMB_GUIDED: { name: 'GBU-12', type: 'BOMB', damage: 200, cooldown: 30, range: 30, targets: ['structure', 'ship', 'ground'], speed: 3, guided: true, ammo: 1, icon: '🎯💣' },
+    BOMB_CLUSTER: { name: 'CBU-87', type: 'BOMB', damage: 80, cooldown: 20, range: 50, targets: ['ground', 'ship'], area: 80, ammo: 1, icon: '✨' },
+    BOMB_SDB: { name: 'SDB Glide', type: 'BOMB', damage: 120, cooldown: 20, range: 400, targets: ['structure', 'ship', 'ground'], speed: 4, guided: true, ammo: 2, icon: '🦅' },
+    SIDEWINDER: { name: 'AIM-9X', type: 'AAM_LIGHT', damage: 30, cooldown: 60, speed: 6, range: 250, turn: 0.12, targets: ['air', 'heli', 'cruise'], guidance: 'heat', ammo: 1, icon: '🚀' },
+    AMRAAM: { name: 'AIM-120', type: 'AAM_HEAVY', damage: 45, cooldown: 90, speed: 5, range: 350, turn: 0.09, targets: ['air', 'heli', 'cruise'], guidance: 'radar', ammo: 1, icon: '🚀+' },
+    MAVERICK: { name: 'AGM-65', type: 'AGM', damage: 50, cooldown: 80, speed: 4, range: 220, turn: 0.08, targets: ['ground', 'ship', 'structure'], ammo: 1, icon: '🧨' },
+    HELLFIRE: { name: 'AGM-114', type: 'AGM', damage: 50, cooldown: 45, speed: 5, range: 180, turn: 0.1, targets: ['ground', 'ship', 'structure'], ammo: 2, icon: '🔥' },
+    TOMAHAWK: { name: 'Tomahawk', type: 'CRUISE', damage: 300, cooldown: 400, speed: 10, range: 800, turn: 0.05, targets: ['structure', 'ship'], ammo: 1, icon: '🐢' },
+    ARAD: { name: 'HARM', type: 'AGM', damage: 100, cooldown: 100, speed: 15, range: 800, turn: 0.15, targets: ['structure'], priorityTag: 'SAM_SITE', ammo: 1, icon: '📡💥' },
     SF_DEPLOY: { name: 'SF Team', type: 'DEPLOY', damage: 0, cooldown: 120, range: 20, targets: [], capacity: 1, icon: '🪖', deployType: 'UNIT', unitType: 'SF' },
     DEPLOY_SPAA: { name: 'Light AA', type: 'DEPLOY', damage: 0, cooldown: 200, range: 20, targets: [], capacity: 1, icon: '🔫', deployType: 'BUILDING', buildType: 'DEPLOYED_SPAA' },
     DEPLOY_COASTAL: { name: 'Coast Gun', type: 'DEPLOY', damage: 0, cooldown: 200, range: 20, targets: [], capacity: 1, icon: '🏰', deployType: 'BUILDING', buildType: 'DEPLOYED_COASTAL' },
@@ -61,24 +61,53 @@ const TEAMS = {
 
 const UNIT_TYPES = {
     FIGHTER: { name: 'F-16 Viper', type: 'air', role: 'AA', cost: 400, hp: 100, speed: 3.5, turn: 0.08, fuel: 1500, ammo: 1, icon: '✈️', hardpoints: [
-        { name: 'Gun', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -80 }, { name: 'Center', types: ['ECM', 'BOMB'], equipped: 'EMPTY', x: 0, y: 10 }, { name: 'L Wing', types: ['AAM_LIGHT', 'AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET'], equipped: 'ROCKET_HYDRA', x: -70, y: 30 }, { name: 'R Wing', types: ['AAM_LIGHT', 'AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET'], equipped: 'ROCKET_HYDRA', x: 70, y: 30 }, { name: 'L Tip', types: ['AAM_LIGHT'], equipped: 'EMPTY', x: -130, y: 10 }, { name: 'R Tip', types: ['AAM_LIGHT'], equipped: 'EMPTY', x: 130, y: 10 } ] },
+        { name: 'Gun', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -80 },
+        { name: 'Center', types: ['ECM', 'BOMB'], equipped: 'EMPTY', x: 0, y: 10, ammoByWeapon: { BOMB_IRON: 2, BOMB_SDB: 4 } },
+        { name: 'L Wing', types: ['AAM_LIGHT', 'AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET'], equipped: 'ROCKET_HYDRA', x: -70, y: 30, ammoByWeapon: { SIDEWINDER: 2, AMRAAM: 1, ROCKET_HYDRA: 4, HELLFIRE: 2 } },
+        { name: 'R Wing', types: ['AAM_LIGHT', 'AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET'], equipped: 'ROCKET_HYDRA', x: 70, y: 30, ammoByWeapon: { SIDEWINDER: 2, AMRAAM: 1, ROCKET_HYDRA: 4, HELLFIRE: 2 } },
+        { name: 'L Tip', types: ['AAM_LIGHT', 'AAM_HEAVY'], equipped: 'EMPTY', x: -130, y: 10, ammoByWeapon: { SIDEWINDER: 2, AMRAAM: 1 } },
+        { name: 'R Tip', types: ['AAM_LIGHT', 'AAM_HEAVY'], equipped: 'EMPTY', x: 130, y: 10, ammoByWeapon: { SIDEWINDER: 2, AMRAAM: 1 } }
+    ] },
     STRIKE: { name: 'F/A-18 Hornet', type: 'air', role: 'Multi', cost: 600, hp: 140, speed: 2.8, turn: 0.06, fuel: 1800, ammo: 1, icon: '⚔️', hardpoints: [
-        { name: 'Gun', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -90 }, { name: 'Center', types: ['ECM', 'BOMB', 'AGM'], equipped: 'EMPTY', x: 0, y: 10 }, { name: 'L Outer', types: ['AGM', 'BOMB', 'ROCKET', 'CRUISE'], equipped: 'ROCKET_HYDRA', x: -100, y: 40 }, { name: 'R Outer', types: ['AGM', 'BOMB', 'ROCKET', 'CRUISE'], equipped: 'ROCKET_HYDRA', x: 100, y: 40 }, { name: 'L Inner', types: ['AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET'], equipped: 'BOMB_IRON', x: -50, y: 60 }, { name: 'R Inner', types: ['AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET'], equipped: 'BOMB_IRON', x: 50, y: 60 } ] },
+        { name: 'Gun', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -90 },
+        { name: 'Center', types: ['ECM', 'BOMB', 'AGM'], equipped: 'EMPTY', x: 0, y: 10, ammoByWeapon: { BOMB_IRON: 3, BOMB_SDB: 4, MAVERICK: 2 } },
+        { name: 'L Outer', types: ['AGM', 'BOMB', 'ROCKET', 'CRUISE'], equipped: 'ROCKET_HYDRA', x: -100, y: 40, ammoByWeapon: { ROCKET_HYDRA: 6, HELLFIRE: 4, TOMAHAWK: 1 } },
+        { name: 'R Outer', types: ['AGM', 'BOMB', 'ROCKET', 'CRUISE'], equipped: 'ROCKET_HYDRA', x: 100, y: 40, ammoByWeapon: { ROCKET_HYDRA: 6, HELLFIRE: 4, TOMAHAWK: 1 } },
+        { name: 'L Inner', types: ['AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET'], equipped: 'BOMB_IRON', x: -50, y: 60, ammoByWeapon: { AMRAAM: 2, BOMB_IRON: 2, ROCKET_HYDRA: 4 } },
+        { name: 'R Inner', types: ['AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET'], equipped: 'BOMB_IRON', x: 50, y: 60, ammoByWeapon: { AMRAAM: 2, BOMB_IRON: 2, ROCKET_HYDRA: 4 } }
+    ] },
     BOMBER: { name: 'B-52 Stratos', type: 'air', role: 'Bomber', cost: 1200, hp: 400, speed: 1.5, turn: 0.02, fuel: 3000, ammo: 1, icon: '💣', hardpoints: [
-        { name: 'Bay 1', types: ['BOMB', 'CRUISE'], equipped: 'BOMB_IRON', x: -25, y: -20 }, { name: 'Bay 2', types: ['BOMB', 'CRUISE'], equipped: 'BOMB_IRON', x: 25, y: -20 }, { name: 'L Pylon', types: ['AGM', 'CRUISE', 'ECM'], equipped: 'EMPTY', x: -90, y: 20 }, { name: 'R Pylon', types: ['AGM', 'CRUISE', 'ECM'], equipped: 'EMPTY', x: 90, y: 20 } ] },
+        { name: 'Bay 1', types: ['BOMB', 'CRUISE'], equipped: 'BOMB_IRON', x: -25, y: -20, ammoByWeapon: { BOMB_IRON: 4, BOMB_GUIDED: 2, BOMB_CLUSTER: 2, BOMB_SDB: 4, TOMAHAWK: 1 } },
+        { name: 'Bay 2', types: ['BOMB', 'CRUISE'], equipped: 'BOMB_IRON', x: 25, y: -20, ammoByWeapon: { BOMB_IRON: 4, BOMB_GUIDED: 2, BOMB_CLUSTER: 2, BOMB_SDB: 4, TOMAHAWK: 1 } },
+        { name: 'L Pylon', types: ['AGM', 'CRUISE', 'ECM'], equipped: 'EMPTY', x: -90, y: 20, ammoByWeapon: { MAVERICK: 2, HELLFIRE: 2, TOMAHAWK: 1 } },
+        { name: 'R Pylon', types: ['AGM', 'CRUISE', 'ECM'], equipped: 'EMPTY', x: 90, y: 20, ammoByWeapon: { MAVERICK: 2, HELLFIRE: 2, TOMAHAWK: 1 } }
+    ] },
     AWACS: { name: 'E-3 Sentry', type: 'air', role: 'Support', cost: 1000, hp: 300, speed: 2.0, turn: 0.03, fuel: 2500, ammo: 1, icon: '📡', hardpoints: [
-        { name: 'Rotodome 1', types: ['ECM'], equipped: 'EMPTY', x: -20, y: -10 }, { name: 'Rotodome 2', types: ['ECM'], equipped: 'EMPTY', x: 20, y: -10 }, { name: 'L Wing', types: ['ECM', 'AAM_LIGHT'], equipped: 'EMPTY', x: -80, y: 20 }, { name: 'R Wing', types: ['ECM', 'AAM_LIGHT'], equipped: 'EMPTY', x: 80, y: 20 } ] },
+        { name: 'Rotodome 1', types: ['ECM'], equipped: 'EMPTY', x: -20, y: -10 },
+        { name: 'Rotodome 2', types: ['ECM'], equipped: 'EMPTY', x: 20, y: -10 },
+        { name: 'L Wing', types: ['ECM', 'AAM_LIGHT'], equipped: 'EMPTY', x: -80, y: 20, ammoByWeapon: { SIDEWINDER: 2 } },
+        { name: 'R Wing', types: ['ECM', 'AAM_LIGHT'], equipped: 'EMPTY', x: 80, y: 20, ammoByWeapon: { SIDEWINDER: 2 } }
+    ] },
     ATTACK_HELI: { name: 'AH-64 Apache', type: 'heli', role: 'CAS', cost: 500, hp: 180, speed: 1.8, turn: 0.1, fuel: 2000, ammo: 1, icon: '🚁', hardpoints: [
-        { name: 'Chain Gun', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -100 }, { name: 'L Stub', types: ['AGM', 'ROCKET'], equipped: 'ROCKET_HYDRA', x: -50, y: -20 }, { name: 'R Stub', types: ['AGM', 'ROCKET'], equipped: 'ROCKET_HYDRA', x: 50, y: -20 }, { name: 'L Tip', types: ['AAM_LIGHT', 'ECM'], equipped: 'EMPTY', x: -70, y: -20 }, { name: 'R Tip', types: ['AAM_LIGHT', 'ECM'], equipped: 'EMPTY', x: 70, y: -20 } ] },
-    TRANSPORT: { name: 'CH-47 Chinook', type: 'heli', role: 'Transport', cost: 300, hp: 200, speed: 1.6, turn: 0.05, fuel: 2500, ammo: 0, capacity: 4, icon: '📦', hardpoints: [ { name: 'Cargo Bay', types: ['DEPLOY'], equipped: 'SF_DEPLOY', x: 0, y: 0 } ] },
+        { name: 'Chain Gun', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -100 },
+        { name: 'L Stub', types: ['AGM', 'ROCKET'], equipped: 'ROCKET_HYDRA', x: -50, y: -20, ammoByWeapon: { ROCKET_HYDRA: 8, HELLFIRE: 4, MAVERICK: 2 } },
+        { name: 'R Stub', types: ['AGM', 'ROCKET'], equipped: 'ROCKET_HYDRA', x: 50, y: -20, ammoByWeapon: { ROCKET_HYDRA: 8, HELLFIRE: 4, MAVERICK: 2 } },
+        { name: 'L Tip', types: ['AAM_LIGHT', 'ECM'], equipped: 'EMPTY', x: -70, y: -20, ammoByWeapon: { SIDEWINDER: 2 } },
+        { name: 'R Tip', types: ['AAM_LIGHT', 'ECM'], equipped: 'EMPTY', x: 70, y: -20, ammoByWeapon: { SIDEWINDER: 2 } }
+    ] },
+    TRANSPORT: { name: 'CH-47 Chinook', type: 'heli', role: 'Transport', cost: 300, hp: 200, speed: 1.6, turn: 0.05, fuel: 2500, ammo: 0, capacity: 4, icon: '📦', hardpoints: [ { name: 'Cargo Bay', types: ['DEPLOY'], equipped: 'SF_DEPLOY', x: 0, y: 0, ammoByWeapon: { SF_DEPLOY: 2, DEPLOY_SPAA: 1, DEPLOY_COASTAL: 1, DEPLOY_MANPADS: 2, DEPLOY_ASHM: 1 } } ] },
     SF: { name: 'SF Team', type: 'ground', role: 'Capture', cost: 100, hp: 50, speed: 0.5, turn: 1, fuel: 0, ammo: 999, icon: '🔫', hardpoints: [{ name: 'Gun', types: ['GUN'], equipped: 'RIFLE', x:0, y:0 }] },
     CARRIER: { name: 'Carrier', type: 'ship', role: 'Base', cost: 2500, hp: 2000, speed: 0.6, turn: 0.04, fuel: 0, ammo: 999, icon: '🚢', hardpoints: [
-        { name: 'Bow AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -50 }, { name: 'Stern AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: 80 }, { name: 'Mid AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 40, y: 20 } ] },
+        { name: 'Bow AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -50 },
+        { name: 'Stern AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: 80 },
+        { name: 'Mid AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 40, y: 20 }
+    ] },
     DESTROYER: { name: 'Destroyer', type: 'ship', role: 'Escort', cost: 1500, hp: 1200, speed: 0.8, turn: 0.05, fuel: 9999, ammo: 1, icon: '🛳️', hardpoints: [
         { name: 'Main Gun', types: ['GUN'], equipped: 'CANNON_127MM', x: 0, y: -40 },
-        { name: 'VLS 1', types: ['AAM_HEAVY', 'CRUISE', 'AGM'], equipped: 'EMPTY', x: 0, y: -10 },
-        { name: 'VLS 2', types: ['AAM_HEAVY', 'CRUISE', 'AGM'], equipped: 'EMPTY', x: 0, y: 10 },
-        { name: 'Aft AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: 50 } ] },
+        { name: 'VLS 1', types: ['AAM_HEAVY', 'CRUISE', 'AGM'], equipped: 'EMPTY', x: 0, y: -10, ammoByWeapon: { AMRAAM: 4, TOMAHAWK: 1, MAVERICK: 2, HELLFIRE: 2, ARAD: 2 } },
+        { name: 'VLS 2', types: ['AAM_HEAVY', 'CRUISE', 'AGM'], equipped: 'EMPTY', x: 0, y: 10, ammoByWeapon: { AMRAAM: 4, TOMAHAWK: 1, MAVERICK: 2, HELLFIRE: 2, ARAD: 2 } },
+        { name: 'Aft AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: 50 }
+    ] },
     CRUISE_MISSILE_UNIT: { name: 'Tomahawk', type: 'cruise', role: 'Strategic', cost: 0, hp: 20, speed: 2.5, turn: 0.05, fuel: 600, ammo: 0, icon: '🐢', hardpoints: [] }
 };
 
