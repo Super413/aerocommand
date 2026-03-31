@@ -181,6 +181,7 @@ class Unit extends Entity {
         this.initLoadout();
 
         this.targetPos = { x: x, y: y }; this.targetUnit = null; this.state = 'IDLE'; this.rtb = false; 
+        this.transportMission = null;
     }
 
     initLoadout() {
@@ -296,9 +297,15 @@ class Unit extends Entity {
             if (w.pendingSalvo > 0) {
                 w.salvoTimer -= SPEED_SCALE;
                 if (w.salvoTimer <= 0) {
-                    w.pendingSalvo--;
-                    w.salvoTimer = w.def.salvoDelay || 4;
-                    this.spawnWeaponProjectile(w, this.targetUnit);
+                    const salvoTarget = w.salvoTarget && !w.salvoTarget.dead ? w.salvoTarget : null;
+                    if (!salvoTarget) {
+                        w.pendingSalvo = 0;
+                        w.salvoTarget = null;
+                    } else {
+                        w.pendingSalvo--;
+                        w.salvoTimer = w.def.salvoDelay || 4;
+                        this.spawnWeaponProjectile(w, salvoTarget);
+                    }
                 }
             }
             if (w.cooldown > 0) w.cooldown -= SPEED_SCALE;
@@ -500,10 +507,12 @@ class Unit extends Entity {
             const salvoSize = Math.max(1, w.salvoCount || 1);
             weaponInstance.pendingSalvo = Math.max(0, salvoSize - 1);
             weaponInstance.salvoTimer = w.salvoDelay || 4;
+            weaponInstance.salvoTarget = target;
         }
     }
 
     spawnWeaponProjectile(weaponInstance, target) {
+        if (!target) return;
         const w = weaponInstance.def;
         if (w.type === 'ROCKET') { 
             weaponInstance.burstCount = 3; 
@@ -567,13 +576,20 @@ class Unit extends Entity {
 
     deployTransportUnit(deployDef, deployContext) {
         if (deployDef.unitType !== 'SF') return false;
-        const dropIsland = deployContext.contestedIsland || deployContext.nearbyIsland;
+        const mission = this.transportMission;
+        const dropIsland = mission?.targetIsland || deployContext.contestedIsland || deployContext.nearbyIsland;
         if (!dropIsland) return false;
 
         const sf = new Unit(this.x, this.y + 10, this.team, deployDef.unitType);
-        sf.targetPos = { x: dropIsland.x, y: dropIsland.y };
+        if (mission && mission.capturePoint) sf.targetPos = { x: mission.capturePoint.x, y: mission.capturePoint.y };
+        else sf.targetPos = { x: dropIsland.x, y: dropIsland.y };
         entities.push(sf);
         addParticle(sf.x, sf.y, 'text', 'DROP');
+        if (mission) {
+            this.transportMission = null;
+            this.hasCommand = false;
+            this.state = 'IDLE';
+        }
         return true;
     }
 
@@ -586,6 +602,28 @@ class Unit extends Entity {
         island.buildings.push(new Building(island.x + offsetX, island.y + offsetY, this.team, deployDef.buildType));
         addParticle(island.x + offsetX, island.y + offsetY, 'text', 'DEPLOYED');
         return true;
+    }
+
+    setTransportAssaultMission(targetIsland, capturePoint = null) {
+        if (this.typeKey !== 'TRANSPORT') return;
+        const toTransportX = this.x - targetIsland.x;
+        const toTransportY = this.y - targetIsland.y;
+        const mag = Math.hypot(toTransportX, toTransportY) || 1;
+        const edgeOffset = targetIsland.radius * 0.9;
+        const dropPoint = {
+            x: targetIsland.x + (toTransportX / mag) * edgeOffset,
+            y: targetIsland.y + (toTransportY / mag) * edgeOffset
+        };
+        this.transportMission = {
+            targetIsland,
+            capturePoint: capturePoint || { x: targetIsland.x, y: targetIsland.y },
+            dropPoint
+        };
+        this.targetPos = dropPoint;
+        this.targetUnit = null;
+        this.rtb = false;
+        this.hasCommand = true;
+        this.state = 'MOVE';
     }
 
     draw(ctx) {
@@ -1297,7 +1335,17 @@ canvas.addEventListener('mousedown', e => {
             }
             let target = entities.find(u => Math.hypot(u.x - mouse.worldX, u.y - mouse.worldY) < 20 && u.team !== TEAM_PLAYER && u.visible);
             if (!target) { islands.forEach(i => { if (i.owner !== TEAM_PLAYER) i.buildings.forEach(b => { if(Math.hypot(b.x - mouse.worldX, b.y - mouse.worldY) < 20) target = b; }); }); }
+            const clickedEnemyIsland = islands.find(i => i.owner !== TEAM_PLAYER && Math.hypot(i.x - mouse.worldX, i.y - mouse.worldY) < i.radius);
             selection.forEach(u => {
+                if (u.typeKey === 'TRANSPORT' && u.weapons.some(w => w.def.type === 'DEPLOY' && w.def.deployType === 'UNIT')) {
+                    const missionIsland = clickedEnemyIsland || (target ? islands.find(i => Math.hypot(i.x - target.x, i.y - target.y) < i.radius * 1.2 && i.owner !== TEAM_PLAYER) : null);
+                    if (missionIsland) {
+                        const capturePoint = target ? { x: target.x, y: target.y } : { x: missionIsland.x, y: missionIsland.y };
+                        u.setTransportAssaultMission(missionIsland, capturePoint);
+                        addParticle(capturePoint.x, capturePoint.y, 'text', 'INSERT');
+                        return;
+                    }
+                }
                 if (target) { u.targetUnit = target; u.targetPos = null; addParticle(target.x, target.y, 'text', 'ATTACK'); }
                 else { 
                     u.targetPos = { x: mouse.worldX, y: mouse.worldY }; u.targetUnit = null; u.rtb = false; u.state = 'MOVE'; 
