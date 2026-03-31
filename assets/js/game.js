@@ -249,7 +249,7 @@ class Unit extends Entity {
             if ((this.fuel < this.data.fuel * 0.3 || needsAmmo) && !this.rtb) { this.rtb = true; this.findBase(); }
         }
 
-        if (this.rtb && dist(this, this.base) < 30) { if (this.state !== 'LANDED') { this.state = 'LANDED'; this.initLoadout(); } }
+        if (this.rtb && this.base && dist(this, this.base) < 30) { if (this.state !== 'LANDED') { this.state = 'LANDED'; this.initLoadout(); } }
 
         if (this.state === 'LANDED') {
             this.visible = false; 
@@ -450,30 +450,7 @@ class Unit extends Entity {
             });
         }
 
-        if (this.typeKey === 'TRANSPORT' && this.state !== 'RETURN') {
-             if (this.targetPos && dist(this, this.targetPos) < 65) {
-                 const island = islands.find(i => dist(this, i) < i.radius && i.owner === this.team);
-                 const neutralIsland = islands.find(i => dist(this, i) < i.radius && i.owner !== this.team);
-                 
-                 this.weapons.forEach(w => {
-                     if (w.def.type === 'DEPLOY' && w.ammo > 0 && w.cooldown <= 0) {
-                         if (w.def.deployType === 'UNIT' && w.def.unitType === 'SF' && neutralIsland) {
-                             w.ammo--; w.cooldown = w.def.cooldown;
-                             const sf = new Unit(this.x, this.y + 10, this.team, 'SF'); sf.targetPos = neutralIsland; entities.push(sf);
-                         }
-                         else if (w.def.deployType === 'BUILDING' && island) {
-                             if (island.buildings.length < 6) {
-                                 w.ammo--; w.cooldown = w.def.cooldown;
-                                 let offsetX = (Math.random() - 0.5) * 40;
-                                 let offsetY = (Math.random() - 0.5) * 40;
-                                 island.buildings.push(new Building(island.x + offsetX, island.y + offsetY, this.team, w.def.buildType));
-                                 addParticle(island.x + offsetX, island.y + offsetY, 'text', 'DEPLOYED');
-                             }
-                         }
-                     }
-                 });
-             }
-        }
+        this.handleTransportDeployment();
         
         if (this.typeKey === 'CARRIER') {
             entities.forEach(e => { if (e.team === this.team && e !== this && dist(this, e) < 50 && e.data.type !== 'ship') { if (e.rtb) { e.state = 'LANDED'; e.base = this; e.x = this.x; e.y = this.y; } } });
@@ -546,13 +523,69 @@ class Unit extends Entity {
             } else { projectiles.push(new Bomb(this.x, this.y, target, this.team)); }
         } else if (w.type === 'GUN') {
             let leadX = target.x, leadY = target.y;
-            if (target instanceof Unit && (target.data.type === 'air' || target.data.type === 'heli')) {
-                const speed = w.speed || 12; const distToTarget = dist(this, target); const timeToImpact = distToTarget / speed;
-                leadX = target.x + Math.cos(target.angle) * target.data.speed * SPEED_SCALE * timeToImpact;
-                leadY = target.y + Math.sin(target.angle) * target.data.speed * SPEED_SCALE * timeToImpact;
+            if (target instanceof Unit) {
+                const speed = w.speed || 12;
+                const distToTarget = dist(this, target);
+                const timeToImpact = distToTarget / speed;
+                const leadMultiplier = w.leadMultiplier || 1;
+                leadX = target.x + Math.cos(target.angle) * target.data.speed * SPEED_SCALE * timeToImpact * leadMultiplier;
+                leadY = target.y + Math.sin(target.angle) * target.data.speed * SPEED_SCALE * timeToImpact * leadMultiplier;
             }
             projectiles.push(new Bullet(this.x, this.y, {x: leadX, y: leadY}, this.team, w.damage));
         }
+    }
+
+    handleTransportDeployment() {
+        if (this.typeKey !== 'TRANSPORT' || this.state === 'RETURN' || !this.targetPos) return;
+        if (dist(this, this.targetPos) > 70) return;
+
+        const deployContext = this.getTransportDeployContext();
+        this.weapons.forEach(weaponInstance => this.tryDeployFromTransportWeapon(weaponInstance, deployContext));
+    }
+
+    getTransportDeployContext() {
+        return {
+            friendlyIsland: islands.find(i => dist(this, i) < i.radius && i.owner === this.team),
+            contestedIsland: islands.find(i => dist(this, i) < i.radius && i.owner !== this.team),
+            nearbyIsland: islands.find(i => dist(this, i) < i.radius)
+        };
+    }
+
+    tryDeployFromTransportWeapon(weaponInstance, deployContext) {
+        const deployDef = weaponInstance.def;
+        if (deployDef.type !== 'DEPLOY' || weaponInstance.ammo <= 0 || weaponInstance.cooldown > 0) return;
+
+        let deployed = false;
+        if (deployDef.deployType === 'UNIT') deployed = this.deployTransportUnit(deployDef, deployContext);
+        else if (deployDef.deployType === 'BUILDING') deployed = this.deployTransportBuilding(deployDef, deployContext);
+
+        if (deployed) {
+            weaponInstance.ammo--;
+            weaponInstance.cooldown = deployDef.cooldown;
+        }
+    }
+
+    deployTransportUnit(deployDef, deployContext) {
+        if (deployDef.unitType !== 'SF') return false;
+        const dropIsland = deployContext.contestedIsland || deployContext.nearbyIsland;
+        if (!dropIsland) return false;
+
+        const sf = new Unit(this.x, this.y + 10, this.team, deployDef.unitType);
+        sf.targetPos = { x: dropIsland.x, y: dropIsland.y };
+        entities.push(sf);
+        addParticle(sf.x, sf.y, 'text', 'DROP');
+        return true;
+    }
+
+    deployTransportBuilding(deployDef, deployContext) {
+        const island = deployContext.friendlyIsland;
+        if (!island || island.buildings.length >= 6) return false;
+
+        let offsetX = (Math.random() - 0.5) * 40;
+        let offsetY = (Math.random() - 0.5) * 40;
+        island.buildings.push(new Building(island.x + offsetX, island.y + offsetY, this.team, deployDef.buildType));
+        addParticle(island.x + offsetX, island.y + offsetY, 'text', 'DEPLOYED');
+        return true;
     }
 
     draw(ctx) {

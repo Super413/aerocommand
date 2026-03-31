@@ -16,7 +16,7 @@ const WEAPONS = {
     VULCAN: { name: '20mm Vulcan', type: 'GUN', damage: 8, cooldown: 2, speed: 12, range: 150, targets: ['air','heli','ground'], icon: '🌭' },
     CANNON_127MM: { name: '127mm Cannon', type: 'GUN', damage: 40, cooldown: 60, speed: 10, range: 200, targets: ['ground', 'ship'], icon: '💣', navalOmni: true, salvoCount: 3, salvoDelay: 4 },
     RAILGUN: { name: 'Railcannon', type: 'GUN', damage: 100, cooldown: 60, speed: 30, range: 250, targets: ['air','heli','ground','ship'], icon: '⚡' },
-    CIWS: { name: 'Phalanx CIWS', type: 'GUN', damage: 10, cooldown: 4, speed: 12, range: 120, targets: ['air','heli', 'cruise'], icon: '🛡️', navalOmni: true, salvoCount: 4, salvoDelay: 1 },
+    CIWS: { name: 'Phalanx CIWS', type: 'GUN', damage: 10, cooldown: 4, speed: 12, range: 120, targets: ['air','heli', 'cruise'], icon: '🛡️', navalOmni: true, salvoCount: 4, salvoDelay: 1, leadMultiplier: 1.35 },
     RIFLE: { name: 'Assault Rifle', type: 'GUN', damage: 2, cooldown: 30, speed: 8, range: 100, targets: ['ground'], icon: '🔫' },
     ROCKET_HYDRA: { name: 'Hydra 70', type: 'ROCKET', damage: 15, cooldown: 5, speed: 6, range: 160, targets: ['ground', 'ship', 'structure'], burst: 3, ammo: 3, icon: '🎇' },
     ROCKET_DAGR: { name: 'DAGR', type: 'ROCKET', damage: 25, cooldown: 5, speed: 7, range: 200, targets: ['ground', 'ship', 'structure'], burst: 1, guided: true, ammo: 2, icon: '🎯' },
