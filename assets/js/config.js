@@ -37,6 +37,26 @@ const WEAPONS = {
     DEPLOY_MANPADS: { name: 'MANPADS', type: 'DEPLOY', damage: 0, cooldown: 200, range: 20, targets: [], capacity: 1, icon: '🚀', deployType: 'BUILDING', buildType: 'DEPLOYED_MANPADS' },
     DEPLOY_ASHM: { name: 'AShM Bat', type: 'DEPLOY', damage: 0, cooldown: 300, range: 20, targets: [], capacity: 1, icon: '🚢💥', deployType: 'BUILDING', buildType: 'DEPLOYED_ASHM' },
     JAMMER_POD: { name: 'ECM Pod', type: 'ECM', damage: 0, cooldown: 10, range: 100, targets: [], icon: '📡', passive: true, capacity: 2 }
+    ,
+    SEA_MINIGUN: { name: 'Sea Minigun Array', type: 'GUN', damage: 2, cooldown: 2, speed: 12, range: 130, targets: ['air','heli','ground','ship','cruise'], icon: '🌊🔫', omni: true, salvo: 2, salvoInterval: 2 },
+    SEA_GUARD_MK127: { name: 'SeaGuard 127', type: 'GUN', damage: 40, cooldown: 60, speed: 10, range: 230, targets: ['air','heli','ground','ship','cruise'], icon: '🌊💣', omni: true, salvo: 2, salvoInterval: 5 },
+    SEA_PHALANX: { name: 'Aegis Ring CIWS', type: 'GUN', damage: 10, cooldown: 4, speed: 12, range: 140, targets: ['air','heli','ground','ship','cruise'], icon: '🌊🛡️', omni: true, salvo: 3, salvoInterval: 2 },
+    SEA_SPARROW: { name: 'Sea Sparrow MR', type: 'AAM_HEAVY', damage: 45, cooldown: 90, speed: 5, range: 350, turn: 0.09, targets: ['air', 'heli', 'cruise'], guidance: 'radar', ammo: 1, icon: '🌊🚀', omni: true, salvo: 2, salvoInterval: 4 },
+    BRIMSTONE_SEA: { name: 'Brimstone Sea', type: 'AGM', damage: 50, cooldown: 45, speed: 5, range: 180, turn: 0.1, targets: ['ground', 'ship', 'structure'], ammo: 2, icon: '🌊🔥', omni: true, salvo: 2, salvoInterval: 4 },
+    TRIDENT_STRIKE: { name: 'Trident Strike', type: 'AGM', damage: 50, cooldown: 80, speed: 4, range: 220, turn: 0.08, targets: ['ground', 'ship', 'structure'], ammo: 1, icon: '🌊🧨', omni: true, salvo: 2, salvoInterval: 4 },
+    WAVEBREAKER: { name: 'Wavebreaker', type: 'CRUISE', damage: 300, cooldown: 400, speed: 10, range: 800, turn: 0.05, targets: ['structure', 'ship'], ammo: 1, icon: '🌊🐢', omni: true, salvo: 2, salvoInterval: 8 },
+    HUNTER_K: { name: 'Hunter-K', type: 'AGM', damage: 100, cooldown: 100, speed: 15, range: 800, turn: 0.15, targets: ['structure'], priorityTag: 'SAM_SITE', ammo: 1, icon: '🌊📡💥', omni: true, salvo: 2, salvoInterval: 5 }
+};
+
+const NAVAL_WEAPON_UNLOCKS = {
+    SEA_MINIGUN: 'GUN_BASIC',
+    SEA_GUARD_MK127: 'CANNON_127MM',
+    SEA_PHALANX: 'CIWS',
+    SEA_SPARROW: 'AMRAAM',
+    BRIMSTONE_SEA: 'HELLFIRE',
+    TRIDENT_STRIKE: 'MAVERICK',
+    WAVEBREAKER: 'TOMAHAWK',
+    HUNTER_K: 'ARAD'
 };
 
 const TECH_UPGRADES = { FLARES: { name: 'Flares' }, CHAFF: { name: 'Chaff' }, DEF_JAMMER: { name: 'Defensive Jammer' } };
@@ -98,15 +118,15 @@ const UNIT_TYPES = {
     TRANSPORT: { name: 'CH-47 Chinook', type: 'heli', role: 'Transport', cost: 300, hp: 200, speed: 1.6, turn: 0.05, fuel: 2500, ammo: 0, capacity: 4, icon: '📦', hardpoints: [ { name: 'Cargo Bay', types: ['DEPLOY'], equipped: 'SF_DEPLOY', x: 0, y: 0, ammoByWeapon: { SF_DEPLOY: 2, DEPLOY_SPAA: 1, DEPLOY_COASTAL: 1, DEPLOY_MANPADS: 2, DEPLOY_ASHM: 1 } } ] },
     SF: { name: 'SF Team', type: 'ground', role: 'Capture', cost: 100, hp: 50, speed: 0.5, turn: 1, fuel: 0, ammo: 999, icon: '🔫', hardpoints: [{ name: 'Gun', types: ['GUN'], equipped: 'RIFLE', x:0, y:0 }] },
     CARRIER: { name: 'Carrier', type: 'ship', role: 'Base', cost: 2500, hp: 2000, speed: 0.6, turn: 0.04, fuel: 0, ammo: 999, icon: '🚢', hardpoints: [
-        { name: 'Bow AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -50 },
-        { name: 'Stern AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: 80 },
-        { name: 'Mid AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 40, y: 20 }
+        { name: 'Bow AA', types: ['GUN'], equipped: 'SEA_MINIGUN', x: 0, y: -50 },
+        { name: 'Stern AA', types: ['GUN'], equipped: 'SEA_MINIGUN', x: 0, y: 80 },
+        { name: 'Mid AA', types: ['GUN'], equipped: 'SEA_MINIGUN', x: 40, y: 20 }
     ] },
     DESTROYER: { name: 'Destroyer', type: 'ship', role: 'Escort', cost: 1500, hp: 1200, speed: 0.8, turn: 0.05, fuel: 9999, ammo: 1, icon: '🛳️', hardpoints: [
-        { name: 'Main Gun', types: ['GUN'], equipped: 'CANNON_127MM', x: 0, y: -40 },
-        { name: 'VLS 1', types: ['AAM_HEAVY', 'CRUISE', 'AGM'], equipped: 'EMPTY', x: 0, y: -10, ammoByWeapon: { AMRAAM: 16, TOMAHAWK: 8, MAVERICK: 16, HELLFIRE: 16, ARAD: 6 } },
-        { name: 'VLS 2', types: ['AAM_HEAVY', 'CRUISE', 'AGM'], equipped: 'EMPTY', x: 0, y: 10, ammoByWeapon: { AMRAAM: 16, TOMAHAWK: 8, MAVERICK: 16, HELLFIRE: 16, ARAD: 6 } },
-        { name: 'Aft AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: 50 }
+        { name: 'Main Gun', types: ['GUN'], equipped: 'SEA_GUARD_MK127', x: 0, y: -40 },
+        { name: 'VLS 1', types: ['AAM_HEAVY', 'CRUISE', 'AGM'], equipped: 'EMPTY', x: 0, y: -10, ammoByWeapon: { SEA_SPARROW: 16, WAVEBREAKER: 8, TRIDENT_STRIKE: 16, BRIMSTONE_SEA: 16, HUNTER_K: 6 } },
+        { name: 'VLS 2', types: ['AAM_HEAVY', 'CRUISE', 'AGM'], equipped: 'EMPTY', x: 0, y: 10, ammoByWeapon: { SEA_SPARROW: 16, WAVEBREAKER: 8, TRIDENT_STRIKE: 16, BRIMSTONE_SEA: 16, HUNTER_K: 6 } },
+        { name: 'Aft AA', types: ['GUN'], equipped: 'SEA_PHALANX', x: 0, y: 50 }
     ] },
     CRUISE_MISSILE_UNIT: { name: 'Tomahawk', type: 'cruise', role: 'Strategic', cost: 0, hp: 20, speed: 2.5, turn: 0.05, fuel: 600, ammo: 0, icon: '🐢', hardpoints: [] }
 };

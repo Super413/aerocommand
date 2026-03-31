@@ -30,7 +30,12 @@ let selection = [];
 
 function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 function angleTo(a, b) { return Math.atan2(b.y - a.y, b.x - a.x); }
-function isUnlocked(team, id) { return TEAMS[team] && TEAMS[team].tech.has(id); }
+function isUnlocked(team, id) {
+    if (!TEAMS[team]) return false;
+    if (TEAMS[team].tech.has(id)) return true;
+    const parentUnlock = NAVAL_WEAPON_UNLOCKS && NAVAL_WEAPON_UNLOCKS[id];
+    return !!(parentUnlock && TEAMS[team].tech.has(parentUnlock));
+}
 function rectContains(rect, point) {
     let rX = Math.min(rect.x, rect.x + rect.w);
     let rW = Math.abs(rect.w);
@@ -207,6 +212,9 @@ class Unit extends Entity {
                     maxAmmo: ammoCount,
                     burstCount: 0,
                     burstTimer: 0,
+                    pendingSalvoShots: 0,
+                    pendingSalvoTimer: 0,
+                    pendingSalvoTarget: null,
                     jammedTargets: []
                 });
             }
@@ -237,7 +245,8 @@ class Unit extends Entity {
         if (this.data.type === 'air' || this.data.type === 'heli') {
             if (this.state !== 'LANDED') this.fuel -= SPEED_SCALE;
             if (this.fuel <= 0) { this.takeDamage(this.maxHp); return; }
-            let needsAmmo = this.weapons.every(w => w.ammo === 0 || w.def.passive || w.def.type === 'GUN');
+            const ordnanceWeapons = this.weapons.filter(w => !w.def.passive && w.def.type !== 'GUN' && w.def.type !== 'ECM');
+            let needsAmmo = ordnanceWeapons.length > 0 && ordnanceWeapons.every(w => w.ammo === 0);
             if (needsAmmo && this.typeKey === 'TRANSPORT' && this.weapons.some(w=>w.def.type==='DEPLOY')) needsAmmo = true; 
             if ((this.fuel < this.data.fuel * 0.3 || needsAmmo) && !this.rtb) { this.rtb = true; this.findBase(); }
         }
@@ -284,6 +293,22 @@ class Unit extends Entity {
                     w.burstCount--; w.burstTimer = 5; 
                     let p = new Missile(this.x, this.y, this.targetUnit, this.team, w.def.damage / 3);
                     p.isRocket = true; projectiles.push(p); 
+                }
+            }
+            if (w.pendingSalvoShots > 0) {
+                w.pendingSalvoTimer -= SPEED_SCALE;
+                if (w.pendingSalvoTimer <= 0) {
+                    const target = (w.pendingSalvoTarget && !w.pendingSalvoTarget.dead) ? w.pendingSalvoTarget : this.targetUnit;
+                    const consumesAmmo = w.def.type !== 'GUN' && w.def.type !== 'ECM';
+                    if (target && (!consumesAmmo || w.ammo > 0)) {
+                        if (consumesAmmo) w.ammo--;
+                        this.launchWeaponProjectile(w, target);
+                        w.pendingSalvoShots--;
+                        w.pendingSalvoTimer = w.def.salvoInterval || 4;
+                    } else {
+                        w.pendingSalvoShots = 0;
+                        w.pendingSalvoTarget = null;
+                    }
                 }
             }
             if (w.cooldown > 0) w.cooldown -= SPEED_SCALE;
@@ -349,8 +374,11 @@ class Unit extends Entity {
         }
 
         if (this.hasCommand && this.targetPos && !this.targetUnit && !this.rtb && dist(this, this.targetPos) < 30) {
-            this.hasCommand = false;
-            this.state = 'IDLE';
+            const canStillDeploy = this.typeKey === 'TRANSPORT' && this.weapons.some(w => w.def.type === 'DEPLOY' && w.ammo > 0 && w.cooldown <= 0);
+            if (!canStillDeploy) {
+                this.hasCommand = false;
+                this.state = 'IDLE';
+            }
         }
 
         if (this.rtb) {
@@ -415,13 +443,9 @@ class Unit extends Entity {
                     let tolerance = w.def.type === 'GUN' ? 0.3 : 0.8;
                     if (w.def.priorityTag && this.targetUnit.type !== w.def.priorityTag) return; 
                     
-                    if (Math.abs(aimDiff) < tolerance) {
+                    if (Math.abs(aimDiff) < tolerance || w.def.omni) {
                         if (isValidTarget(this.targetUnit, w.def.targets)) {
-                            if (w.def.guided && w.def.type === 'BOMB') {
-                                this.fireWeapon(w, this.targetUnit);
-                            } else {
-                                this.fireWeapon(w, this.targetUnit);
-                            }
+                            this.fireWeapon(w, this.targetUnit);
                             if (w.def.type !== 'GUN') this.fireTimer = 15;
                         }
                     }
@@ -430,15 +454,17 @@ class Unit extends Entity {
         }
 
         if (this.typeKey === 'TRANSPORT' && this.state !== 'RETURN') {
-             if (this.hasCommand && this.targetPos && dist(this, this.targetPos) < 65) {
+             if (this.targetPos && dist(this, this.targetPos) < 65) {
                  const island = islands.find(i => dist(this, i) < i.radius && i.owner === this.team);
                  const neutralIsland = islands.find(i => dist(this, i) < i.radius && i.owner !== this.team);
                  
+                 let didDeploy = false;
                  this.weapons.forEach(w => {
                      if (w.def.type === 'DEPLOY' && w.ammo > 0 && w.cooldown <= 0) {
                          if (w.def.deployType === 'UNIT' && w.def.unitType === 'SF' && neutralIsland) {
                              w.ammo--; w.cooldown = w.def.cooldown;
                              const sf = new Unit(this.x, this.y + 10, this.team, 'SF'); sf.targetPos = neutralIsland; entities.push(sf);
+                             didDeploy = true;
                          }
                          else if (w.def.deployType === 'BUILDING' && island) {
                              if (island.buildings.length < 6) {
@@ -447,15 +473,29 @@ class Unit extends Entity {
                                  let offsetY = (Math.random() - 0.5) * 40;
                                  island.buildings.push(new Building(island.x + offsetX, island.y + offsetY, this.team, w.def.buildType));
                                  addParticle(island.x + offsetX, island.y + offsetY, 'text', 'DEPLOYED');
+                                 didDeploy = true;
                              }
                          }
                      }
                  });
+                 if (didDeploy) {
+                    this.hasCommand = false;
+                    this.state = 'IDLE';
+                 }
              }
         }
         
         if (this.typeKey === 'CARRIER') {
-            entities.forEach(e => { if (e.team === this.team && e !== this && dist(this, e) < 50 && e.data.type !== 'ship') { if (e.rtb) { e.state = 'LANDED'; e.base = this; e.x = this.x; e.y = this.y; } } });
+            entities.forEach(e => {
+                if (e.team === this.team && e !== this && dist(this, e) < 30 && e.data.type !== 'ship') {
+                    if (e.rtb && e.state === 'RETURN') {
+                        e.state = 'LANDED';
+                        e.base = this;
+                        e.x = this.x;
+                        e.y = this.y;
+                    }
+                }
+            });
         }
         if (this.typeKey === 'SF') {
             const island = islands.find(i => dist(this, i) < i.radius * 1.5);
@@ -470,6 +510,10 @@ class Unit extends Entity {
                     if (gameTime % 20 === 0) addParticle(this.x, this.y - 10, 'spark', null);
                 }
             } else { this.hp -= 0.5 * SPEED_SCALE; }
+            if (this.hp <= 0) {
+                this.dead = true;
+                createExplosion(this.x, this.y, this.radius * 2);
+            }
         }
     }
 
@@ -491,14 +535,10 @@ class Unit extends Entity {
         this.base = nearest; if (!this.base) this.rtb = false; 
     }
 
-    fireWeapon(weaponInstance, target) {
-        weaponInstance.cooldown = weaponInstance.def.cooldown;
+    launchWeaponProjectile(weaponInstance, target) {
         const w = weaponInstance.def;
-        if (w.type !== 'GUN' && w.type !== 'ECM') weaponInstance.ammo--;
-
-        if (w.type === 'ROCKET') { 
-            weaponInstance.burstCount = 3; 
-            let p = new Missile(this.x, this.y, this.targetUnit, this.team, w.damage / 3);
+        if (w.type === 'ROCKET') {
+            let p = new Missile(this.x, this.y, target, this.team, w.damage / 3);
             p.isRocket = true;
             projectiles.push(p);
         }
@@ -520,6 +560,28 @@ class Unit extends Entity {
                 leadY = target.y + Math.sin(target.angle) * target.data.speed * SPEED_SCALE * timeToImpact;
             }
             projectiles.push(new Bullet(this.x, this.y, {x: leadX, y: leadY}, this.team, w.damage));
+        }
+    }
+
+    fireWeapon(weaponInstance, target) {
+        weaponInstance.cooldown = weaponInstance.def.cooldown;
+        const w = weaponInstance.def;
+        const consumesAmmo = w.type !== 'GUN' && w.type !== 'ECM';
+        if (consumesAmmo) weaponInstance.ammo--;
+
+        if (w.type === 'ROCKET') { 
+            weaponInstance.burstCount = 3; 
+            this.launchWeaponProjectile(weaponInstance, target);
+        } else {
+            this.launchWeaponProjectile(weaponInstance, target);
+            if (w.salvo && w.salvo > 1) {
+                weaponInstance.pendingSalvoShots = w.salvo - 1;
+                weaponInstance.pendingSalvoTimer = w.salvoInterval || 4;
+                weaponInstance.pendingSalvoTarget = target;
+            } else {
+                weaponInstance.pendingSalvoShots = 0;
+                weaponInstance.pendingSalvoTarget = null;
+            }
         }
     }
 
@@ -1028,7 +1090,7 @@ function researchPlayer(techId, cost) {
         addParticle(width/2, height/2, 'text', `RESEARCH COMPLETE`);
         
         if (techId === 'CIWS') {
-            UNIT_TYPES.CARRIER.hardpoints.forEach(hp => { if (hp.equipped === 'GUN_BASIC') hp.equipped = 'CIWS'; });
+            UNIT_TYPES.CARRIER.hardpoints.forEach(hp => { if (hp.equipped === 'SEA_MINIGUN') hp.equipped = 'SEA_PHALANX'; });
             entities.forEach(e => { if (e.team === TEAM_PLAYER && e.typeKey === 'CARRIER') e.initLoadout(); });
         }
     }
