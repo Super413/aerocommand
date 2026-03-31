@@ -105,7 +105,11 @@ class Entity {
     takeDamage(amount) {
         if (isNaN(amount) || amount === undefined || amount === null) return;
         this.hp -= amount;
-        if (this.hp <= 0) { this.dead = true; createExplosion(this.x, this.y, this.radius * 2); }
+        if (this.hp <= 0) {
+            this.hp = 0;
+            this.dead = true;
+            createExplosion(this.x, this.y, this.radius * 2);
+        }
     }
 }
 
@@ -207,6 +211,8 @@ class Unit extends Entity {
                     maxAmmo: ammoCount,
                     burstCount: 0,
                     burstTimer: 0,
+                    pendingSalvo: 0,
+                    salvoTimer: 0,
                     jammedTargets: []
                 });
             }
@@ -237,7 +243,8 @@ class Unit extends Entity {
         if (this.data.type === 'air' || this.data.type === 'heli') {
             if (this.state !== 'LANDED') this.fuel -= SPEED_SCALE;
             if (this.fuel <= 0) { this.takeDamage(this.maxHp); return; }
-            let needsAmmo = this.weapons.every(w => w.ammo === 0 || w.def.passive || w.def.type === 'GUN');
+            const expendableWeapons = this.weapons.filter(w => !w.def.passive && w.def.type !== 'GUN' && w.def.type !== 'DEPLOY');
+            let needsAmmo = expendableWeapons.length > 0 && expendableWeapons.every(w => w.ammo === 0);
             if (needsAmmo && this.typeKey === 'TRANSPORT' && this.weapons.some(w=>w.def.type==='DEPLOY')) needsAmmo = true; 
             if ((this.fuel < this.data.fuel * 0.3 || needsAmmo) && !this.rtb) { this.rtb = true; this.findBase(); }
         }
@@ -284,6 +291,14 @@ class Unit extends Entity {
                     w.burstCount--; w.burstTimer = 5; 
                     let p = new Missile(this.x, this.y, this.targetUnit, this.team, w.def.damage / 3);
                     p.isRocket = true; projectiles.push(p); 
+                }
+            }
+            if (w.pendingSalvo > 0) {
+                w.salvoTimer -= SPEED_SCALE;
+                if (w.salvoTimer <= 0) {
+                    w.pendingSalvo--;
+                    w.salvoTimer = w.def.salvoDelay || 4;
+                    this.spawnWeaponProjectile(w, this.targetUnit);
                 }
             }
             if (w.cooldown > 0) w.cooldown -= SPEED_SCALE;
@@ -364,7 +379,8 @@ class Unit extends Entity {
         if (!moveTarget) { moveTarget = { x: this.x, y: this.y }; this.targetPos = { x: this.x, y: this.y }; }
 
         const dx = moveTarget.x - this.x; const dy = moveTarget.y - this.y;
-        const distToTarget = Math.hypot(dx, dy); const desiredAngle = Math.atan2(dy, dx);
+        const distToTarget = Math.hypot(dx, dy); let desiredAngle = Math.atan2(dy, dx);
+        if (this.data.type === 'ship' && !this.hasCommand && !this.rtb && distToTarget < 1) desiredAngle = this.angle;
         let diff = desiredAngle - this.angle;
         while (diff < -Math.PI) diff += Math.PI * 2; while (diff > Math.PI) diff -= Math.PI * 2;
         const turnSpeed = this.data.turn * SPEED_SCALE;
@@ -372,6 +388,10 @@ class Unit extends Entity {
         let speed = this.data.speed * SPEED_SCALE; 
         if (this.data.type === 'air' && this.typeKey !== 'FIGHTER') speed *= 1; 
         if ((this.data.type === 'heli' || this.data.type === 'ship') && distToTarget < 15 && !this.rtb) speed = 0;
+        if (this.data.type === 'ground') {
+            const groundIsland = islands.find(i => dist(this, i) < i.radius * 1.1);
+            if (!groundIsland) speed = 0;
+        }
 
         // --- BOOM & ZOOM / EXTEND LOGIC ---
         if (this.targetUnit && !this.rtb && this.data.type === 'air') {
@@ -415,7 +435,8 @@ class Unit extends Entity {
                     let tolerance = w.def.type === 'GUN' ? 0.3 : 0.8;
                     if (w.def.priorityTag && this.targetUnit.type !== w.def.priorityTag) return; 
                     
-                    if (Math.abs(aimDiff) < tolerance) {
+                    const omnidirectional = this.data.type === 'ship' && w.def.navalOmni;
+                    if (omnidirectional || Math.abs(aimDiff) < tolerance) {
                         if (isValidTarget(this.targetUnit, w.def.targets)) {
                             if (w.def.guided && w.def.type === 'BOMB') {
                                 this.fireWeapon(w, this.targetUnit);
@@ -430,7 +451,7 @@ class Unit extends Entity {
         }
 
         if (this.typeKey === 'TRANSPORT' && this.state !== 'RETURN') {
-             if (this.hasCommand && this.targetPos && dist(this, this.targetPos) < 65) {
+             if (this.targetPos && dist(this, this.targetPos) < 65) {
                  const island = islands.find(i => dist(this, i) < i.radius && i.owner === this.team);
                  const neutralIsland = islands.find(i => dist(this, i) < i.radius && i.owner !== this.team);
                  
@@ -459,6 +480,7 @@ class Unit extends Entity {
         }
         if (this.typeKey === 'SF') {
             const island = islands.find(i => dist(this, i) < i.radius * 1.5);
+            if (!island) this.targetUnit = null;
             if (island) {
                 if (island.owner !== this.team) {
                     island.captureProgress += 0.5 * SPEED_SCALE;
@@ -469,7 +491,7 @@ class Unit extends Entity {
                     }
                     if (gameTime % 20 === 0) addParticle(this.x, this.y - 10, 'spark', null);
                 }
-            } else { this.hp -= 0.5 * SPEED_SCALE; }
+            } else { this.takeDamage(0.8 * SPEED_SCALE); }
         }
     }
 
@@ -496,6 +518,16 @@ class Unit extends Entity {
         const w = weaponInstance.def;
         if (w.type !== 'GUN' && w.type !== 'ECM') weaponInstance.ammo--;
 
+        this.spawnWeaponProjectile(weaponInstance, target);
+        if (this.data.type === 'ship' && w.navalOmni) {
+            const salvoSize = Math.max(1, w.salvoCount || 1);
+            weaponInstance.pendingSalvo = Math.max(0, salvoSize - 1);
+            weaponInstance.salvoTimer = w.salvoDelay || 4;
+        }
+    }
+
+    spawnWeaponProjectile(weaponInstance, target) {
+        const w = weaponInstance.def;
         if (w.type === 'ROCKET') { 
             weaponInstance.burstCount = 3; 
             let p = new Missile(this.x, this.y, this.targetUnit, this.team, w.damage / 3);
