@@ -580,7 +580,17 @@ class Unit extends Entity {
         const dropIsland = mission?.targetIsland || deployContext.contestedIsland || deployContext.nearbyIsland;
         if (!dropIsland) return false;
 
-        const sf = new Unit(this.x, this.y + 10, this.team, deployDef.unitType);
+        const dropPos = mission?.dropPoint ? { x: mission.dropPoint.x, y: mission.dropPoint.y } : { x: this.x, y: this.y + 10 };
+        const toDropX = dropPos.x - dropIsland.x;
+        const toDropY = dropPos.y - dropIsland.y;
+        const toDropMag = Math.hypot(toDropX, toDropY) || 1;
+        const safeInset = dropIsland.radius * 0.92;
+        const spawnPoint = {
+            x: dropIsland.x + (toDropX / toDropMag) * safeInset,
+            y: dropIsland.y + (toDropY / toDropMag) * safeInset
+        };
+
+        const sf = new Unit(spawnPoint.x, spawnPoint.y, this.team, deployDef.unitType);
         if (mission && mission.capturePoint) sf.targetPos = { x: mission.capturePoint.x, y: mission.capturePoint.y };
         else sf.targetPos = { x: dropIsland.x, y: dropIsland.y };
         entities.push(sf);
@@ -588,7 +598,9 @@ class Unit extends Entity {
         if (mission) {
             this.transportMission = null;
             this.hasCommand = false;
-            this.state = 'IDLE';
+            this.state = 'RETURN';
+            this.rtb = true;
+            this.findBase();
         }
         return true;
     }
@@ -1337,11 +1349,19 @@ canvas.addEventListener('mousedown', e => {
             if (!target) { islands.forEach(i => { if (i.owner !== TEAM_PLAYER) i.buildings.forEach(b => { if(Math.hypot(b.x - mouse.worldX, b.y - mouse.worldY) < 20) target = b; }); }); }
             const clickedEnemyIsland = islands.find(i => i.owner !== TEAM_PLAYER && Math.hypot(i.x - mouse.worldX, i.y - mouse.worldY) < i.radius);
             selection.forEach(u => {
-                if (u.typeKey === 'TRANSPORT' && u.weapons.some(w => w.def.type === 'DEPLOY' && w.def.deployType === 'UNIT')) {
+                const hasDropTeam = u.data.type === 'heli' && u.weapons.some(w => w.def.type === 'DEPLOY' && w.def.deployType === 'UNIT' && w.ammo > 0);
+                if (hasDropTeam) {
                     const missionIsland = clickedEnemyIsland || (target ? islands.find(i => Math.hypot(i.x - target.x, i.y - target.y) < i.radius * 1.2 && i.owner !== TEAM_PLAYER) : null);
                     if (missionIsland) {
                         const capturePoint = target ? { x: target.x, y: target.y } : { x: missionIsland.x, y: missionIsland.y };
-                        u.setTransportAssaultMission(missionIsland, capturePoint);
+                        if (u.typeKey === 'TRANSPORT') {
+                            u.setTransportAssaultMission(missionIsland, capturePoint);
+                        } else {
+                            u.targetPos = capturePoint;
+                            u.targetUnit = null;
+                            u.hasCommand = true;
+                            u.state = 'MOVE';
+                        }
                         addParticle(capturePoint.x, capturePoint.y, 'text', 'INSERT');
                         return;
                     }
@@ -1404,6 +1424,15 @@ function updateSelectionUI() {
     }
 }
 
+function cleanupSelection() {
+    selection = selection.filter(s => {
+        if (!s || s.dead) return false;
+        if (s instanceof Unit) return entities.includes(s);
+        if (s instanceof Building) return islands.some(i => i.buildings.includes(s));
+        return false;
+    });
+}
+
 function loop() {
     if (gameOver) return;
     
@@ -1443,6 +1472,7 @@ function loop() {
         for (let i = entities.length - 1; i >= 0; i--) { if (entities[i].dead) entities.splice(i, 1); }
         for (let i = projectiles.length - 1; i >= 0; i--) { if (projectiles[i].dead) projectiles.splice(i, 1); }
         islands.forEach(i => { for (let b = i.buildings.length - 1; b >= 0; b--) { if (i.buildings[b].dead) i.buildings.splice(b, 1); } });
+        cleanupSelection();
         
         const playerBase = islands.find(i => i.isMainBase && i.owner === TEAM_PLAYER);
         const aiBase = islands.find(i => i.isMainBase && i.owner === TEAM_AI);
