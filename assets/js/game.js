@@ -1263,6 +1263,7 @@ function updateTeamAI(team) {
     else if (myUnits.filter(u => u.typeKey === 'BOMBER').length < 1) toBuild = 'BOMBER';
     else if (myUnits.filter(u => u.typeKey === 'AWACS').length < 1) toBuild = 'AWACS';
     else if (myUnits.filter(u => u.typeKey === 'DESTROYER').length < 2 && currentMapType !== 'LAND') toBuild = 'DESTROYER';
+    else if (currentMapType !== 'LAND' && isUnlocked(team, 'HYPERSONIC_ASHM') && myUnits.filter(u => u.typeKey === 'ARSENAL_CRUISER').length < 1) toBuild = 'ARSENAL_CRUISER';
     else if (Math.random() > 0.7) toBuild = 'ATTACK_HELI';
 
     if (toBuild && (!UNIT_TYPES[toBuild].type.includes('ship') || currentMapType !== 'LAND')) {
