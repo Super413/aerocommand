@@ -62,6 +62,23 @@ function getConfiguredSlotAmmo(unitKey, slotIndex, weaponKey) {
     return getDefaultWeaponAmmo({ data: unit }, slot, weaponKey);
 }
 
+function findNearestFriendlyAirport(unit, searchRange = 120) {
+    let nearestAirport = null;
+    let minDistance = searchRange;
+    islands.forEach(i => {
+        if (i.owner !== unit.team) return;
+        i.buildings.forEach(b => {
+            if (b.type !== 'AIRPORT' || b.dead) return;
+            const d = dist(unit, b);
+            if (d < minDistance) {
+                minDistance = d;
+                nearestAirport = b;
+            }
+        });
+    });
+    return nearestAirport;
+}
+
 // --- Classes ---
 
 class Island {
@@ -458,6 +475,18 @@ class Unit extends Entity {
         }
 
         this.handleTransportDeployment();
+
+        if ((this.typeKey === 'IR_APC' || this.typeKey === 'AAA_BATTERY') && gameTime % 90 === 0) {
+            const base = findNearestFriendlyAirport(this, 130);
+            if (base) {
+                this.weapons.forEach(w => {
+                    if (!w.def.passive && w.def.type !== 'GUN' && w.ammo < w.maxAmmo) {
+                        w.ammo++;
+                        addParticle(this.x, this.y - 8, 'text', 'REARM');
+                    }
+                });
+            }
+        }
         
         if (this.typeKey === 'CARRIER') {
             entities.forEach(e => { if (e.team === this.team && e !== this && dist(this, e) < 50 && e.data.type !== 'ship') { if (e.rtb) { e.state = 'LANDED'; e.base = this; e.x = this.x; e.y = this.y; } } });
@@ -655,6 +684,26 @@ class Unit extends Entity {
         ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
         if (selection.includes(this)) {
             ctx.strokeStyle = '#0f0'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0,0, this.radius + 5, 0, Math.PI*2); ctx.stroke();
+            const rangeByType = {};
+            this.weapons.forEach(w => {
+                if (w.def.passive || !w.def.range || w.def.range <= 0) return;
+                const typeKey = w.def.type.includes('AAM') ? 'AAM' : w.def.type;
+                rangeByType[typeKey] = Math.max(rangeByType[typeKey] || 0, w.def.range);
+            });
+            const rangeColors = { GUN: 'rgba(255,255,255,0.35)', AAM: 'rgba(80,180,255,0.35)', AGM: 'rgba(255,120,120,0.35)', ROCKET: 'rgba(255,180,80,0.35)', BOMB: 'rgba(220,220,120,0.35)', CRUISE: 'rgba(200,80,255,0.35)', DEPLOY: 'rgba(120,255,120,0.35)' };
+            ctx.restore();
+            Object.keys(rangeByType).forEach(type => {
+                ctx.save();
+                ctx.strokeStyle = rangeColors[type] || 'rgba(120,255,120,0.35)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([6, 6]);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, rangeByType[type], 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
+            });
+            ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
             if (this.targetPos && !this.targetUnit && this.state !== 'IDLE') {
                 ctx.restore(); ctx.save(); ctx.strokeStyle = '#0f0'; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(this.targetPos.x, this.targetPos.y); ctx.stroke(); ctx.restore(); ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
             }
@@ -676,6 +725,15 @@ class Unit extends Entity {
             ctx.fillStyle = '#333'; ctx.fillRect(-15, -8, 30, 16); 
             ctx.fillStyle = '#555'; ctx.beginPath(); ctx.moveTo(15, 0); ctx.lineTo(-20, 10); ctx.lineTo(-20, -10); ctx.fill();
             ctx.fillStyle = '#222'; ctx.fillRect(0, -5, 10, 10); 
+        }
+        else if (this.typeKey === 'IR_APC') {
+            ctx.fillStyle = '#4a5a3a'; ctx.fillRect(-9, -5, 18, 10);
+            ctx.fillStyle = '#2a2a2a'; ctx.fillRect(-10, -7, 20, 2); ctx.fillRect(-10, 5, 20, 2);
+            ctx.strokeStyle = '#bbb'; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(10,0); ctx.stroke();
+        }
+        else if (this.typeKey === 'AAA_BATTERY') {
+            ctx.fillStyle = '#3d3d3d'; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#9cf'; ctx.beginPath(); ctx.moveTo(-10, -3); ctx.lineTo(10, -3); ctx.moveTo(-10, 3); ctx.lineTo(10, 3); ctx.stroke();
         }
         else if (this.typeKey === 'SF') { ctx.fillStyle = '#0f0'; ctx.beginPath(); ctx.arc(0,0, 3, 0, Math.PI*2); ctx.fill(); }
         else if (this.typeKey === 'CRUISE_MISSILE_UNIT') { ctx.fillStyle = '#fff'; ctx.fillRect(-5, -2, 10, 4); }
@@ -864,12 +922,12 @@ function generateMap() {
     camera.x = (worldWidth - window.innerWidth) / 2;
     camera.y = (worldHeight - (window.innerHeight - 150)) / 2;
 
-    islands.push(new Island(200, worldHeight/2, islSize + 20, true)); 
+    islands.push(new Island(200, worldHeight/2, islSize + 40, true)); 
     islands[0].owner = TEAM_PLAYER;
     islands[0].buildings.push(new Building(200, worldHeight/2, TEAM_PLAYER, 'AIRPORT'));
     islands[0].buildings.push(new Building(230, worldHeight/2 + 30, TEAM_PLAYER, 'SAM_SITE'));
     
-    islands.push(new Island(worldWidth - 200, worldHeight/2, islSize + 20, true)); 
+    islands.push(new Island(worldWidth - 200, worldHeight/2, islSize + 40, true)); 
     islands[1].owner = TEAM_AI;
     islands[1].buildings.push(new Building(worldWidth - 200, worldHeight/2, TEAM_AI, 'AIRPORT'));
     islands[1].buildings.push(new Building(worldWidth - 230, worldHeight/2 - 30, TEAM_AI, 'SAM_SITE'));
@@ -904,6 +962,14 @@ function startGame() {
     }
     
     entities.push(new Unit(250, worldHeight/2 - 50, TEAM_PLAYER, 'FIGHTER'));
+    entities.push(new Unit(240, worldHeight/2 + 20, TEAM_PLAYER, 'IR_APC'));
+    entities.push(new Unit(270, worldHeight/2 + 55, TEAM_PLAYER, 'IR_APC'));
+    entities.push(new Unit(225, worldHeight/2 - 85, TEAM_PLAYER, 'AAA_BATTERY'));
+    entities.push(new Unit(285, worldHeight/2 - 110, TEAM_PLAYER, 'AAA_BATTERY'));
+    entities.push(new Unit(worldWidth - 240, worldHeight/2 - 20, TEAM_AI, 'IR_APC'));
+    entities.push(new Unit(worldWidth - 270, worldHeight/2 - 55, TEAM_AI, 'IR_APC'));
+    entities.push(new Unit(worldWidth - 225, worldHeight/2 + 85, TEAM_AI, 'AAA_BATTERY'));
+    entities.push(new Unit(worldWidth - 285, worldHeight/2 + 110, TEAM_AI, 'AAA_BATTERY'));
 
     document.getElementById('setup-menu').style.display = 'none';
     document.getElementById('ui-layer').style.display = 'flex';

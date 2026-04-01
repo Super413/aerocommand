@@ -98,6 +98,14 @@ const UNIT_TYPES = {
     ] },
     TRANSPORT: { name: 'CH-47 Chinook', type: 'heli', role: 'Transport', cost: 300, hp: 200, speed: 1.6, turn: 0.05, fuel: 2500, ammo: 0, capacity: 4, icon: '📦', hardpoints: [ { name: 'Cargo Bay', types: ['DEPLOY'], equipped: 'SF_DEPLOY', x: 0, y: 0, ammoByWeapon: { SF_DEPLOY: 2, DEPLOY_SPAA: 1, DEPLOY_COASTAL: 1, DEPLOY_MANPADS: 2, DEPLOY_ASHM: 1 } } ] },
     SF: { name: 'SF Team', type: 'ground', role: 'Capture', cost: 100, hp: 50, speed: 0.5, turn: 1, fuel: 0, ammo: 999, icon: '🔫', hardpoints: [{ name: 'Gun', types: ['GUN'], equipped: 'RIFLE', x:0, y:0 }] },
+    IR_APC: { name: 'IR APC', type: 'ground', role: 'Missile Defense', cost: 700, hp: 260, speed: 0.45, turn: 0.09, fuel: 9999, ammo: 1, icon: '🚛', hardpoints: [
+        { name: 'IR Launcher', types: ['AAM_LIGHT'], equipped: 'SIDEWINDER', x: 0, y: -10, ammoByWeapon: { SIDEWINDER: 4 } },
+        { name: 'RWS', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: 15 }
+    ] },
+    AAA_BATTERY: { name: 'AAA Battery', type: 'ground', role: 'Static Air Defense', cost: 900, hp: 420, speed: 0, turn: 0.2, fuel: 9999, ammo: 1, icon: '🛡️', hardpoints: [
+        { name: 'Twin Mount', types: ['AAM_HEAVY'], equipped: 'AMRAAM', x: 0, y: 0, ammoByWeapon: { AMRAAM: 6 } },
+        { name: 'Backup IR', types: ['AAM_LIGHT'], equipped: 'SIDEWINDER', x: 0, y: 12, ammoByWeapon: { SIDEWINDER: 4 } }
+    ] },
     CARRIER: { name: 'Carrier', type: 'ship', role: 'Base', cost: 2500, hp: 2000, speed: 0.6, turn: 0.04, fuel: 0, ammo: 999, icon: '🚢', hardpoints: [
         { name: 'Bow AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -50 },
         { name: 'Stern AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: 80 },
