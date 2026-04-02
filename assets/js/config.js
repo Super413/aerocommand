@@ -78,8 +78,8 @@ const UNIT_TYPES = {
         { name: 'R Inner', types: ['AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET'], equipped: 'BOMB_IRON', x: 50, y: 60, ammoByWeapon: { AMRAAM: 2, BOMB_IRON: 2, ROCKET_HYDRA: 4 } }
     ] },
     BOMBER: { name: 'B-52 Stratos', type: 'air', role: 'Bomber', cost: 1200, hp: 400, speed: 1.5, turn: 0.02, fuel: 3000, ammo: 1, icon: '💣', hardpoints: [
-        { name: 'Bay 1', types: ['BOMB', 'CRUISE'], equipped: 'BOMB_IRON', x: -25, y: -20, ammoByWeapon: { BOMB_IRON: 4, BOMB_GUIDED: 2, BOMB_CLUSTER: 2, BOMB_SDB: 4, TOMAHAWK: 1 } },
-        { name: 'Bay 2', types: ['BOMB', 'CRUISE'], equipped: 'BOMB_IRON', x: 25, y: -20, ammoByWeapon: { BOMB_IRON: 4, BOMB_GUIDED: 2, BOMB_CLUSTER: 2, BOMB_SDB: 4, TOMAHAWK: 1 } },
+        { name: 'Bay 1', types: ['BOMB', 'CRUISE'], equipped: 'BOMB_IRON', x: -25, y: -20, ammoByWeapon: { BOMB_IRON: 4, BOMB_GUIDED: 2, BOMB_CLUSTER: 2, BOMB_SDB: 4, TOMAHAWK: 2 } },
+        { name: 'Bay 2', types: ['BOMB', 'CRUISE'], equipped: 'BOMB_IRON', x: 25, y: -20, ammoByWeapon: { BOMB_IRON: 4, BOMB_GUIDED: 2, BOMB_CLUSTER: 2, BOMB_SDB: 4, TOMAHAWK: 2 } },
         { name: 'L Pylon', types: ['AGM', 'CRUISE', 'ECM'], equipped: 'EMPTY', x: -90, y: 20, ammoByWeapon: { MAVERICK: 2, HELLFIRE: 2, TOMAHAWK: 1 } },
         { name: 'R Pylon', types: ['AGM', 'CRUISE', 'ECM'], equipped: 'EMPTY', x: 90, y: 20, ammoByWeapon: { MAVERICK: 2, HELLFIRE: 2, TOMAHAWK: 1 } }
     ] },
