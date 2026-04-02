@@ -79,6 +79,23 @@ function findNearestFriendlyAirport(unit, searchRange = 120) {
     return nearestAirport;
 }
 
+function findNearestFriendlyPort(unit, searchRange = 80) {
+    let nearestPort = null;
+    let minDistance = searchRange;
+    islands.forEach(i => {
+        if (i.owner !== unit.team) return;
+        i.buildings.forEach(b => {
+            if (b.type !== 'PORT' || b.dead) return;
+            const d = dist(unit, b);
+            if (d < minDistance) {
+                minDistance = d;
+                nearestPort = b;
+            }
+        });
+    });
+    return nearestPort;
+}
+
 function getIslandDefenseSpawn(island, index, total, radiusFactor = 0.55) {
     const angle = (-Math.PI / 3) + (index / Math.max(1, total)) * (Math.PI * 2 / 3);
     const r = island.radius * radiusFactor;
@@ -148,6 +165,7 @@ class Building extends Entity {
     }
     update() {
         if (this.dead) return;
+        if (this.type === 'PORT') return;
         if (this.cooldown > 0) this.cooldown -= SPEED_SCALE;
         let validTypes = (this.type.includes('COASTAL') || this.type.includes('ASHM')) ? ['ship'] : ['air', 'heli', 'cruise'];
         if (this.team === TEAM_NEUTRAL) return; 
@@ -184,6 +202,7 @@ class Building extends Entity {
         ctx.save(); ctx.translate(this.x, this.y);
         if (this.hp < this.maxHp) { ctx.fillStyle = 'red'; ctx.fillRect(-10, -20, 20, 4); ctx.fillStyle = '#0f0'; ctx.fillRect(-10, -20, 20 * (this.hp/this.maxHp), 4); }
         if (this.type === 'AIRPORT') { ctx.fillStyle = '#222'; ctx.fillRect(-15, -15, 30, 30); ctx.fillStyle = COLORS[this.team]; ctx.font = '20px Arial'; ctx.fillText('H', -7, 7); } 
+        else if (this.type === 'PORT') { ctx.fillStyle = '#3a3f4a'; ctx.fillRect(-18, -10, 36, 20); ctx.fillStyle = '#1f78ff'; ctx.fillRect(-18, 2, 36, 8); ctx.fillStyle = '#ddd'; ctx.fillRect(-5, -12, 10, 6); }
         else if (this.type.includes('COASTAL')) { ctx.fillStyle = '#443'; ctx.beginPath(); ctx.arc(0,0,10,0,Math.PI*2); ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(15,0); ctx.stroke(); } 
         else if (this.type.includes('ASHM')) { ctx.fillStyle = '#444'; ctx.fillRect(-10,-10,20,20); ctx.fillStyle = '#f00'; ctx.fillRect(-5,-5,10,10); } 
         else { ctx.fillStyle = '#444'; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = COLORS[this.team]; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0, -10); ctx.stroke(); }
@@ -285,6 +304,18 @@ class Unit extends Entity {
             let needsAmmo = expendableWeapons.length > 0 && expendableWeapons.every(w => w.ammo === 0);
             if (needsAmmo && this.typeKey === 'TRANSPORT' && this.weapons.some(w=>w.def.type==='DEPLOY')) needsAmmo = true; 
             if ((this.fuel < this.data.fuel * 0.3 || needsAmmo) && !this.rtb) { this.rtb = true; this.findBase(); }
+        }
+
+        if (this.data.type === 'ship') {
+            const port = findNearestFriendlyPort(this, 75);
+            if (port) {
+                this.hp = Math.min(this.maxHp, this.hp + 0.8 * SPEED_SCALE);
+                if (gameTime % 45 === 0) {
+                    this.weapons.forEach(w => {
+                        if (!w.def.passive && w.def.type !== 'GUN' && w.ammo < w.maxAmmo) w.ammo++;
+                    });
+                }
+            }
         }
 
         if (this.rtb && this.base && dist(this, this.base) < 30) { if (this.state !== 'LANDED') { this.state = 'LANDED'; this.initLoadout(); } }
@@ -597,7 +628,7 @@ class Unit extends Entity {
     }
 
     handleTransportDeployment() {
-        if (this.typeKey !== 'TRANSPORT' || this.state === 'RETURN' || !this.targetPos) return;
+        if (!this.weapons.some(w => w.def.type === 'DEPLOY') || this.state === 'RETURN' || !this.targetPos) return;
         if (dist(this, this.targetPos) > 70) return;
 
         const deployContext = this.getTransportDeployContext();
@@ -627,7 +658,7 @@ class Unit extends Entity {
     }
 
     deployTransportUnit(deployDef, deployContext) {
-        if (deployDef.unitType !== 'SF') return false;
+        if (!deployDef.unitType || !UNIT_TYPES[deployDef.unitType]) return false;
         const mission = this.transportMission;
         const dropIsland = mission?.targetIsland || deployContext.contestedIsland;
         if (!dropIsland) return false;
@@ -669,7 +700,7 @@ class Unit extends Entity {
     }
 
     setTransportAssaultMission(targetIsland, capturePoint = null) {
-        if (this.typeKey !== 'TRANSPORT') return;
+        if (!this.weapons.some(w => w.def.type === 'DEPLOY' && w.def.deployType === 'UNIT' && w.ammo > 0)) return;
         const toTransportX = this.x - targetIsland.x;
         const toTransportY = this.y - targetIsland.y;
         const mag = Math.hypot(toTransportX, toTransportY) || 1;
@@ -754,6 +785,16 @@ class Unit extends Entity {
             ctx.fillStyle = '#555'; ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(-24, 12); ctx.lineTo(-24, -12); ctx.fill();
             ctx.fillStyle = '#8892a0'; ctx.fillRect(-4, -6, 8, 12);
             ctx.fillStyle = '#a33'; ctx.fillRect(-12, -3, 5, 6); ctx.fillRect(7, -3, 5, 6);
+        }
+        else if (this.typeKey === 'LANDING_SHIP') {
+            ctx.fillStyle = '#5a5f66'; ctx.fillRect(-18, -9, 36, 18);
+            ctx.fillStyle = '#7d8791'; ctx.fillRect(-6, -6, 12, 12);
+            ctx.fillStyle = '#333'; ctx.fillRect(-14, 2, 8, 5); ctx.fillRect(6, 2, 8, 5);
+        }
+        else if (this.typeKey === 'HUNTER_FRIGATE') {
+            ctx.fillStyle = '#2e3440'; ctx.fillRect(-16, -8, 32, 16);
+            ctx.fillStyle = '#667'; ctx.beginPath(); ctx.moveTo(17, 0); ctx.lineTo(-22, 11); ctx.lineTo(-22, -11); ctx.fill();
+            ctx.fillStyle = '#b22'; ctx.fillRect(-3, -5, 6, 10);
         }
         else if (this.typeKey === 'IR_APC') {
             ctx.fillStyle = '#4a5a3a'; ctx.fillRect(-9, -5, 18, 10);
@@ -907,6 +948,49 @@ function findTarget(source, range, types = null) {
     return best;
 }
 
+function getAiTargetPriority(target) {
+    if (target instanceof Building) {
+        if (target.type === 'SAM_SITE' || target.type.includes('MANPADS') || target.type.includes('SPAA')) return 120;
+        if (target.type === 'AIRPORT') return 95;
+        if (target.type === 'PORT') return 85;
+        return 60;
+    }
+    if (target instanceof Unit) {
+        if (target.data.type === 'air' || target.data.type === 'heli') return 80;
+        if (target.data.type === 'ship') return 75;
+        return 50;
+    }
+    return 0;
+}
+
+function chooseBestAiTarget(unit, team) {
+    const candidates = [];
+    entities.forEach(e => { if (e.team !== team && !e.dead && e.visible) candidates.push(e); });
+    islands.forEach(i => {
+        if (i.owner !== TEAM_NEUTRAL && i.owner !== team) {
+            i.buildings.forEach(b => { if (!b.dead) candidates.push(b); });
+        }
+    });
+
+    let best = null;
+    let bestScore = -Infinity;
+    candidates.forEach(target => {
+        const d = dist(unit, target);
+        let bestWeaponScore = -Infinity;
+        unit.weapons.forEach(w => {
+            if (w.ammo <= 0 && w.def.type !== 'GUN' && !w.def.passive) return;
+            if (!w.def.targets || !isValidTarget(target, w.def.targets)) return;
+            const rangeBias = Math.max(0, (w.def.range || 100) - d) * 0.02;
+            const damageBias = (w.def.damage || 5) * 0.3;
+            bestWeaponScore = Math.max(bestWeaponScore, rangeBias + damageBias);
+        });
+        if (bestWeaponScore === -Infinity) return;
+        const score = bestWeaponScore + getAiTargetPriority(target) - d * 0.03;
+        if (score > bestScore) { bestScore = score; best = target; }
+    });
+    return best;
+}
+
 // --- INITIALIZATION ---
 
 function initGame() {
@@ -957,11 +1041,13 @@ function generateMap() {
     islands[0].owner = TEAM_PLAYER;
     islands[0].buildings.push(new Building(200, worldHeight/2, TEAM_PLAYER, 'AIRPORT'));
     islands[0].buildings.push(new Building(230, worldHeight/2 + 30, TEAM_PLAYER, 'SAM_SITE'));
+    islands[0].buildings.push(new Building(175, worldHeight/2 + 55, TEAM_PLAYER, 'PORT'));
     
     islands.push(new Island(worldWidth - 200, worldHeight/2, islSize + 40, true)); 
     islands[1].owner = TEAM_AI;
     islands[1].buildings.push(new Building(worldWidth - 200, worldHeight/2, TEAM_AI, 'AIRPORT'));
     islands[1].buildings.push(new Building(worldWidth - 230, worldHeight/2 - 30, TEAM_AI, 'SAM_SITE'));
+    islands[1].buildings.push(new Building(worldWidth - 175, worldHeight/2 - 55, TEAM_AI, 'PORT'));
 
     const islandCount = 4 * sizeMult;
     for(let i=0; i<islandCount; i++) {
@@ -970,6 +1056,7 @@ function generateMap() {
         if (islands.some(isl => Math.hypot(isl.x-x, isl.y-y) < (islSize * 3.5))) { i--; continue; }
         let isl = new Island(x, y, islSize);
         isl.buildings.push(new Building(x, y, TEAM_NEUTRAL, 'AIRPORT'));
+        isl.buildings.push(new Building(x + 20, y + 20, TEAM_NEUTRAL, 'PORT'));
         islands.push(isl);
     }
 }
@@ -1376,6 +1463,8 @@ function updateTeamAI(team) {
     else if (myUnits.filter(u => u.typeKey === 'BOMBER').length < 1) toBuild = 'BOMBER';
     else if (myUnits.filter(u => u.typeKey === 'AWACS').length < 1) toBuild = 'AWACS';
     else if (myUnits.filter(u => u.typeKey === 'DESTROYER').length < 2 && currentMapType !== 'LAND') toBuild = 'DESTROYER';
+    else if (myUnits.filter(u => u.typeKey === 'LANDING_SHIP').length < 1 && currentMapType !== 'LAND') toBuild = 'LANDING_SHIP';
+    else if (myUnits.filter(u => u.typeKey === 'HUNTER_FRIGATE').length < 1 && currentMapType !== 'LAND') toBuild = 'HUNTER_FRIGATE';
     else if (currentMapType !== 'LAND' && isUnlocked(team, 'HYPERSONIC_ASHM') && myUnits.filter(u => u.typeKey === 'ARSENAL_CRUISER').length < 1) toBuild = 'ARSENAL_CRUISER';
     else if (Math.random() > 0.7) toBuild = 'ATTACK_HELI';
 
@@ -1400,10 +1489,13 @@ function updateTeamAI(team) {
                     const target = islands.find(i => i.owner === team && i.buildings.length < 4);
                     if (target) { u.targetPos = target; u.hasCommand = true; }
                 }
+            } else if (u.typeKey === 'LANDING_SHIP' && deployWeapon) {
+                let target = islands.find(i => i.owner === TEAM_NEUTRAL);
+                if (!target) target = islands.find(i => i.owner !== team);
+                if (target) u.setTransportAssaultMission(target, { x: target.x, y: target.y });
             } else if (u.data.role === 'AA' || u.data.role === 'Multi') {
-                 // Check zones for targets first? For now simple logic
-                 const targets = entities.filter(e => e.team !== team && e.visible);
-                 if (targets.length > 0) u.targetUnit = targets[Math.floor(Math.random() * targets.length)];
+                 const preferred = chooseBestAiTarget(u, team);
+                 if (preferred) u.targetUnit = preferred;
             } else if (u.typeKey === 'IR_APC' || u.typeKey === 'AAA_BATTERY') {
                 const ownedIslands = islands.filter(i => i.owner === team);
                 const defendIsland = ownedIslands.find(i => dist(u, i) > i.radius * 0.8) || ownedIslands.find(i => i.isMainBase) || ownedIslands[0];
@@ -1411,6 +1503,12 @@ function updateTeamAI(team) {
                     const dx = (Math.random() - 0.5) * defendIsland.radius * 0.6;
                     const dy = (Math.random() - 0.5) * defendIsland.radius * 0.6;
                     u.targetPos = { x: defendIsland.x + dx, y: defendIsland.y + dy };
+                    u.hasCommand = true;
+                }
+            } else if (u.typeKey === 'HUNTER_FRIGATE' || u.typeKey === 'ARSENAL_CRUISER' || u.typeKey === 'BOMBER' || u.typeKey === 'STRIKE') {
+                const suppressionTarget = chooseBestAiTarget(u, team);
+                if (suppressionTarget) {
+                    u.targetUnit = suppressionTarget;
                     u.hasCommand = true;
                 }
             } else if (u.typeKey === 'CARRIER') {
@@ -1473,12 +1571,12 @@ canvas.addEventListener('mousedown', e => {
             const clickedEnemyIsland = islands.find(i => i.owner !== TEAM_PLAYER && Math.hypot(i.x - mouse.worldX, i.y - mouse.worldY) < i.radius);
             const clickedAnyIsland = islands.find(i => Math.hypot(i.x - mouse.worldX, i.y - mouse.worldY) < i.radius);
             selection.forEach(u => {
-                const hasDropTeam = u.data.type === 'heli' && u.weapons.some(w => w.def.type === 'DEPLOY' && w.def.deployType === 'UNIT' && w.ammo > 0);
+                const hasDropTeam = (u.data.type === 'heli' || u.data.type === 'ship') && u.weapons.some(w => w.def.type === 'DEPLOY' && w.def.deployType === 'UNIT' && w.ammo > 0);
                 if (hasDropTeam) {
                     const missionIsland = clickedEnemyIsland || (target ? islands.find(i => Math.hypot(i.x - target.x, i.y - target.y) < i.radius * 1.2 && i.owner !== TEAM_PLAYER) : null) || clickedAnyIsland;
                     if (missionIsland) {
                         const capturePoint = target ? { x: target.x, y: target.y } : { x: missionIsland.x, y: missionIsland.y };
-                        if (u.typeKey === 'TRANSPORT') {
+                        if (u.typeKey === 'TRANSPORT' || u.typeKey === 'LANDING_SHIP') {
                             u.setTransportAssaultMission(missionIsland, capturePoint);
                         } else {
                             u.targetPos = capturePoint;

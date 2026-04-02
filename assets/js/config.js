@@ -37,6 +37,8 @@ const WEAPONS = {
     DEPLOY_COASTAL: { name: 'Coast Gun', type: 'DEPLOY', damage: 0, cooldown: 200, range: 20, targets: [], capacity: 1, icon: '🏰', deployType: 'BUILDING', buildType: 'DEPLOYED_COASTAL' },
     DEPLOY_MANPADS: { name: 'MANPADS', type: 'DEPLOY', damage: 0, cooldown: 200, range: 20, targets: [], capacity: 1, icon: '🚀', deployType: 'BUILDING', buildType: 'DEPLOYED_MANPADS' },
     DEPLOY_ASHM: { name: 'AShM Bat', type: 'DEPLOY', damage: 0, cooldown: 300, range: 20, targets: [], capacity: 1, icon: '🚢💥', deployType: 'BUILDING', buildType: 'DEPLOYED_ASHM' },
+    DEPLOY_IR_APC: { name: 'Unload IR APC', type: 'DEPLOY', damage: 0, cooldown: 150, range: 25, targets: [], capacity: 2, icon: '🚛', deployType: 'UNIT', unitType: 'IR_APC' },
+    DEPLOY_AAA_BATTERY: { name: 'Unload AAA', type: 'DEPLOY', damage: 0, cooldown: 180, range: 25, targets: [], capacity: 2, icon: '🛡️', deployType: 'UNIT', unitType: 'AAA_BATTERY' },
     JAMMER_POD: { name: 'ECM Pod', type: 'ECM', damage: 0, cooldown: 10, range: 100, targets: [], icon: '📡', passive: true, capacity: 2 }
 };
 
@@ -101,7 +103,7 @@ const UNIT_TYPES = {
     IR_APC: { name: 'IR APC', type: 'ground', role: 'Missile Defense', cost: 700, hp: 260, speed: 0.45, turn: 0.09, fuel: 9999, ammo: 1, icon: '🚛', hardpoints: [
         { name: 'IR Launcher', types: ['AAM_LIGHT'], equipped: 'SIDEWINDER', x: 0, y: -10, ammoByWeapon: { SIDEWINDER: 4 } }
     ] },
-    AAA_BATTERY: { name: 'AAA Battery', type: 'ground', role: 'Static Air Defense', cost: 900, hp: 420, speed: 0, turn: 0.2, fuel: 9999, ammo: 1, icon: '🛡️', hardpoints: [
+    AAA_BATTERY: { name: 'AAA Battery', type: 'ground', role: 'Air Defense', cost: 900, hp: 420, speed: 0.2, turn: 0.2, fuel: 9999, ammo: 1, icon: '🛡️', hardpoints: [
         { name: 'CIWS Mount', types: ['GUN'], equipped: 'CIWS', x: 0, y: 0 }
     ] },
     CARRIER: { name: 'Carrier', type: 'ship', role: 'Base', cost: 2500, hp: 2000, speed: 0.6, turn: 0.04, fuel: 0, ammo: 999, icon: '🚢', hardpoints: [
@@ -123,6 +125,18 @@ const UNIT_TYPES = {
         { name: 'EW Suite', types: ['ECM'], equipped: 'EMPTY', x: 0, y: 22 },
         { name: 'CIWS Aft', types: ['GUN'], equipped: 'CIWS', x: 0, y: 50 }
     ] },
+    LANDING_SHIP: { name: 'Landing Ship', type: 'ship', role: 'Amphibious Transport', cost: 1800, hp: 1500, speed: 0.55, turn: 0.04, fuel: 9999, ammo: 1, icon: '🚢📦', hardpoints: [
+        { name: 'Bow Gun', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -40 },
+        { name: 'Vehicle Bay', types: ['DEPLOY'], equipped: 'DEPLOY_IR_APC', x: -8, y: 10, ammoByWeapon: { DEPLOY_IR_APC: 2, DEPLOY_AAA_BATTERY: 2, SF_DEPLOY: 2 } },
+        { name: 'Troop Bay', types: ['DEPLOY'], equipped: 'DEPLOY_AAA_BATTERY', x: 8, y: 12, ammoByWeapon: { DEPLOY_IR_APC: 2, DEPLOY_AAA_BATTERY: 2, SF_DEPLOY: 2 } },
+        { name: 'Aft CIWS', types: ['GUN'], equipped: 'CIWS', x: 0, y: 45 }
+    ] },
+    HUNTER_FRIGATE: { name: 'Hunter Frigate', type: 'ship', role: 'SEAD/Interdiction', cost: 2400, hp: 1400, speed: 0.85, turn: 0.06, fuel: 9999, ammo: 1, icon: '⚓🎯', hardpoints: [
+        { name: 'Main Gun', types: ['GUN'], equipped: 'CANNON_127MM', x: 0, y: -35 },
+        { name: 'SEAD Rack', types: ['AGM', 'AAM_HEAVY'], equipped: 'ARAD', x: -8, y: 4, ammoByWeapon: { ARAD: 6, AMRAAM: 8, MAVERICK: 8 } },
+        { name: 'Strike Rack', types: ['AGM', 'CRUISE', 'AAM_HEAVY'], equipped: 'MAVERICK', x: 8, y: 8, ammoByWeapon: { ARAD: 4, AMRAAM: 8, MAVERICK: 10, TOMAHAWK: 4 } },
+        { name: 'CIWS', types: ['GUN'], equipped: 'CIWS', x: 0, y: 45 }
+    ] },
     CRUISE_MISSILE_UNIT: { name: 'Tomahawk', type: 'cruise', role: 'Strategic', cost: 0, hp: 20, speed: 2.5, turn: 0.05, fuel: 600, ammo: 0, icon: '🐢', hardpoints: [] },
     HYPERSONIC_ASHM_UNIT: { name: 'Hypersonic AShM', type: 'cruise', role: 'Strategic', cost: 0, hp: 16, speed: 4.4, turn: 0.09, fuel: 700, ammo: 0, icon: '🚀🌊', hardpoints: [] }
 };
@@ -134,5 +148,6 @@ const BUILDINGS = {
     DEPLOYED_SPAA: { hp: 200, range: 120, damage: 4, reload: 15, name: 'Light AA' },
     DEPLOYED_COASTAL: { hp: 400, range: 250, damage: 80, reload: 180, name: 'Coast Gun' }, 
     DEPLOYED_MANPADS: { hp: 150, range: 180, damage: 35, reload: 100, name: 'MANPADS' },
-    DEPLOYED_ASHM: { hp: 300, range: 400, damage: 150, reload: 400, name: 'AShM Bat' }
+    DEPLOYED_ASHM: { hp: 300, range: 400, damage: 150, reload: 400, name: 'AShM Bat' },
+    PORT: { hp: 1400, range: 60, name: 'Port' }
 };
