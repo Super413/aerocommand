@@ -79,6 +79,15 @@ function findNearestFriendlyAirport(unit, searchRange = 120) {
     return nearestAirport;
 }
 
+function getIslandDefenseSpawn(island, index, total, radiusFactor = 0.55) {
+    const angle = (-Math.PI / 3) + (index / Math.max(1, total)) * (Math.PI * 2 / 3);
+    const r = island.radius * radiusFactor;
+    return {
+        x: island.x + Math.cos(angle) * r,
+        y: island.y + Math.sin(angle) * r
+    };
+}
+
 // --- Classes ---
 
 class Island {
@@ -242,19 +251,29 @@ class Unit extends Entity {
         if (this.fireTimer > 0) this.fireTimer -= SPEED_SCALE;
         if (this.takeoffTimer > 0) this.takeoffTimer -= SPEED_SCALE;
 
-        if (this.typeKey === 'CRUISE_MISSILE_UNIT') {
-            this.hp -= 0.01 * SPEED_SCALE; 
+        if (this.typeKey === 'CRUISE_MISSILE_UNIT' || this.typeKey === 'HYPERSONIC_ASHM_UNIT') {
+            this.hp -= (this.typeKey === 'HYPERSONIC_ASHM_UNIT' ? 0.02 : 0.01) * SPEED_SCALE; 
             if (this.hp <= 0) this.dead = true;
             if (this.targetPos) {
-                 this.angle = angleTo(this, this.targetPos);
+                 const targetAngle = angleTo(this, this.targetPos);
+                 this.angle = targetAngle;
+                 const targetDistance = dist(this, this.targetPos);
+                 if (this.typeKey === 'HYPERSONIC_ASHM_UNIT' && targetDistance < 220) {
+                    const weave = Math.sin(gameTime * 0.35 + this.x * 0.01 + this.y * 0.01) * 0.32;
+                    this.angle += weave;
+                 }
                  this.x += Math.cos(this.angle) * this.data.speed * SPEED_SCALE;
                  this.y += Math.sin(this.angle) * this.data.speed * SPEED_SCALE;
                  if (dist(this, this.targetPos) < 20) {
-                     this.dead = true; createExplosion(this.x, this.y, 60);
-                     entities.forEach(e => { if (e.team !== this.team && dist(this, e) < 60) e.takeDamage(300); });
-                     islands.forEach(i => { i.buildings.forEach(b => { if (b.team !== this.team && dist(this, b) < 60) b.takeDamage(300); }); });
+                     this.dead = true;
+                     const blastRadius = this.typeKey === 'HYPERSONIC_ASHM_UNIT' ? 70 : 60;
+                     const blastDamage = this.typeKey === 'HYPERSONIC_ASHM_UNIT' ? 360 : 300;
+                     createExplosion(this.x, this.y, blastRadius);
+                     entities.forEach(e => { if (e.team !== this.team && dist(this, e) < blastRadius) e.takeDamage(blastDamage); });
+                     islands.forEach(i => { i.buildings.forEach(b => { if (b.team !== this.team && dist(this, b) < blastRadius) b.takeDamage(blastDamage); }); });
                  }
             }
+            if (this.typeKey === 'HYPERSONIC_ASHM_UNIT' && gameTime % 6 === 0) addParticle(this.x, this.y, 'smoke_light');
             return; 
         }
 
@@ -552,6 +571,9 @@ class Unit extends Entity {
         else if (w.type === 'CRUISE') {
             const cm = new Unit(this.x, this.y, this.team, 'CRUISE_MISSILE_UNIT');
             cm.angle = this.angle; cm.targetPos = target; entities.push(cm);
+        } else if (w.type === 'HYPERSONIC') {
+            const hm = new Unit(this.x, this.y, this.team, 'HYPERSONIC_ASHM_UNIT');
+            hm.angle = this.angle; hm.targetPos = target; entities.push(hm);
         } else if (w.type.includes('AAM') || w.type === 'AGM') {
             projectiles.push(new Missile(this.x, this.y, target, this.team, w.damage));
         } else if (w.type === 'BOMB') {
@@ -726,6 +748,12 @@ class Unit extends Entity {
             ctx.fillStyle = '#555'; ctx.beginPath(); ctx.moveTo(15, 0); ctx.lineTo(-20, 10); ctx.lineTo(-20, -10); ctx.fill();
             ctx.fillStyle = '#222'; ctx.fillRect(0, -5, 10, 10); 
         }
+        else if (this.typeKey === 'ARSENAL_CRUISER') {
+            ctx.fillStyle = '#2f3640'; ctx.fillRect(-19, -10, 38, 20);
+            ctx.fillStyle = '#555'; ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(-24, 12); ctx.lineTo(-24, -12); ctx.fill();
+            ctx.fillStyle = '#8892a0'; ctx.fillRect(-4, -6, 8, 12);
+            ctx.fillStyle = '#a33'; ctx.fillRect(-12, -3, 5, 6); ctx.fillRect(7, -3, 5, 6);
+        }
         else if (this.typeKey === 'IR_APC') {
             ctx.fillStyle = '#4a5a3a'; ctx.fillRect(-9, -5, 18, 10);
             ctx.fillStyle = '#2a2a2a'; ctx.fillRect(-10, -7, 20, 2); ctx.fillRect(-10, 5, 20, 2);
@@ -737,6 +765,7 @@ class Unit extends Entity {
         }
         else if (this.typeKey === 'SF') { ctx.fillStyle = '#0f0'; ctx.beginPath(); ctx.arc(0,0, 3, 0, Math.PI*2); ctx.fill(); }
         else if (this.typeKey === 'CRUISE_MISSILE_UNIT') { ctx.fillStyle = '#fff'; ctx.fillRect(-5, -2, 10, 4); }
+        else if (this.typeKey === 'HYPERSONIC_ASHM_UNIT') { ctx.fillStyle = '#ffd6d6'; ctx.fillRect(-6, -2, 12, 4); ctx.fillStyle = '#f55'; ctx.fillRect(-2, -3, 4, 6); }
 
         let ammoCount = this.weapons.reduce((sum, w) => sum + (w.def.type==='GUN' || w.def.passive ? 1 : w.ammo), 0);
         if (this.data.type === 'air' && (this.fuel < 300 || ammoCount === 0)) { ctx.fillStyle = 'orange'; ctx.beginPath(); ctx.arc(0, -10, 2, 0, Math.PI*2); ctx.fill(); }
@@ -854,6 +883,7 @@ function drawParticles(ctx) {
         if (p.type === 'text') { ctx.fillStyle = '#fff'; ctx.font = '12px Arial'; ctx.fillText(p.text, p.x, p.y); }
         else if (p.type === 'explosion') { ctx.fillStyle = `rgba(255, ${Math.floor(Math.random()*200)}, 0, ${p.life/30})`; ctx.beginPath(); ctx.arc(p.x, p.y, (30-p.life)/2, 0, Math.PI*2); ctx.fill(); }
         else if (p.type === 'smoke') { ctx.fillStyle = `rgba(200, 200, 200, ${p.life/30})`; ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI*2); ctx.fill(); }
+        else if (p.type === 'smoke_light') { ctx.fillStyle = `rgba(210, 210, 210, ${p.life/60})`; ctx.beginPath(); ctx.arc(p.x, p.y, 1.3, 0, Math.PI*2); ctx.fill(); }
         else if (p.type === 'spark') { ctx.fillStyle = '#ff0'; ctx.fillRect(p.x, p.y, 2, 2); }
     });
 }
@@ -962,14 +992,28 @@ function startGame() {
     }
     
     entities.push(new Unit(250, worldHeight/2 - 50, TEAM_PLAYER, 'FIGHTER'));
-    entities.push(new Unit(240, worldHeight/2 + 20, TEAM_PLAYER, 'IR_APC'));
-    entities.push(new Unit(270, worldHeight/2 + 55, TEAM_PLAYER, 'IR_APC'));
-    entities.push(new Unit(225, worldHeight/2 - 85, TEAM_PLAYER, 'AAA_BATTERY'));
-    entities.push(new Unit(285, worldHeight/2 - 110, TEAM_PLAYER, 'AAA_BATTERY'));
-    entities.push(new Unit(worldWidth - 240, worldHeight/2 - 20, TEAM_AI, 'IR_APC'));
-    entities.push(new Unit(worldWidth - 270, worldHeight/2 - 55, TEAM_AI, 'IR_APC'));
-    entities.push(new Unit(worldWidth - 225, worldHeight/2 + 85, TEAM_AI, 'AAA_BATTERY'));
-    entities.push(new Unit(worldWidth - 285, worldHeight/2 + 110, TEAM_AI, 'AAA_BATTERY'));
+    const playerBaseIsland = islands.find(i => i.isMainBase && i.owner === TEAM_PLAYER);
+    const aiBaseIsland = islands.find(i => i.isMainBase && i.owner === TEAM_AI);
+    if (playerBaseIsland) {
+        [0, 1].forEach(i => {
+            const p = getIslandDefenseSpawn(playerBaseIsland, i, 4, 0.52);
+            entities.push(new Unit(p.x, p.y, TEAM_PLAYER, 'IR_APC'));
+        });
+        [2, 3].forEach(i => {
+            const p = getIslandDefenseSpawn(playerBaseIsland, i, 4, 0.58);
+            entities.push(new Unit(p.x, p.y, TEAM_PLAYER, 'AAA_BATTERY'));
+        });
+    }
+    if (aiBaseIsland) {
+        [0, 1].forEach(i => {
+            const p = getIslandDefenseSpawn(aiBaseIsland, i, 4, 0.52);
+            entities.push(new Unit(p.x, p.y, TEAM_AI, 'IR_APC'));
+        });
+        [2, 3].forEach(i => {
+            const p = getIslandDefenseSpawn(aiBaseIsland, i, 4, 0.58);
+            entities.push(new Unit(p.x, p.y, TEAM_AI, 'AAA_BATTERY'));
+        });
+    }
 
     document.getElementById('setup-menu').style.display = 'none';
     document.getElementById('ui-layer').style.display = 'flex';
@@ -1220,7 +1264,7 @@ function createUI() {
     panel.innerHTML = '';
     
     Object.keys(UNIT_TYPES).forEach(key => {
-        if (key === 'SF' || key === 'CRUISE_MISSILE_UNIT') return; 
+        if (key === 'SF' || key === 'CRUISE_MISSILE_UNIT' || key === 'HYPERSONIC_ASHM_UNIT') return; 
         const data = UNIT_TYPES[key];
         
         // Hide naval units on Land maps
@@ -1433,7 +1477,12 @@ canvas.addEventListener('mousedown', e => {
                         return;
                     }
                 }
-                if (target) { u.targetUnit = target; u.targetPos = null; addParticle(target.x, target.y, 'text', 'ATTACK'); }
+                if (target) {
+                    u.targetUnit = target;
+                    if (u.data.type !== 'ship') u.targetPos = null;
+                    u.hasCommand = true;
+                    addParticle(target.x, target.y, 'text', 'ATTACK');
+                }
                 else { 
                     u.targetPos = { x: mouse.worldX, y: mouse.worldY }; u.targetUnit = null; u.rtb = false; u.state = 'MOVE'; 
                     u.hasCommand = true; addParticle(mouse.worldX, mouse.worldY, 'spark', null); 

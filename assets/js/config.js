@@ -29,7 +29,7 @@ const WEAPONS = {
     AMRAAM: { name: 'AIM-120', type: 'AAM_HEAVY', damage: 45, cooldown: 90, speed: 5, range: 350, turn: 0.09, targets: ['air', 'heli', 'cruise'], guidance: 'radar', ammo: 1, icon: '🚀+', navalOmni: true, salvoCount: 2, salvoDelay: 6 },
     MAVERICK: { name: 'AGM-65', type: 'AGM', damage: 50, cooldown: 80, speed: 4, range: 220, turn: 0.08, targets: ['ground', 'ship', 'structure'], ammo: 1, icon: '🧨', navalOmni: true, salvoCount: 2, salvoDelay: 8 },
     HELLFIRE: { name: 'AGM-114', type: 'AGM', damage: 50, cooldown: 45, speed: 5, range: 180, turn: 0.1, targets: ['ground', 'ship', 'structure'], ammo: 2, icon: '🔥', navalOmni: true, salvoCount: 2, salvoDelay: 5 },
-    HYPERSONIC_ASHM: { name: 'Hypersonic AShM', type: 'AGM', damage: 220, cooldown: 220, speed: 9, range: 650, turn: 0.07, targets: ['ship', 'structure'], ammo: 1, icon: '🚀🌊', navalOmni: true, salvoCount: 2, salvoDelay: 10 },
+    HYPERSONIC_ASHM: { name: 'Hypersonic AShM', type: 'HYPERSONIC', damage: 260, cooldown: 220, speed: 11, range: 900, turn: 0.07, targets: ['ship', 'structure'], ammo: 1, icon: '🚀🌊', navalOmni: true, salvoCount: 2, salvoDelay: 10 },
     TOMAHAWK: { name: 'Tomahawk', type: 'CRUISE', damage: 300, cooldown: 400, speed: 10, range: 800, turn: 0.05, targets: ['structure', 'ship'], ammo: 1, icon: '🐢', navalOmni: true, salvoCount: 2, salvoDelay: 12 },
     ARAD: { name: 'HARM', type: 'AGM', damage: 100, cooldown: 100, speed: 15, range: 800, turn: 0.15, targets: ['structure'], priorityTag: 'SAM_SITE', ammo: 1, icon: '📡💥', navalOmni: true, salvoCount: 2, salvoDelay: 7 },
     SF_DEPLOY: { name: 'SF Team', type: 'DEPLOY', damage: 0, cooldown: 120, range: 20, targets: [], capacity: 1, icon: '🪖', deployType: 'UNIT', unitType: 'SF' },
@@ -99,12 +99,10 @@ const UNIT_TYPES = {
     TRANSPORT: { name: 'CH-47 Chinook', type: 'heli', role: 'Transport', cost: 300, hp: 200, speed: 1.6, turn: 0.05, fuel: 2500, ammo: 0, capacity: 4, icon: '📦', hardpoints: [ { name: 'Cargo Bay', types: ['DEPLOY'], equipped: 'SF_DEPLOY', x: 0, y: 0, ammoByWeapon: { SF_DEPLOY: 2, DEPLOY_SPAA: 1, DEPLOY_COASTAL: 1, DEPLOY_MANPADS: 2, DEPLOY_ASHM: 1 } } ] },
     SF: { name: 'SF Team', type: 'ground', role: 'Capture', cost: 100, hp: 50, speed: 0.5, turn: 1, fuel: 0, ammo: 999, icon: '🔫', hardpoints: [{ name: 'Gun', types: ['GUN'], equipped: 'RIFLE', x:0, y:0 }] },
     IR_APC: { name: 'IR APC', type: 'ground', role: 'Missile Defense', cost: 700, hp: 260, speed: 0.45, turn: 0.09, fuel: 9999, ammo: 1, icon: '🚛', hardpoints: [
-        { name: 'IR Launcher', types: ['AAM_LIGHT'], equipped: 'SIDEWINDER', x: 0, y: -10, ammoByWeapon: { SIDEWINDER: 4 } },
-        { name: 'RWS', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: 15 }
+        { name: 'IR Launcher', types: ['AAM_LIGHT'], equipped: 'SIDEWINDER', x: 0, y: -10, ammoByWeapon: { SIDEWINDER: 4 } }
     ] },
     AAA_BATTERY: { name: 'AAA Battery', type: 'ground', role: 'Static Air Defense', cost: 900, hp: 420, speed: 0, turn: 0.2, fuel: 9999, ammo: 1, icon: '🛡️', hardpoints: [
-        { name: 'Twin Mount', types: ['AAM_HEAVY'], equipped: 'AMRAAM', x: 0, y: 0, ammoByWeapon: { AMRAAM: 6 } },
-        { name: 'Backup IR', types: ['AAM_LIGHT'], equipped: 'SIDEWINDER', x: 0, y: 12, ammoByWeapon: { SIDEWINDER: 4 } }
+        { name: 'CIWS Mount', types: ['GUN'], equipped: 'CIWS', x: 0, y: 0 }
     ] },
     CARRIER: { name: 'Carrier', type: 'ship', role: 'Base', cost: 2500, hp: 2000, speed: 0.6, turn: 0.04, fuel: 0, ammo: 999, icon: '🚢', hardpoints: [
         { name: 'Bow AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -50 },
@@ -113,19 +111,20 @@ const UNIT_TYPES = {
     ] },
     DESTROYER: { name: 'Destroyer', type: 'ship', role: 'Escort', cost: 1500, hp: 1200, speed: 0.8, turn: 0.05, fuel: 9999, ammo: 1, icon: '🛳️', hardpoints: [
         { name: 'Main Gun', types: ['GUN'], equipped: 'CANNON_127MM', x: 0, y: -40 },
-        { name: 'VLS 1', types: ['AAM_HEAVY', 'CRUISE', 'AGM'], equipped: 'EMPTY', x: 0, y: -10, ammoByWeapon: { AMRAAM: 16, TOMAHAWK: 8, MAVERICK: 16, HELLFIRE: 16, ARAD: 6, HYPERSONIC_ASHM: 2 } },
-        { name: 'VLS 2', types: ['AAM_HEAVY', 'CRUISE', 'AGM'], equipped: 'EMPTY', x: 0, y: 10, ammoByWeapon: { AMRAAM: 16, TOMAHAWK: 8, MAVERICK: 16, HELLFIRE: 16, ARAD: 6, HYPERSONIC_ASHM: 2 } },
+        { name: 'VLS 1', types: ['AAM_HEAVY', 'CRUISE', 'AGM', 'HYPERSONIC'], equipped: 'EMPTY', x: 0, y: -10, ammoByWeapon: { AMRAAM: 16, TOMAHAWK: 8, MAVERICK: 16, HELLFIRE: 16, ARAD: 6, HYPERSONIC_ASHM: 2 } },
+        { name: 'VLS 2', types: ['AAM_HEAVY', 'CRUISE', 'AGM', 'HYPERSONIC'], equipped: 'EMPTY', x: 0, y: 10, ammoByWeapon: { AMRAAM: 16, TOMAHAWK: 8, MAVERICK: 16, HELLFIRE: 16, ARAD: 6, HYPERSONIC_ASHM: 2 } },
         { name: 'Aft AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: 50 }
     ] },
     ARSENAL_CRUISER: { name: 'Arsenal Cruiser', type: 'ship', role: 'Missile Command', cost: 3200, hp: 1700, speed: 0.65, turn: 0.04, fuel: 9999, ammo: 1, icon: '🚢🚀', hardpoints: [
         { name: 'Main Gun', types: ['GUN'], equipped: 'CANNON_127MM', x: 0, y: -40 },
         { name: 'CIWS Bow', types: ['GUN'], equipped: 'CIWS', x: 0, y: -18 },
-        { name: 'VLS Heavy 1', types: ['CRUISE', 'AGM', 'AAM_HEAVY'], equipped: 'TOMAHAWK', x: -8, y: 2, ammoByWeapon: { TOMAHAWK: 6, AMRAAM: 12, MAVERICK: 10, HELLFIRE: 10, HYPERSONIC_ASHM: 4 } },
-        { name: 'VLS Heavy 2', types: ['CRUISE', 'AGM', 'AAM_HEAVY'], equipped: 'TOMAHAWK', x: 8, y: 2, ammoByWeapon: { TOMAHAWK: 6, AMRAAM: 12, MAVERICK: 10, HELLFIRE: 10, HYPERSONIC_ASHM: 4 } },
+        { name: 'VLS Heavy 1', types: ['CRUISE', 'AGM', 'AAM_HEAVY', 'HYPERSONIC'], equipped: 'TOMAHAWK', x: -8, y: 2, ammoByWeapon: { TOMAHAWK: 6, AMRAAM: 12, MAVERICK: 10, HELLFIRE: 10, HYPERSONIC_ASHM: 4 } },
+        { name: 'VLS Heavy 2', types: ['CRUISE', 'AGM', 'AAM_HEAVY', 'HYPERSONIC'], equipped: 'TOMAHAWK', x: 8, y: 2, ammoByWeapon: { TOMAHAWK: 6, AMRAAM: 12, MAVERICK: 10, HELLFIRE: 10, HYPERSONIC_ASHM: 4 } },
         { name: 'EW Suite', types: ['ECM'], equipped: 'EMPTY', x: 0, y: 22 },
         { name: 'CIWS Aft', types: ['GUN'], equipped: 'CIWS', x: 0, y: 50 }
     ] },
-    CRUISE_MISSILE_UNIT: { name: 'Tomahawk', type: 'cruise', role: 'Strategic', cost: 0, hp: 20, speed: 2.5, turn: 0.05, fuel: 600, ammo: 0, icon: '🐢', hardpoints: [] }
+    CRUISE_MISSILE_UNIT: { name: 'Tomahawk', type: 'cruise', role: 'Strategic', cost: 0, hp: 20, speed: 2.5, turn: 0.05, fuel: 600, ammo: 0, icon: '🐢', hardpoints: [] },
+    HYPERSONIC_ASHM_UNIT: { name: 'Hypersonic AShM', type: 'cruise', role: 'Strategic', cost: 0, hp: 16, speed: 4.4, turn: 0.09, fuel: 700, ammo: 0, icon: '🚀🌊', hardpoints: [] }
 };
 
 const BUILDINGS = {
