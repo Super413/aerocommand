@@ -105,6 +105,51 @@ function getIslandDefenseSpawn(island, index, total, radiusFactor = 0.55) {
     };
 }
 
+function createPortBuilding(island, team, angle = Math.random() * Math.PI * 2) {
+    const r = island.radius * 1.02;
+    const x = island.x + Math.cos(angle) * r;
+    const y = island.y + Math.sin(angle) * r;
+    const port = new Building(x, y, team, 'PORT');
+    port.dockAngle = angle;
+    return port;
+}
+
+function pickBestUnlockedWeaponForSlot(team, unitDef, slot) {
+    const candidates = Object.keys(WEAPONS).filter(k => {
+        const w = WEAPONS[k];
+        return slot.types.includes(w.type) && isUnlocked(team, k);
+    });
+    if (candidates.length === 0) return slot.equipped;
+
+    let best = slot.equipped;
+    let bestScore = -Infinity;
+    candidates.forEach(k => {
+        const w = WEAPONS[k];
+        let score = (w.damage || 0) * 3 + (w.range || 0) * 0.25;
+        if (unitDef.role === 'AA' && w.type.includes('AAM')) score += 180;
+        if (unitDef.role === 'SEAD' && (k === 'ARAD' || w.type === 'ECM')) score += 220;
+        if (unitDef.type === 'ship' && w.type === 'CRUISE') score += 60;
+        if (w.type === 'ECM') score += 25;
+        if (k === 'SIDEWINDER' && unitDef.role === 'AA') score += 120;
+        if (score > bestScore) { bestScore = score; best = k; }
+    });
+    return best;
+}
+
+function autoOptimizeTeamLoadouts(team) {
+    Object.values(UNIT_TYPES).forEach(unitDef => {
+        if (!unitDef.hardpoints) return;
+        unitDef.hardpoints.forEach(slot => {
+            if (!slot.types || slot.types.length === 0) return;
+            const next = pickBestUnlockedWeaponForSlot(team, unitDef, slot);
+            if (next && next !== 'EMPTY') slot.equipped = next;
+        });
+    });
+    entities.forEach(e => {
+        if (e.team === team && e instanceof Unit) e.initLoadout();
+    });
+}
+
 // --- Classes ---
 
 class Island {
@@ -202,7 +247,32 @@ class Building extends Entity {
         ctx.save(); ctx.translate(this.x, this.y);
         if (this.hp < this.maxHp) { ctx.fillStyle = 'red'; ctx.fillRect(-10, -20, 20, 4); ctx.fillStyle = '#0f0'; ctx.fillRect(-10, -20, 20 * (this.hp/this.maxHp), 4); }
         if (this.type === 'AIRPORT') { ctx.fillStyle = '#222'; ctx.fillRect(-15, -15, 30, 30); ctx.fillStyle = COLORS[this.team]; ctx.font = '20px Arial'; ctx.fillText('H', -7, 7); } 
-        else if (this.type === 'PORT') { ctx.fillStyle = '#3a3f4a'; ctx.fillRect(-18, -10, 36, 20); ctx.fillStyle = '#1f78ff'; ctx.fillRect(-18, 2, 36, 8); ctx.fillStyle = '#ddd'; ctx.fillRect(-5, -12, 10, 6); }
+        else if (this.type === 'PORT') {
+            const parentIsland = islands.find(i => dist(this, i) < i.radius * 1.4);
+            const outAngle = this.dockAngle !== undefined ? this.dockAngle : (parentIsland ? angleTo(parentIsland, this) : 0);
+            const nx = Math.cos(outAngle), ny = Math.sin(outAngle);
+            const tx = -Math.sin(outAngle), ty = Math.cos(outAngle);
+            const innerLen = 10, prongLen = 22, prongSpacing = 8;
+            const cx = -nx * innerLen * 0.5, cy = -ny * innerLen * 0.5;
+            ctx.strokeStyle = '#c8d3dd';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(cx - tx * prongSpacing, cy - ty * prongSpacing);
+            ctx.lineTo(cx + tx * prongSpacing, cy + ty * prongSpacing);
+            ctx.stroke();
+            ctx.strokeStyle = '#9fb2c3';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(cx - tx * prongSpacing, cy - ty * prongSpacing);
+            ctx.lineTo(cx - tx * prongSpacing + nx * prongLen, cy - ty * prongSpacing + ny * prongLen);
+            ctx.moveTo(cx + tx * prongSpacing, cy + ty * prongSpacing);
+            ctx.lineTo(cx + tx * prongSpacing + nx * prongLen, cy + ty * prongSpacing + ny * prongLen);
+            ctx.stroke();
+            ctx.fillStyle = '#2f4f67';
+            ctx.beginPath();
+            ctx.arc(0, 0, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
         else if (this.type.includes('COASTAL')) { ctx.fillStyle = '#443'; ctx.beginPath(); ctx.arc(0,0,10,0,Math.PI*2); ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(15,0); ctx.stroke(); } 
         else if (this.type.includes('ASHM')) { ctx.fillStyle = '#444'; ctx.fillRect(-10,-10,20,20); ctx.fillStyle = '#f00'; ctx.fillRect(-5,-5,10,10); } 
         else { ctx.fillStyle = '#444'; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = COLORS[this.team]; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0, -10); ctx.stroke(); }
@@ -765,6 +835,7 @@ class Unit extends Entity {
         ctx.fillStyle = COLORS[this.team]; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
         
         if (this.typeKey === 'FIGHTER') { ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(-8, 6); ctx.lineTo(-5, 0); ctx.lineTo(-8, -6); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+        else if (this.typeKey === 'SEAD_FIGHTER') { ctx.beginPath(); ctx.moveTo(12,0); ctx.lineTo(-10, 7); ctx.lineTo(-6, 0); ctx.lineTo(-10, -7); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#222'; ctx.fillRect(-3,-3,6,6); }
         else if (this.typeKey === 'STRIKE') { ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(-8, 7); ctx.lineTo(-8, -7); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#333'; ctx.beginPath(); ctx.moveTo(-6,0); ctx.lineTo(-10, 3); ctx.lineTo(-10, -3); ctx.fill(); }
         else if (this.typeKey === 'BOMBER' || this.typeKey === 'AWACS') { 
             ctx.beginPath(); ctx.moveTo(15,0); ctx.lineTo(-10, 15); ctx.lineTo(-5, 0); ctx.lineTo(-10, -15); ctx.closePath(); ctx.fill(); ctx.stroke(); 
@@ -1041,13 +1112,13 @@ function generateMap() {
     islands[0].owner = TEAM_PLAYER;
     islands[0].buildings.push(new Building(200, worldHeight/2, TEAM_PLAYER, 'AIRPORT'));
     islands[0].buildings.push(new Building(230, worldHeight/2 + 30, TEAM_PLAYER, 'SAM_SITE'));
-    islands[0].buildings.push(new Building(175, worldHeight/2 + 55, TEAM_PLAYER, 'PORT'));
+    islands[0].buildings.push(createPortBuilding(islands[0], TEAM_PLAYER, Math.PI * 0.85));
     
     islands.push(new Island(worldWidth - 200, worldHeight/2, islSize + 40, true)); 
     islands[1].owner = TEAM_AI;
     islands[1].buildings.push(new Building(worldWidth - 200, worldHeight/2, TEAM_AI, 'AIRPORT'));
     islands[1].buildings.push(new Building(worldWidth - 230, worldHeight/2 - 30, TEAM_AI, 'SAM_SITE'));
-    islands[1].buildings.push(new Building(worldWidth - 175, worldHeight/2 - 55, TEAM_AI, 'PORT'));
+    islands[1].buildings.push(createPortBuilding(islands[1], TEAM_AI, Math.PI * -0.2));
 
     const islandCount = 4 * sizeMult;
     for(let i=0; i<islandCount; i++) {
@@ -1056,7 +1127,7 @@ function generateMap() {
         if (islands.some(isl => Math.hypot(isl.x-x, isl.y-y) < (islSize * 3.5))) { i--; continue; }
         let isl = new Island(x, y, islSize);
         isl.buildings.push(new Building(x, y, TEAM_NEUTRAL, 'AIRPORT'));
-        isl.buildings.push(new Building(x + 20, y + 20, TEAM_NEUTRAL, 'PORT'));
+        isl.buildings.push(createPortBuilding(isl, TEAM_NEUTRAL));
         islands.push(isl);
     }
 }
@@ -1337,6 +1408,7 @@ function researchPlayer(techId, cost) {
     if (TEAMS[TEAM_PLAYER].money >= cost) {
         TEAMS[TEAM_PLAYER].money -= cost;
         TEAMS[TEAM_PLAYER].tech.add(techId);
+        autoOptimizeTeamLoadouts(TEAM_PLAYER);
         openResearch(); 
         addParticle(width/2, height/2, 'text', `RESEARCH COMPLETE`);
         
@@ -1442,6 +1514,7 @@ function updateTeamAI(team) {
             if (TEAMS[team].money >= target.cost) {
                 TEAMS[team].money -= target.cost;
                 TEAMS[team].tech.add(target.id);
+                autoOptimizeTeamLoadouts(team);
                 if (team === TEAM_PLAYER && isSpectator) {
                     addParticle(camera.x + width/2, camera.y + height/2, 'text', `AI RESEARCHED: ${target.id}`);
                     if (document.getElementById('research-modal').style.display === 'flex') openResearch();
@@ -1459,6 +1532,7 @@ function updateTeamAI(team) {
     else if (myUnits.filter(u => u.typeKey === 'IR_APC').length < 3) toBuild = 'IR_APC';
     else if (myUnits.filter(u => u.typeKey === 'AAA_BATTERY').length < 2) toBuild = 'AAA_BATTERY';
     else if (myUnits.filter(u => u.typeKey === 'FIGHTER').length < 3) toBuild = 'FIGHTER';
+    else if (myUnits.filter(u => u.typeKey === 'SEAD_FIGHTER').length < 1) toBuild = 'SEAD_FIGHTER';
     else if (myUnits.filter(u => u.typeKey === 'STRIKE').length < 3) toBuild = 'STRIKE';
     else if (myUnits.filter(u => u.typeKey === 'BOMBER').length < 1) toBuild = 'BOMBER';
     else if (myUnits.filter(u => u.typeKey === 'AWACS').length < 1) toBuild = 'AWACS';

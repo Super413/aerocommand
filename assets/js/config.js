@@ -27,6 +27,7 @@ const WEAPONS = {
     BOMB_SDB: { name: 'SDB Glide', type: 'BOMB', damage: 120, cooldown: 20, range: 400, targets: ['structure', 'ship', 'ground'], speed: 4, guided: true, ammo: 2, icon: '🦅' },
     SIDEWINDER: { name: 'AIM-9X', type: 'AAM_LIGHT', damage: 30, cooldown: 60, speed: 6, range: 250, turn: 0.12, targets: ['air', 'heli', 'cruise'], guidance: 'heat', ammo: 1, icon: '🚀' },
     AMRAAM: { name: 'AIM-120', type: 'AAM_HEAVY', damage: 45, cooldown: 90, speed: 5, range: 350, turn: 0.09, targets: ['air', 'heli', 'cruise'], guidance: 'radar', ammo: 1, icon: '🚀+', navalOmni: true, salvoCount: 2, salvoDelay: 6 },
+    LRAAM: { name: 'AIM-174B', type: 'AAM_HEAVY', damage: 65, cooldown: 130, speed: 6, range: 520, turn: 0.08, targets: ['air', 'heli', 'cruise'], guidance: 'radar', ammo: 1, icon: '🛰️🚀', navalOmni: true, salvoCount: 2, salvoDelay: 8 },
     MAVERICK: { name: 'AGM-65', type: 'AGM', damage: 50, cooldown: 80, speed: 4, range: 220, turn: 0.08, targets: ['ground', 'ship', 'structure'], ammo: 1, icon: '🧨', navalOmni: true, salvoCount: 2, salvoDelay: 8 },
     HELLFIRE: { name: 'AGM-114', type: 'AGM', damage: 50, cooldown: 45, speed: 5, range: 180, turn: 0.1, targets: ['ground', 'ship', 'structure'], ammo: 2, icon: '🔥', navalOmni: true, salvoCount: 2, salvoDelay: 5 },
     HYPERSONIC_ASHM: { name: 'Hypersonic AShM', type: 'HYPERSONIC', damage: 260, cooldown: 220, speed: 11, range: 900, turn: 0.07, targets: ['ship', 'structure'], ammo: 1, icon: '🚀🌊', navalOmni: true, salvoCount: 2, salvoDelay: 10 },
@@ -49,7 +50,9 @@ const TECH_TREE = {
     "Guns": [ { id: "VULCAN", cost: 500, req: null }, { id: "CIWS", cost: 800, req: "VULCAN" }, { id: "RAILGUN", cost: 2000, req: "CIWS" } ],
     "Bombs": [ { id: "BOMB_GUIDED", cost: 600, req: null }, { id: "BOMB_CLUSTER", cost: 1200, req: "BOMB_GUIDED" }, { id: "BOMB_SDB", cost: 2000, req: "BOMB_CLUSTER" } ],
     "Rockets": [ { id: "ROCKET_DAGR", cost: 600, req: null }, { id: "ROCKET_DU", cost: 1500, req: "ROCKET_DAGR" } ],
-    "Missiles": [ { id: "MAVERICK", cost: 800, req: null }, { id: "HELLFIRE", cost: 1200, req: "MAVERICK" }, { id: "SIDEWINDER", cost: 1000, req: null }, { id: "AMRAAM", cost: 1500, req: "SIDEWINDER" }, { id: "TOMAHAWK", cost: 2500, req: "HELLFIRE" }, { id: "HYPERSONIC_ASHM", cost: 3500, req: "TOMAHAWK" } ],
+    "Air Missiles": [ { id: "SIDEWINDER", cost: 1000, req: null }, { id: "AMRAAM", cost: 1500, req: "SIDEWINDER" }, { id: "LRAAM", cost: 2200, req: "AMRAAM" } ],
+    "Strike Missiles": [ { id: "MAVERICK", cost: 800, req: null }, { id: "HELLFIRE", cost: 1200, req: "MAVERICK" } ],
+    "Naval Strike": [ { id: "TOMAHAWK", cost: 2500, req: "HELLFIRE" }, { id: "HYPERSONIC_ASHM", cost: 3500, req: "TOMAHAWK" } ],
     "Electronics": [ { id: "JAMMER_POD", cost: 1000, req: null }, { id: "ARAD", cost: 2000, req: "JAMMER_POD" }, { id: "FLARES", cost: 500, req: null, type: 'passive' }, { id: "CHAFF", cost: 1000, req: "FLARES", type: 'passive' }, { id: "DEF_JAMMER", cost: 2000, req: "CHAFF", type: 'passive' } ]
 };
 
@@ -90,6 +93,14 @@ const UNIT_TYPES = {
         { name: 'Rotodome 2', types: ['ECM'], equipped: 'EMPTY', x: 20, y: -10 },
         { name: 'L Wing', types: ['ECM', 'AAM_LIGHT'], equipped: 'EMPTY', x: -80, y: 20, ammoByWeapon: { SIDEWINDER: 2 } },
         { name: 'R Wing', types: ['ECM', 'AAM_LIGHT'], equipped: 'EMPTY', x: 80, y: 20, ammoByWeapon: { SIDEWINDER: 2 } }
+    ] },
+    SEAD_FIGHTER: { name: 'F-35G Shrike', type: 'air', role: 'SEAD', cost: 1400, hp: 220, speed: 2.7, turn: 0.055, fuel: 2200, ammo: 1, icon: '🦅📡', hardpoints: [
+        { name: 'Gun', types: ['GUN'], equipped: 'VULCAN', x: 0, y: -85 },
+        { name: 'EW Bay', types: ['ECM'], equipped: 'JAMMER_POD', x: 0, y: 0 },
+        { name: 'L Inner', types: ['AGM', 'AAM_HEAVY'], equipped: 'ARAD', x: -52, y: 35, ammoByWeapon: { ARAD: 2, AMRAAM: 2, LRAAM: 1, MAVERICK: 2 } },
+        { name: 'R Inner', types: ['AGM', 'AAM_HEAVY'], equipped: 'ARAD', x: 52, y: 35, ammoByWeapon: { ARAD: 2, AMRAAM: 2, LRAAM: 1, MAVERICK: 2 } },
+        { name: 'L Tip', types: ['AAM_LIGHT', 'AAM_HEAVY'], equipped: 'SIDEWINDER', x: -95, y: 5, ammoByWeapon: { SIDEWINDER: 2, AMRAAM: 1, LRAAM: 1 } },
+        { name: 'R Tip', types: ['AAM_LIGHT', 'AAM_HEAVY'], equipped: 'SIDEWINDER', x: 95, y: 5, ammoByWeapon: { SIDEWINDER: 2, AMRAAM: 1, LRAAM: 1 } }
     ] },
     ATTACK_HELI: { name: 'AH-64 Apache', type: 'heli', role: 'CAS', cost: 500, hp: 180, speed: 1.8, turn: 0.1, fuel: 2000, ammo: 1, icon: '🚁', hardpoints: [
         { name: 'Chain Gun', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -100 },
