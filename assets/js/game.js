@@ -117,7 +117,7 @@ function createPortBuilding(island, team, angle = Math.random() * Math.PI * 2) {
 function pickBestUnlockedWeaponForSlot(team, unitDef, slot) {
     const candidates = Object.keys(WEAPONS).filter(k => {
         const w = WEAPONS[k];
-        return slot.types.includes(w.type) && isUnlocked(team, k);
+        return slot.types.includes(w.type) && isUnlocked(team, k) && (!slot.allowedWeapons || slot.allowedWeapons.includes(k));
     });
     if (candidates.length === 0) return slot.equipped;
 
@@ -297,6 +297,8 @@ class Unit extends Entity {
 
         this.targetPos = { x: x, y: y }; this.targetUnit = null; this.state = 'IDLE'; this.rtb = false; 
         this.transportMission = null;
+        this.orbitAngle = Math.random() * Math.PI * 2;
+        this.orbitDir = Math.random() < 0.5 ? 1 : -1;
     }
 
     initLoadout() {
@@ -308,7 +310,8 @@ class Unit extends Entity {
                if(!best) best = WEAPONS['EMPTY'];
                Object.keys(WEAPONS).forEach(k => {
                    const w = WEAPONS[k];
-                   if (isUnlocked(this.team, k) && slot.types.includes(w.type)) {
+                   const slotAllowsWeapon = !slot.allowedWeapons || slot.allowedWeapons.includes(k);
+                   if (slotAllowsWeapon && isUnlocked(this.team, k) && slot.types.includes(w.type)) {
                        if (w.damage > best.damage || (w.type === 'ECM' && k === 'JAMMER_POD')) {
                            best = w;
                            wKey = k;
@@ -518,7 +521,16 @@ class Unit extends Entity {
             if (!this.base) this.findBase();
             if (this.base) moveTarget = this.base;
         } else if (this.targetUnit && !this.targetUnit.dead && this.data.type !== 'ship') {
-            moveTarget = this.targetUnit;
+            if (this.typeKey === 'AC130') {
+                this.orbitAngle += 0.01 * this.orbitDir * SPEED_SCALE * 5;
+                const orbitRadius = 150;
+                moveTarget = {
+                    x: this.targetUnit.x + Math.cos(this.orbitAngle) * orbitRadius,
+                    y: this.targetUnit.y + Math.sin(this.orbitAngle) * orbitRadius
+                };
+            } else {
+                moveTarget = this.targetUnit;
+            }
         }
         
         if (!moveTarget) { moveTarget = { x: this.x, y: this.y }; this.targetPos = { x: this.x, y: this.y }; }
@@ -581,7 +593,15 @@ class Unit extends Entity {
                     if (w.def.priorityTag && this.targetUnit.type !== w.def.priorityTag) return; 
                     
                     const omnidirectional = this.data.type === 'ship' && w.def.navalOmni;
-                    if (omnidirectional || Math.abs(aimDiff) < tolerance) {
+                    let firingArcOk = omnidirectional || Math.abs(aimDiff) < tolerance;
+                    if (this.typeKey === 'AC130') {
+                        const leftBearing = this.angle + Math.PI / 2;
+                        let sideDiff = angleToT - leftBearing;
+                        while (sideDiff < -Math.PI) sideDiff += Math.PI * 2;
+                        while (sideDiff > Math.PI) sideDiff -= Math.PI * 2;
+                        firingArcOk = Math.abs(sideDiff) < 0.55;
+                    }
+                    if (firingArcOk) {
                         if (isValidTarget(this.targetUnit, w.def.targets)) {
                             if (w.def.guided && w.def.type === 'BOMB') {
                                 this.fireWeapon(w, this.targetUnit);
@@ -693,7 +713,7 @@ class Unit extends Entity {
                 leadX = target.x + Math.cos(target.angle) * target.data.speed * SPEED_SCALE * timeToImpact * leadMultiplier;
                 leadY = target.y + Math.sin(target.angle) * target.data.speed * SPEED_SCALE * timeToImpact * leadMultiplier;
             }
-            projectiles.push(new Bullet(this.x, this.y, {x: leadX, y: leadY}, this.team, w.damage));
+            projectiles.push(new Bullet(this.x, this.y, {x: leadX, y: leadY}, this.team, w.damage, w.name === 'Railcannon'));
         }
     }
 
@@ -916,7 +936,16 @@ class Missile extends Projectile {
             
             if (gameTime % 30 === 0 && !this.isJammed && !this.isRocket) {
                 if (isUnlocked(this.target.team, 'FLARES') && Math.random() < 0.2) {
-                    addParticle(this.target.x, this.target.y, 'spark', 'FLARES');
+                    for (let i = 0; i < 10; i++) {
+                        particles.push({
+                            x: this.target.x + (Math.random() - 0.5) * 18,
+                            y: this.target.y + (Math.random() - 0.5) * 18,
+                            type: 'flare',
+                            life: 26 + Math.random() * 10,
+                            vx: (Math.random() - 0.5) * 1.2,
+                            vy: (Math.random() - 0.5) * 1.2
+                        });
+                    }
                     this.isJammed = true; 
                 }
             }
@@ -956,12 +985,13 @@ class Bomb extends Projectile {
 }
 
 class Bullet extends Projectile {
-    constructor(x, y, target, team, damage) {
+    constructor(x, y, target, team, damage, isRail = false) {
         super(x, y, target, team, damage);
         const a = Math.atan2(target.y - y, target.x - x);
         this.vx = Math.cos(a + (Math.random()-0.5)*0.02) * 8 * SPEED_SCALE;
         this.vy = Math.sin(a + (Math.random()-0.5)*0.02) * 8 * SPEED_SCALE;
         this.timer = 20 / SPEED_SCALE;
+        this.isRail = isRail;
     }
     update() {
         this.timer--; if (this.timer <= 0) this.dead = true;
@@ -972,7 +1002,20 @@ class Bullet extends Projectile {
             }
         });
     }
-    draw(ctx) { ctx.fillStyle = '#ff0'; ctx.fillRect(this.x-1, this.y-1, 2, 2); }
+    draw(ctx) {
+        if (this.isRail) {
+            ctx.strokeStyle = 'rgba(120, 240, 255, 0.95)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(this.x - this.vx * 0.6, this.y - this.vy * 0.6);
+            ctx.lineTo(this.x, this.y);
+            ctx.stroke();
+            ctx.fillStyle = '#e0ffff';
+            ctx.fillRect(this.x - 2, this.y - 2, 4, 4);
+            return;
+        }
+        ctx.fillStyle = '#ff0'; ctx.fillRect(this.x-1, this.y-1, 2, 2);
+    }
 }
 
 function isValidTarget(target, targetTypes) {
@@ -997,6 +1040,7 @@ function drawParticles(ctx) {
         else if (p.type === 'explosion') { ctx.fillStyle = `rgba(255, ${Math.floor(Math.random()*200)}, 0, ${p.life/30})`; ctx.beginPath(); ctx.arc(p.x, p.y, (30-p.life)/2, 0, Math.PI*2); ctx.fill(); }
         else if (p.type === 'smoke') { ctx.fillStyle = `rgba(200, 200, 200, ${p.life/30})`; ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI*2); ctx.fill(); }
         else if (p.type === 'smoke_light') { ctx.fillStyle = `rgba(210, 210, 210, ${p.life/60})`; ctx.beginPath(); ctx.arc(p.x, p.y, 1.3, 0, Math.PI*2); ctx.fill(); }
+        else if (p.type === 'flare') { ctx.fillStyle = `rgba(255, ${180 + Math.floor(Math.random()*70)}, 80, ${p.life/36})`; ctx.beginPath(); ctx.arc(p.x, p.y, 1 + Math.random() * 2.2, 0, Math.PI*2); ctx.fill(); }
         else if (p.type === 'spark') { ctx.fillStyle = '#ff0'; ctx.fillRect(p.x, p.y, 2, 2); }
     });
 }
@@ -1277,7 +1321,8 @@ function selectSlot(index, domElement) {
 
     Object.keys(WEAPONS).forEach(wKey => {
         const w = WEAPONS[wKey];
-        if (wKey === 'EMPTY' || allowedTypes.includes(w.type)) {
+        const slotAllowsWeapon = !slotDef.allowedWeapons || slotDef.allowedWeapons.includes(wKey);
+        if (slotAllowsWeapon && (wKey === 'EMPTY' || allowedTypes.includes(w.type))) {
             const opt = document.createElement('div');
             opt.className = 'weapon-option';
             if (slotDef.equipped === wKey) opt.classList.add('selected');
@@ -1534,6 +1579,7 @@ function updateTeamAI(team) {
     else if (myUnits.filter(u => u.typeKey === 'FIGHTER').length < 3) toBuild = 'FIGHTER';
     else if (myUnits.filter(u => u.typeKey === 'SEAD_FIGHTER').length < 1) toBuild = 'SEAD_FIGHTER';
     else if (myUnits.filter(u => u.typeKey === 'STRIKE').length < 3) toBuild = 'STRIKE';
+    else if (myUnits.filter(u => u.typeKey === 'AC130').length < 1) toBuild = 'AC130';
     else if (myUnits.filter(u => u.typeKey === 'BOMBER').length < 1) toBuild = 'BOMBER';
     else if (myUnits.filter(u => u.typeKey === 'AWACS').length < 1) toBuild = 'AWACS';
     else if (myUnits.filter(u => u.typeKey === 'DESTROYER').length < 2 && currentMapType !== 'LAND') toBuild = 'DESTROYER';
