@@ -32,6 +32,7 @@ const WEAPONS = {
     HELLFIRE: { name: 'AGM-114', type: 'AGM', damage: 50, cooldown: 45, speed: 5, range: 180, turn: 0.1, targets: ['ground', 'ship', 'structure'], ammo: 2, icon: '🔥', navalOmni: true, salvoCount: 2, salvoDelay: 5 },
     HYPERSONIC_ASHM: { name: 'Hypersonic AShM', type: 'HYPERSONIC', damage: 260, cooldown: 220, speed: 11, range: 900, turn: 0.07, targets: ['ship', 'structure'], ammo: 1, icon: '🚀🌊', navalOmni: true, salvoCount: 2, salvoDelay: 10 },
     TOMAHAWK: { name: 'Tomahawk', type: 'CRUISE', damage: 300, cooldown: 400, speed: 10, range: 800, turn: 0.05, targets: ['structure', 'ship'], ammo: 1, icon: '🐢', navalOmni: true, salvoCount: 2, salvoDelay: 12 },
+    PILE_DRIVER: { name: 'Pile-Driver TBM', type: 'TBM', damage: 420, cooldown: 340, speed: 5.5, range: 5000, targets: ['structure', 'ship', 'ground'], ammo: 1, icon: '🧱🚀', navalOmni: true, salvoCount: 1 },
     ARAD: { name: 'HARM', type: 'AGM', damage: 100, cooldown: 100, speed: 15, range: 800, turn: 0.15, targets: ['structure'], priorityTag: 'SAM_SITE', ammo: 1, icon: '📡💥', navalOmni: true, salvoCount: 2, salvoDelay: 7 },
     SF_DEPLOY: { name: 'SF Team', type: 'DEPLOY', damage: 0, cooldown: 120, range: 20, targets: [], capacity: 1, icon: '🪖', deployType: 'UNIT', unitType: 'SF' },
     DEPLOY_SPAA: { name: 'Light AA', type: 'DEPLOY', damage: 0, cooldown: 200, range: 20, targets: [], capacity: 1, icon: '🔫', deployType: 'BUILDING', buildType: 'DEPLOYED_SPAA' },
@@ -83,8 +84,8 @@ const UNIT_TYPES = {
         { name: 'R Inner', types: ['AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET'], equipped: 'BOMB_IRON', x: 50, y: 60, ammoByWeapon: { AMRAAM: 2, BOMB_IRON: 2, ROCKET_HYDRA: 4 } }
     ] },
     BOMBER: { name: 'B-52 Stratos', type: 'air', role: 'Bomber', cost: 1200, hp: 400, speed: 1.5, turn: 0.02, fuel: 3000, ammo: 1, icon: '💣', hardpoints: [
-        { name: 'Bay 1', types: ['BOMB', 'CRUISE'], equipped: 'BOMB_IRON', x: -25, y: -20, ammoByWeapon: { BOMB_IRON: 4, BOMB_GUIDED: 2, BOMB_CLUSTER: 2, BOMB_SDB: 4, TOMAHAWK: 2 } },
-        { name: 'Bay 2', types: ['BOMB', 'CRUISE'], equipped: 'BOMB_IRON', x: 25, y: -20, ammoByWeapon: { BOMB_IRON: 4, BOMB_GUIDED: 2, BOMB_CLUSTER: 2, BOMB_SDB: 4, TOMAHAWK: 2 } },
+        { name: 'Bay 1', types: ['BOMB', 'CRUISE', 'TBM'], equipped: 'BOMB_IRON', x: -25, y: -20, ammoByWeapon: { BOMB_IRON: 4, BOMB_GUIDED: 2, BOMB_CLUSTER: 2, BOMB_SDB: 4, TOMAHAWK: 2, PILE_DRIVER: 2 } },
+        { name: 'Bay 2', types: ['BOMB', 'CRUISE', 'TBM'], equipped: 'BOMB_IRON', x: 25, y: -20, ammoByWeapon: { BOMB_IRON: 4, BOMB_GUIDED: 2, BOMB_CLUSTER: 2, BOMB_SDB: 4, TOMAHAWK: 2, PILE_DRIVER: 2 } },
         { name: 'L Pylon', types: ['AGM', 'CRUISE', 'ECM'], equipped: 'EMPTY', x: -90, y: 20, ammoByWeapon: { MAVERICK: 2, HELLFIRE: 2, TOMAHAWK: 1 } },
         { name: 'R Pylon', types: ['AGM', 'CRUISE', 'ECM'], equipped: 'EMPTY', x: 90, y: 20, ammoByWeapon: { MAVERICK: 2, HELLFIRE: 2, TOMAHAWK: 1 } }
     ] },
@@ -153,8 +154,12 @@ const UNIT_TYPES = {
         { name: 'Strike Rack', types: ['AGM', 'CRUISE', 'AAM_HEAVY'], equipped: 'MAVERICK', x: 8, y: 8, ammoByWeapon: { ARAD: 4, AMRAAM: 8, MAVERICK: 10, TOMAHAWK: 4 } },
         { name: 'CIWS', types: ['GUN'], equipped: 'CIWS', x: 0, y: 45, allowedWeapons: ['GUN_BASIC', 'CIWS'] }
     ] },
+    SSBN: { name: 'SSBN', type: 'ship', role: 'Strategic', cost: 3800, hp: 1800, speed: 0.45, turn: 0.03, fuel: 9999, ammo: 1, icon: '🛳️🧱', hardpoints: [
+        { name: 'Missile Tube', types: ['TBM'], equipped: 'PILE_DRIVER', x: 0, y: 0, ammoByWeapon: { PILE_DRIVER: 8 }, allowedWeapons: ['PILE_DRIVER'] }
+    ] },
     CRUISE_MISSILE_UNIT: { name: 'Tomahawk', type: 'cruise', role: 'Strategic', cost: 0, hp: 20, speed: 2.5, turn: 0.05, fuel: 600, ammo: 0, icon: '🐢', hardpoints: [] },
-    HYPERSONIC_ASHM_UNIT: { name: 'Hypersonic AShM', type: 'cruise', role: 'Strategic', cost: 0, hp: 16, speed: 4.4, turn: 0.09, fuel: 700, ammo: 0, icon: '🚀🌊', hardpoints: [] }
+    HYPERSONIC_ASHM_UNIT: { name: 'Hypersonic AShM', type: 'cruise', role: 'Strategic', cost: 0, hp: 16, speed: 4.4, turn: 0.09, fuel: 700, ammo: 0, icon: '🚀🌊', hardpoints: [] },
+    PILE_DRIVER_TBM_UNIT: { name: 'Pile-Driver TBM', type: 'cruise', role: 'Strategic', cost: 0, hp: 24, speed: 4.8, turn: 0.02, fuel: 650, ammo: 0, icon: '🧱🚀', hardpoints: [] }
 };
 
 const BUILDINGS = {

@@ -251,7 +251,14 @@ class Building extends Entity {
             }
 
             if (this.type === 'SAM_SITE' || this.type === 'DEPLOYED_MANPADS' || this.type === 'DEPLOYED_ASHM') {
-                projectiles.push(new Missile(this.x, this.y, target, this.team, this.stats.damage, this.type.includes('SAM') || this.type.includes('MANPADS'))); 
+                const sam = new Missile(this.x, this.y, target, this.team, this.stats.damage, this.type.includes('SAM') || this.type.includes('MANPADS'));
+                if (this.type === 'SAM_SITE') {
+                    sam.damage = WEAPONS.LRAAM.damage;
+                    sam.baseSpeed = WEAPONS.LRAAM.speed;
+                    sam.turnRate = WEAPONS.LRAAM.turn || sam.turnRate;
+                    sam.guidanceType = 'radar';
+                }
+                projectiles.push(sam); 
             } else {
                 projectiles.push(new Bullet(this.x, this.y, {x: leadX, y: leadY}, this.team, this.stats.damage));
             }
@@ -359,6 +366,27 @@ class Unit extends Entity {
         const cooldownScale = SPEED_SCALE * (this.cooldownBoost || 1);
         if (this.fireTimer > 0) this.fireTimer -= cooldownScale;
         if (this.takeoffTimer > 0) this.takeoffTimer -= cooldownScale;
+
+        if (this.typeKey === 'PILE_DRIVER_TBM_UNIT') {
+            if (!this.targetPos) { this.dead = true; return; }
+            const startX = this.launchX ?? this.x;
+            const startY = this.launchY ?? this.y;
+            const totalD = Math.hypot(this.targetPos.x - startX, this.targetPos.y - startY) || 1;
+            this.tbmProgress = (this.tbmProgress || 0) + ((this.data.speed * SPEED_SCALE) / totalD);
+            const p = Math.min(1, this.tbmProgress);
+            const arc = Math.sin(p * Math.PI) * 180;
+            this.x = startX + (this.targetPos.x - startX) * p;
+            this.y = startY + (this.targetPos.y - startY) * p - arc;
+            this.angle = angleTo(this, this.targetPos);
+            if (p >= 1 || dist(this, this.targetPos) < 16) {
+                this.dead = true;
+                createExplosion(this.targetPos.x, this.targetPos.y, 85);
+                entities.forEach(e => { if (e.team !== this.team && dist(this.targetPos, e) < 85) e.takeDamage(420); });
+                islands.forEach(i => { i.buildings.forEach(b => { if (b.team !== this.team && dist(this.targetPos, b) < 85) b.takeDamage(420); }); });
+            }
+            if (gameTime % 7 === 0) addParticle(this.x, this.y, 'smoke_light');
+            return;
+        }
 
         if (this.typeKey === 'CRUISE_MISSILE_UNIT' || this.typeKey === 'HYPERSONIC_ASHM_UNIT') {
             this.hp -= (this.typeKey === 'HYPERSONIC_ASHM_UNIT' ? 0.02 : 0.01) * SPEED_SCALE; 
@@ -606,6 +634,7 @@ class Unit extends Entity {
                 if (w.ammo > 0 && w.cooldown <= 0 && w.burstCount === 0 && d <= w.def.range && !w.def.passive) {
                     if (this.takeoffTimer > 0) return;
                     if (w.def.type !== 'GUN' && this.fireTimer > 0) return;
+                    if (this.targetUnit && this.targetUnit.typeKey === 'PILE_DRIVER_TBM_UNIT' && w.name !== 'AIM-174B') return;
 
                     let tolerance = w.def.type === 'GUN' ? 0.3 : 0.8;
                     if (w.def.priorityTag && this.targetUnit.type !== w.def.priorityTag) return; 
@@ -711,6 +740,13 @@ class Unit extends Entity {
         else if (w.type === 'CRUISE') {
             const cm = new Unit(this.x, this.y, this.team, 'CRUISE_MISSILE_UNIT');
             cm.angle = this.angle; cm.targetPos = target; entities.push(cm);
+        } else if (w.type === 'TBM') {
+            const tbm = new Unit(this.x, this.y, this.team, 'PILE_DRIVER_TBM_UNIT');
+            tbm.targetPos = { x: target.x, y: target.y };
+            tbm.launchX = this.x;
+            tbm.launchY = this.y;
+            tbm.tbmProgress = 0;
+            entities.push(tbm);
         } else if (w.type === 'HYPERSONIC') {
             const hm = new Unit(this.x, this.y, this.team, 'HYPERSONIC_ASHM_UNIT');
             hm.angle = this.angle; hm.targetPos = target; entities.push(hm);
@@ -920,6 +956,7 @@ class Unit extends Entity {
         else if (this.typeKey === 'SF') { ctx.fillStyle = '#0f0'; ctx.beginPath(); ctx.arc(0,0, 3, 0, Math.PI*2); ctx.fill(); }
         else if (this.typeKey === 'CRUISE_MISSILE_UNIT') { ctx.fillStyle = '#fff'; ctx.fillRect(-5, -2, 10, 4); }
         else if (this.typeKey === 'HYPERSONIC_ASHM_UNIT') { ctx.fillStyle = '#ffd6d6'; ctx.fillRect(-6, -2, 12, 4); ctx.fillStyle = '#f55'; ctx.fillRect(-2, -3, 4, 6); }
+        else if (this.typeKey === 'PILE_DRIVER_TBM_UNIT') { ctx.fillStyle = '#ddd'; ctx.fillRect(-5, -2, 10, 4); ctx.fillStyle = '#a44'; ctx.fillRect(-2, -4, 4, 2); }
 
         let ammoCount = this.weapons.reduce((sum, w) => sum + (w.def.type==='GUN' || w.def.passive ? 1 : w.ammo), 0);
         if (this.data.type === 'air' && (this.fuel < 300 || ammoCount === 0)) { ctx.fillStyle = 'orange'; ctx.beginPath(); ctx.arc(0, -10, 2, 0, Math.PI*2); ctx.fill(); }
@@ -1500,7 +1537,7 @@ function createUI() {
     panel.innerHTML = '';
     
     Object.keys(UNIT_TYPES).forEach(key => {
-        if (key === 'SF' || key === 'CRUISE_MISSILE_UNIT' || key === 'HYPERSONIC_ASHM_UNIT') return; 
+        if (key === 'SF' || key === 'CRUISE_MISSILE_UNIT' || key === 'HYPERSONIC_ASHM_UNIT' || key === 'PILE_DRIVER_TBM_UNIT') return; 
         const data = UNIT_TYPES[key];
         
         // Hide naval units on Land maps
@@ -1616,6 +1653,7 @@ function updateTeamAI(team) {
     else if (myUnits.filter(u => u.typeKey === 'DESTROYER').length < 2 && currentMapType !== 'LAND') toBuild = 'DESTROYER';
     else if (myUnits.filter(u => u.typeKey === 'LANDING_SHIP').length < 1 && currentMapType !== 'LAND') toBuild = 'LANDING_SHIP';
     else if (myUnits.filter(u => u.typeKey === 'HUNTER_FRIGATE').length < 1 && currentMapType !== 'LAND') toBuild = 'HUNTER_FRIGATE';
+    else if (myUnits.filter(u => u.typeKey === 'SSBN').length < 1 && currentMapType !== 'LAND') toBuild = 'SSBN';
     else if (currentMapType !== 'LAND' && isUnlocked(team, 'HYPERSONIC_ASHM') && myUnits.filter(u => u.typeKey === 'ARSENAL_CRUISER').length < 1) toBuild = 'ARSENAL_CRUISER';
     else if (Math.random() > 0.7) toBuild = 'ATTACK_HELI';
 
