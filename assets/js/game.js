@@ -114,10 +114,25 @@ function createPortBuilding(island, team, angle = Math.random() * Math.PI * 2) {
     return port;
 }
 
+function isWeaponAllowedForSlot(unitDef, slot, weaponKey) {
+    if (!slot || !weaponKey || !WEAPONS[weaponKey]) return false;
+    if (weaponKey === 'EMPTY') return true;
+    const w = WEAPONS[weaponKey];
+    if (!slot.types.includes(w.type)) return false;
+    if (slot.allowedWeapons && !slot.allowedWeapons.includes(weaponKey)) return false;
+
+    if (w.type === 'GUN' && (weaponKey === 'RAILGUN' || weaponKey === 'CANNON_127MM')) {
+        const isAllowedPlatform = unitDef.type === 'ship' || unitDef.role === 'Gunship' || (unitDef.name && unitDef.name.includes('AC-130'));
+        if (!isAllowedPlatform) return false;
+    }
+
+    if (unitDef.type === 'ground' && w.type === 'GUN' && !['RIFLE', 'GUN_BASIC', 'VULCAN', 'CIWS'].includes(weaponKey)) return false;
+    return true;
+}
+
 function pickBestUnlockedWeaponForSlot(team, unitDef, slot) {
     const candidates = Object.keys(WEAPONS).filter(k => {
-        const w = WEAPONS[k];
-        return slot.types.includes(w.type) && isUnlocked(team, k) && (!slot.allowedWeapons || slot.allowedWeapons.includes(k));
+        return isUnlocked(team, k) && isWeaponAllowedForSlot(unitDef, slot, k);
     });
     if (candidates.length === 0) return slot.equipped;
 
@@ -299,6 +314,8 @@ class Unit extends Entity {
         this.transportMission = null;
         this.orbitAngle = Math.random() * Math.PI * 2;
         this.orbitDir = Math.random() < 0.5 ? 1 : -1;
+        this.turnBoost = 1;
+        this.cooldownBoost = 1;
     }
 
     initLoadout() {
@@ -310,8 +327,7 @@ class Unit extends Entity {
                if(!best) best = WEAPONS['EMPTY'];
                Object.keys(WEAPONS).forEach(k => {
                    const w = WEAPONS[k];
-                   const slotAllowsWeapon = !slot.allowedWeapons || slot.allowedWeapons.includes(k);
-                   if (slotAllowsWeapon && isUnlocked(this.team, k) && slot.types.includes(w.type)) {
+                   if (isUnlocked(this.team, k) && isWeaponAllowedForSlot(this.data, slot, k)) {
                        if (w.damage > best.damage || (w.type === 'ECM' && k === 'JAMMER_POD')) {
                            best = w;
                            wKey = k;
@@ -340,8 +356,9 @@ class Unit extends Entity {
 
     update() {
         if (this.dead) return;
-        if (this.fireTimer > 0) this.fireTimer -= SPEED_SCALE;
-        if (this.takeoffTimer > 0) this.takeoffTimer -= SPEED_SCALE;
+        const cooldownScale = SPEED_SCALE * (this.cooldownBoost || 1);
+        if (this.fireTimer > 0) this.fireTimer -= cooldownScale;
+        if (this.takeoffTimer > 0) this.takeoffTimer -= cooldownScale;
 
         if (this.typeKey === 'CRUISE_MISSILE_UNIT' || this.typeKey === 'HYPERSONIC_ASHM_UNIT') {
             this.hp -= (this.typeKey === 'HYPERSONIC_ASHM_UNIT' ? 0.02 : 0.01) * SPEED_SCALE; 
@@ -429,7 +446,7 @@ class Unit extends Entity {
                 w.jammedTargets.forEach(p => { p.jamTimer += SPEED_SCALE; p.angle += (Math.random() - 0.5) * 0.8; });
             }
             if (w.burstCount > 0) {
-                w.burstTimer -= SPEED_SCALE;
+                w.burstTimer -= cooldownScale;
                 if (w.burstTimer <= 0) {
                     w.burstCount--; w.burstTimer = 5; 
                     let p = new Missile(this.x, this.y, this.targetUnit, this.team, w.def.damage / 3);
@@ -437,7 +454,7 @@ class Unit extends Entity {
                 }
             }
             if (w.pendingSalvo > 0) {
-                w.salvoTimer -= SPEED_SCALE;
+                w.salvoTimer -= cooldownScale;
                 if (w.salvoTimer <= 0) {
                     const salvoTarget = w.salvoTarget && !w.salvoTarget.dead ? w.salvoTarget : null;
                     if (!salvoTarget) {
@@ -450,7 +467,7 @@ class Unit extends Entity {
                     }
                 }
             }
-            if (w.cooldown > 0) w.cooldown -= SPEED_SCALE;
+            if (w.cooldown > 0) w.cooldown -= cooldownScale;
         });
 
         if (this.targetUnit && this.targetUnit.dead) {
@@ -541,7 +558,7 @@ class Unit extends Entity {
         if (this.data.type === 'ship' && !this.hasCommand && !this.rtb && distToTarget < 1) desiredAngle = this.angle;
         let diff = desiredAngle - this.angle;
         while (diff < -Math.PI) diff += Math.PI * 2; while (diff > Math.PI) diff -= Math.PI * 2;
-        const turnSpeed = this.data.turn * SPEED_SCALE;
+        const turnSpeed = this.data.turn * (this.turnBoost || 1) * SPEED_SCALE;
         
         let speed = this.data.speed * SPEED_SCALE; 
         if (this.data.type === 'air' && this.typeKey !== 'FIGHTER') speed *= 1; 
@@ -1006,6 +1023,16 @@ class Bullet extends Projectile {
                 e.takeDamage(this.damage); this.dead = true; addParticle(this.x, this.y, 'spark');
             }
         });
+        islands.forEach(i => {
+            i.buildings.forEach(b => {
+                if (this.dead || b.team === this.team || b.dead) return;
+                if (dist(this, b) < 10) {
+                    b.takeDamage(this.damage);
+                    this.dead = true;
+                    addParticle(this.x, this.y, 'spark');
+                }
+            });
+        });
     }
     draw(ctx) {
         if (this.isRail) {
@@ -1326,8 +1353,7 @@ function selectSlot(index, domElement) {
 
     Object.keys(WEAPONS).forEach(wKey => {
         const w = WEAPONS[wKey];
-        const slotAllowsWeapon = !slotDef.allowedWeapons || slotDef.allowedWeapons.includes(wKey);
-        if (slotAllowsWeapon && (wKey === 'EMPTY' || allowedTypes.includes(w.type))) {
+        if (isWeaponAllowedForSlot(UNIT_TYPES[editingUnitKey], slotDef, wKey)) {
             const opt = document.createElement('div');
             opt.className = 'weapon-option';
             if (slotDef.equipped === wKey) opt.classList.add('selected');
@@ -1823,6 +1849,18 @@ function loop() {
             if (isSpectator) updateTeamAI(TEAM_PLAYER); // Blue AI (Spectator Mode)
             aiTimer = 0;
         }
+
+        entities.forEach(e => { if (e instanceof Unit) { e.turnBoost = 1; e.cooldownBoost = 1; } });
+        entities.forEach(source => {
+            if (!(source instanceof Unit) || !source.data.commandAuraRadius) return;
+            entities.forEach(target => {
+                if (!(target instanceof Unit) || target.team !== source.team || target === source || target.dead) return;
+                if (dist(source, target) <= source.data.commandAuraRadius) {
+                    target.turnBoost = Math.max(target.turnBoost || 1, source.data.commandTurnBoost || 1);
+                    target.cooldownBoost = Math.max(target.cooldownBoost || 1, source.data.commandCooldownBoost || 1);
+                }
+            });
+        });
 
         entities.forEach(e => e.update());
         islands.forEach(i => i.buildings.forEach(b => b.update()));

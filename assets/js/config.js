@@ -15,7 +15,7 @@ const WEAPONS = {
     GUN_BASIC: { name: '.50 Cal MG', type: 'GUN', damage: 2, cooldown: 2, speed: 12, range: 100, targets: ['air','heli','ground'], icon: '🔫', navalOmni: true, salvoCount: 2, salvoDelay: 2 }, 
     VULCAN: { name: '20mm Vulcan', type: 'GUN', damage: 8, cooldown: 2, speed: 12, range: 150, targets: ['air','heli','ground'], icon: '🌭' },
     CANNON_127MM: { name: '127mm Cannon', type: 'GUN', damage: 40, cooldown: 60, speed: 10, range: 200, targets: ['ground', 'ship'], icon: '💣', navalOmni: true, salvoCount: 3, salvoDelay: 4 },
-    RAILGUN: { name: 'Railcannon', type: 'GUN', damage: 260, cooldown: 36, speed: 50, range: 420, targets: ['air','heli','ground','ship','structure'], icon: '⚡' },
+    RAILGUN: { name: 'Railcannon', type: 'GUN', damage: 260, cooldown: 36, speed: 100, range: 420, targets: ['air','heli','ground','ship','structure'], icon: '⚡' },
     CIWS: { name: 'Phalanx CIWS', type: 'GUN', damage: 10, cooldown: 4, speed: 12, range: 120, targets: ['air','heli', 'cruise'], icon: '🛡️', navalOmni: true, salvoCount: 4, salvoDelay: 1, leadMultiplier: 1.35 },
     RIFLE: { name: 'Assault Rifle', type: 'GUN', damage: 2, cooldown: 30, speed: 8, range: 100, targets: ['ground'], icon: '🔫' },
     ROCKET_HYDRA: { name: 'Hydra 70', type: 'ROCKET', damage: 15, cooldown: 5, speed: 6, range: 160, targets: ['ground', 'ship', 'structure'], burst: 3, ammo: 3, icon: '🎇' },
@@ -122,7 +122,7 @@ const UNIT_TYPES = {
     AAA_BATTERY: { name: 'AAA Battery', type: 'ground', role: 'Air Defense', cost: 900, hp: 420, speed: 0.2, turn: 0.2, fuel: 9999, ammo: 1, icon: '🛡️', hardpoints: [
         { name: 'CIWS Mount', types: ['GUN'], equipped: 'CIWS', x: 0, y: 0 }
     ] },
-    CARRIER: { name: 'Carrier', type: 'ship', role: 'Base', cost: 2500, hp: 2000, speed: 0.6, turn: 0.04, fuel: 0, ammo: 999, icon: '🚢', hardpoints: [
+    CARRIER: { name: 'Carrier', type: 'ship', role: 'Base', cost: 2500, hp: 2000, speed: 0.6, turn: 0.04, fuel: 0, ammo: 999, icon: '🚢', commandAuraRadius: 220, commandTurnBoost: 1.2, commandCooldownBoost: 1.15, hardpoints: [
         { name: 'Bow AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -50, allowedWeapons: ['GUN_BASIC', 'CIWS'] },
         { name: 'Stern AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: 80, allowedWeapons: ['GUN_BASIC', 'CIWS'] },
         { name: 'Mid AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 40, y: 20, allowedWeapons: ['GUN_BASIC', 'CIWS'] }
@@ -147,7 +147,7 @@ const UNIT_TYPES = {
         { name: 'Troop Bay', types: ['DEPLOY'], equipped: 'DEPLOY_AAA_BATTERY', x: 8, y: 12, ammoByWeapon: { DEPLOY_IR_APC: 2, DEPLOY_AAA_BATTERY: 2, SF_DEPLOY: 2 } },
         { name: 'Aft CIWS', types: ['GUN'], equipped: 'CIWS', x: 0, y: 45, allowedWeapons: ['GUN_BASIC', 'CIWS'] }
     ] },
-    HUNTER_FRIGATE: { name: 'Hunter Frigate', type: 'ship', role: 'SEAD/Interdiction', cost: 2400, hp: 1400, speed: 0.85, turn: 0.06, fuel: 9999, ammo: 1, icon: '⚓🎯', hardpoints: [
+    HUNTER_FRIGATE: { name: 'Hunter Frigate', type: 'ship', role: 'SEAD/Interdiction', cost: 2400, hp: 1400, speed: 0.85, turn: 0.06, fuel: 9999, ammo: 1, icon: '⚓🎯', commandAuraRadius: 170, commandTurnBoost: 1.15, commandCooldownBoost: 1.1, hardpoints: [
         { name: 'Main Gun', types: ['GUN'], equipped: 'CANNON_127MM', x: 0, y: -35, allowedWeapons: ['CANNON_127MM', 'RAILGUN'] },
         { name: 'SEAD Rack', types: ['AGM', 'AAM_HEAVY'], equipped: 'ARAD', x: -8, y: 4, ammoByWeapon: { ARAD: 6, AMRAAM: 8, MAVERICK: 8 } },
         { name: 'Strike Rack', types: ['AGM', 'CRUISE', 'AAM_HEAVY'], equipped: 'MAVERICK', x: 8, y: 8, ammoByWeapon: { ARAD: 4, AMRAAM: 8, MAVERICK: 10, TOMAHAWK: 4 } },
