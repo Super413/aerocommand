@@ -418,9 +418,10 @@ class Unit extends Entity {
         this.weapons.forEach(w => {
             if (w.def.type === 'ECM') {
                 w.jammedTargets = w.jammedTargets.filter(p => !p.dead && dist(this, p) < w.def.range);
-                if (w.jammedTargets.length < (w.def.capacity || 2)) {
+                const jamCapacity = Math.min(2, w.def.capacity || 2);
+                if (w.jammedTargets.length < jamCapacity) {
                     projectiles.forEach(p => {
-                        if (p instanceof Missile && !p.isBomb && !p.isRocket && p.team !== this.team && !p.dead && !p.isJammed && dist(this, p) < w.def.range && w.jammedTargets.length < (w.def.capacity || 2)) {
+                        if (p instanceof Missile && !p.isBomb && !p.isRocket && p.team !== this.team && !p.dead && !p.isJammed && dist(this, p) < w.def.range && w.jammedTargets.length < jamCapacity) {
                             w.jammedTargets.push(p); p.isJammed = true; addParticle(p.x, p.y, 'text', 'JAMMED');
                         }
                     });
@@ -697,7 +698,9 @@ class Unit extends Entity {
             const hm = new Unit(this.x, this.y, this.team, 'HYPERSONIC_ASHM_UNIT');
             hm.angle = this.angle; hm.targetPos = target; entities.push(hm);
         } else if (w.type.includes('AAM') || w.type === 'AGM') {
-            projectiles.push(new Missile(this.x, this.y, target, this.team, w.damage));
+            const missile = new Missile(this.x, this.y, target, this.team, w.damage);
+            missile.guidanceType = w.guidance || null;
+            projectiles.push(missile);
         } else if (w.type === 'BOMB') {
             if (w.guided) {
                 const p = new Missile(this.x, this.y, target, this.team, w.damage);
@@ -855,6 +858,7 @@ class Unit extends Entity {
         ctx.fillStyle = COLORS[this.team]; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
         
         if (this.typeKey === 'FIGHTER') { ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(-8, 6); ctx.lineTo(-5, 0); ctx.lineTo(-8, -6); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+        else if (this.typeKey === 'AC130') { ctx.fillStyle = '#4e5a6b'; ctx.fillRect(-16, -7, 30, 14); ctx.fillStyle = '#333'; ctx.fillRect(10, -3, 10, 6); ctx.fillStyle = '#8aa'; ctx.fillRect(-12, -1, 6, 2); ctx.fillRect(-12, 3, 6, 2); }
         else if (this.typeKey === 'SEAD_FIGHTER') { ctx.beginPath(); ctx.moveTo(12,0); ctx.lineTo(-10, 7); ctx.lineTo(-6, 0); ctx.lineTo(-10, -7); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#222'; ctx.fillRect(-3,-3,6,6); }
         else if (this.typeKey === 'STRIKE') { ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(-8, 7); ctx.lineTo(-8, -7); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#333'; ctx.beginPath(); ctx.moveTo(-6,0); ctx.lineTo(-10, 3); ctx.lineTo(-10, -3); ctx.fill(); }
         else if (this.typeKey === 'BOMBER' || this.typeKey === 'AWACS') { 
@@ -935,7 +939,8 @@ class Missile extends Projectile {
             while (diff < -Math.PI) diff += Math.PI * 2; while (diff > Math.PI) diff -= Math.PI * 2;
             
             if (gameTime % 30 === 0 && !this.isJammed && !this.isRocket) {
-                if (isUnlocked(this.target.team, 'FLARES') && Math.random() < 0.2) {
+                const flareChance = this.guidanceType === 'heat' ? 0.55 : 0.2;
+                if (isUnlocked(this.target.team, 'FLARES') && Math.random() < flareChance) {
                     for (let i = 0; i < 10; i++) {
                         particles.push({
                             x: this.target.x + (Math.random() - 0.5) * 18,
