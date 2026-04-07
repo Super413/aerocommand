@@ -27,6 +27,8 @@ const islands = [];
 
 const mouse = { x: 0, y: 0, left: false, right: false, worldX: 0, worldY: 0 };
 let selection = [];
+let manualStrikeMode = false;
+let manualStrikePlan = null;
 
 function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 function angleTo(a, b) { return Math.atan2(b.y - a.y, b.x - a.x); }
@@ -944,6 +946,11 @@ class Unit extends Entity {
             ctx.fillStyle = '#667'; ctx.beginPath(); ctx.moveTo(17, 0); ctx.lineTo(-22, 11); ctx.lineTo(-22, -11); ctx.fill();
             ctx.fillStyle = '#b22'; ctx.fillRect(-3, -5, 6, 10);
         }
+        else if (this.typeKey === 'SSBN') {
+            ctx.fillStyle = '#1f2730'; ctx.fillRect(-20, -7, 40, 14);
+            ctx.fillStyle = '#4b5a6a'; ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(-24, 10); ctx.lineTo(-24, -10); ctx.fill();
+            ctx.fillStyle = '#8899aa'; ctx.fillRect(-6, -4, 10, 8);
+        }
         else if (this.typeKey === 'IR_APC') {
             ctx.fillStyle = '#4a5a3a'; ctx.fillRect(-9, -5, 18, 10);
             ctx.fillStyle = '#2a2a2a'; ctx.fillRect(-10, -7, 20, 2); ctx.fillRect(-10, 5, 20, 2);
@@ -1314,6 +1321,53 @@ function setZoneMode(type) {
 function clearZones() {
     TEAMS[TEAM_PLAYER].zones = [];
     addParticle(camera.x + width/2, camera.y + height/2, 'text', 'ZONES CLEARED');
+}
+
+function openManualStrikeDialog() {
+    if (selection.length === 0 || !(selection[0] instanceof Unit)) return;
+    const unit = selection[0];
+    const eligibleWeapons = unit.weapons.filter(w => !w.def.passive && w.def.type !== 'GUN' && w.ammo > 0);
+    if (eligibleWeapons.length === 0) {
+        addParticle(unit.x, unit.y - 15, 'text', 'NO MUNITIONS');
+        return;
+    }
+    const menuText = eligibleWeapons.map((w, i) => `${i + 1}. ${w.def.name} (${w.ammo})`).join('\n');
+    const weaponChoice = parseInt(prompt(`Select weapon:\n${menuText}`, '1'), 10);
+    if (!weaponChoice || weaponChoice < 1 || weaponChoice > eligibleWeapons.length) return;
+    const selectedWeapon = eligibleWeapons[weaponChoice - 1];
+
+    const munitionCount = parseInt(prompt(`How many ${selectedWeapon.def.name} to fire? (max ${selectedWeapon.ammo})`, `${Math.min(4, selectedWeapon.ammo)}`), 10);
+    if (!munitionCount || munitionCount < 1) return;
+    const targetCount = parseInt(prompt('How many targets for this salvo?', '1'), 10);
+    if (!targetCount || targetCount < 1) return;
+
+    manualStrikeMode = true;
+    manualStrikePlan = {
+        unit,
+        weapon: selectedWeapon,
+        remainingShots: Math.min(selectedWeapon.ammo, munitionCount),
+        targetsNeeded: targetCount,
+        targets: []
+    };
+    addParticle(unit.x, unit.y - 20, 'text', `MANUAL STRIKE: PICK ${targetCount} TARGETS`);
+}
+
+function executeManualStrikePlan() {
+    if (!manualStrikePlan || !manualStrikePlan.unit || manualStrikePlan.unit.dead) return;
+    const { unit, weapon, targets, remainingShots } = manualStrikePlan;
+    if (!weapon || weapon.ammo <= 0 || targets.length === 0) return;
+
+    const shots = Math.min(remainingShots, weapon.ammo);
+    for (let s = 0; s < shots; s++) {
+        const target = targets[s % targets.length];
+        if (!target || target.dead) continue;
+        weapon.ammo--;
+        unit.spawnWeaponProjectile(weapon, target);
+    }
+    weapon.cooldown = Math.max(1, weapon.cooldown);
+    unit.fireTimer = 0;
+    manualStrikeMode = false;
+    manualStrikePlan = null;
 }
 
 // --- UI / TECH ---
@@ -1720,7 +1774,13 @@ function updateTeamAI(team) {
 }
 
 // --- Loop & Camera ---
-window.addEventListener('keydown', e => inputKeys[e.key] = true);
+window.addEventListener('keydown', e => {
+    inputKeys[e.key] = true;
+    if (e.key === 'Escape' && manualStrikeMode) {
+        manualStrikeMode = false;
+        manualStrikePlan = null;
+    }
+});
 window.addEventListener('keyup', e => inputKeys[e.key] = false);
 
 canvas.addEventListener('mousedown', e => {
@@ -1745,6 +1805,16 @@ canvas.addEventListener('mousedown', e => {
         }
     } else if (e.button === 2) { 
         e.preventDefault();
+        if (manualStrikeMode && manualStrikePlan) {
+            let target = entities.find(u => Math.hypot(u.x - mouse.worldX, u.y - mouse.worldY) < 20 && u.team !== TEAM_PLAYER && u.visible);
+            if (!target) { islands.forEach(i => { if (i.owner !== TEAM_PLAYER) i.buildings.forEach(b => { if(Math.hypot(b.x - mouse.worldX, b.y - mouse.worldY) < 20) target = b; }); }); }
+            if (target) {
+                manualStrikePlan.targets.push(target);
+                addParticle(target.x, target.y, 'text', `SALVO ${manualStrikePlan.targets.length}/${manualStrikePlan.targetsNeeded}`);
+                if (manualStrikePlan.targets.length >= manualStrikePlan.targetsNeeded) executeManualStrikePlan();
+            }
+            return;
+        }
         if (selection.length > 0 && selection[0] instanceof Unit) {
             let friendlyBase = null;
             let clickedCarrier = entities.find(u => Math.hypot(u.x - mouse.worldX, u.y - mouse.worldY) < 20 && u.team === TEAM_PLAYER && u.typeKey === 'CARRIER');
