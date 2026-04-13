@@ -19,6 +19,8 @@ let zoneEditMode = false;
 let currentZoneType = null;
 let zoneDragStart = null;
 let currentMapType = 'ARCHIPELAGO';
+let multiplayerMode = 'OFF';
+let multiplayerSessionCode = '';
 
 const entities = [];
 const particles = [];
@@ -1184,6 +1186,35 @@ function chooseBestAiTarget(unit, team) {
 
 // --- INITIALIZATION ---
 
+function generateSessionCode() {
+    return Math.random().toString(36).substring(2, 10).toUpperCase();
+}
+
+function updateMultiplayerSetup() {
+    const mode = document.getElementById('mode-select').value;
+    const options = document.getElementById('multiplayer-options');
+    const codeInput = document.getElementById('session-code');
+    const status = document.getElementById('multiplayer-status');
+    const isMp = mode === 'multiplayer-host' || mode === 'multiplayer-join';
+
+    options.style.display = isMp ? 'block' : 'none';
+    if (!isMp) return;
+
+    if (mode === 'multiplayer-host') {
+        codeInput.value = generateSessionCode();
+        codeInput.readOnly = true;
+        status.innerText = 'Hosting lobby (share code for Firebase sync)';
+    } else {
+        codeInput.readOnly = false;
+        codeInput.value = '';
+        status.innerText = 'Enter host code to join lobby';
+    }
+}
+
+function hideEndOverlay() {
+    document.getElementById('overlay').style.display = 'none';
+}
+
 function initGame() {
     width = canvas.width = window.innerWidth;
     height = canvas.height = window.innerHeight; 
@@ -1196,7 +1227,13 @@ function showMainMenu() {
     document.getElementById('main-menu').style.display = 'flex';
     document.getElementById('setup-menu').style.display = 'none';
     document.getElementById('ui-layer').style.display = 'none';
+    hideEndOverlay();
+    gamePaused = false;
     gameState = 'MENU';
+}
+
+function returnToMainMenu() {
+    showMainMenu();
 }
 
 function showSetup() {
@@ -1205,6 +1242,7 @@ function showSetup() {
     document.getElementById('map-size').value = "2";
     document.getElementById('island-size').value = "50";
     generateMap(); 
+    updateMultiplayerSetup();
     gameState = 'SETUP';
 }
 
@@ -1255,7 +1293,19 @@ function generateMap() {
 function startGame() {
     const mode = document.getElementById('mode-select').value;
     isSpectator = (mode === 'spectator');
-    
+    multiplayerMode = mode === 'multiplayer-host' ? 'HOST' : (mode === 'multiplayer-join' ? 'JOIN' : 'OFF');
+    multiplayerSessionCode = '';
+
+    if (multiplayerMode !== 'OFF') {
+        const sessionInput = document.getElementById('session-code');
+        const normalizedCode = sessionInput.value.trim().toUpperCase();
+        if (!normalizedCode) {
+            alert('Session code is required for multiplayer.');
+            return;
+        }
+        multiplayerSessionCode = normalizedCode;
+    }
+
     TEAMS[TEAM_PLAYER].money = 2000;
     TEAMS[TEAM_AI].money = 2000;
     TEAMS[TEAM_PLAYER].tech = new Set([...DEFAULT_UNLOCKS]);
@@ -1264,6 +1314,8 @@ function startGame() {
     TEAMS[TEAM_AI].zones = [];
     gameTime = 0;
     gameOver = false;
+    hideEndOverlay();
+    gamePaused = false;
 
     if(currentMapType !== 'LAND') {
         entities.push(new Unit(300, worldHeight/2, TEAM_PLAYER, 'CARRIER'));
@@ -1299,6 +1351,11 @@ function startGame() {
     
     createUI();
     gameState = 'GAME';
+
+    if (multiplayerMode !== 'OFF') {
+        const role = multiplayerMode === 'HOST' ? 'HOSTING' : 'JOINED';
+        addParticle(camera.x + width / 2, camera.y + 60, 'text', `${role}: ${multiplayerSessionCode}`);
+    }
 }
 
 // --- ZONES ---
@@ -1382,11 +1439,11 @@ function toggleEditMode() {
 }
 
 function openModal(id) { 
-    gamePaused = true;
+    if (multiplayerMode === 'OFF') gamePaused = true;
     document.getElementById(id).style.display = 'flex'; 
 }
 function closeModal(id) { 
-    gamePaused = false;
+    if (multiplayerMode === 'OFF') gamePaused = false;
     document.getElementById(id).style.display = 'none'; 
     editingUnitKey = null; 
     selectedSlotIndex = null;
@@ -1990,7 +2047,16 @@ function loop() {
 }
 
 function endGame(msg) {
-    gameOver = true; document.getElementById('overlay').style.display = 'block'; document.getElementById('overlay-msg').innerText = msg; document.getElementById('overlay-msg').style.color = msg === 'VICTORY' ? '#4f4' : '#f44';
+    gameOver = true;
+    const overlay = document.getElementById('overlay');
+    const overlayMsg = document.getElementById('overlay-msg');
+    const overlaySubmsg = document.getElementById('overlay-submsg');
+    overlay.style.display = 'flex';
+    overlayMsg.innerText = msg;
+    overlayMsg.style.color = msg === 'VICTORY' ? '#4f4' : '#f44';
+
+    const modeText = multiplayerMode === 'HOST' ? `Hosted Session: ${multiplayerSessionCode}` : (multiplayerMode === 'JOIN' ? `Joined Session: ${multiplayerSessionCode}` : 'Skirmish Complete');
+    overlaySubmsg.innerText = `${modeText} • Return to main menu to host/join a new mission.`;
 }
 
 function draw() {
@@ -2039,4 +2105,5 @@ function draw() {
 }
 
 window.onresize = () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; };
+document.getElementById('mode-select').addEventListener('change', updateMultiplayerSetup);
 initGame();

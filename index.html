@@ -11,7 +11,13 @@
 <div id="game-container">
     <canvas id="gameCanvas"></canvas>
     <div id="cam-help">WASD / Arrows to Pan</div>
-    <div id="overlay"><h1 id="overlay-msg">VICTORY</h1></div>
+    <div id="overlay">
+        <div class="overlay-card">
+            <h1 id="overlay-msg">VICTORY</h1>
+            <p id="overlay-submsg">Mission complete.</p>
+            <div class="menu-btn overlay-btn" onclick="returnToMainMenu()">RETURN TO MAIN MENU</div>
+        </div>
+    </div>
     
     <!-- Main Menu -->
     <div id="main-menu" class="menu-screen">
@@ -51,7 +57,19 @@
             <select id="mode-select">
                 <option value="player">Player vs AI</option>
                 <option value="spectator">Spectator (AI vs AI)</option>
+                <option value="multiplayer-host">Multiplayer (Host)</option>
+                <option value="multiplayer-join">Multiplayer (Join)</option>
             </select>
+        </div>
+        <div id="multiplayer-options" style="display:none; width: 400px;">
+            <div class="setup-group">
+                <span class="setup-label">Session Code</span>
+                <input id="session-code" type="text" maxlength="8" placeholder="AB12CD34">
+            </div>
+            <div class="setup-group">
+                <span class="setup-label">Status</span>
+                <span id="multiplayer-status" class="setup-status">Ready for Firebase handoff</span>
+            </div>
         </div>
         
         <div class="menu-btn" style="font-size: 18px; width: 200px; padding: 10px;" onclick="randomizeMap()">Randomize Map</div>

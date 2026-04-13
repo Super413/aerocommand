@@ -239,13 +239,27 @@ p { margin: 2px 0; color: #ccc; }
 .menu-btn:hover { background: #4faaff; color: #000; border-color: #fff; }
 .setup-group { margin: 15px 0; text-align: center; width: 400px; display:flex; justify-content: space-between; align-items: center; }
 .setup-label { color: #aaa; font-size: 18px; }
-select, input[type=range] { background: #333; color: white; padding: 5px 10px; border: 1px solid #555; font-size: 16px; width: 200px; }
+select, input[type=range], input[type=text] { background: #333; color: white; padding: 5px 10px; border: 1px solid #555; font-size: 16px; width: 200px; box-sizing: border-box; }
+.setup-status { color: #8fd4ff; font-size: 14px; }
 
 #overlay {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    text-align: center; pointer-events: none; text-shadow: 2px 2px 4px #000; display: none; z-index: 100;
+    position: absolute; inset: 0;
+    text-align: center; display: none; z-index: 100;
+    background: rgba(0, 0, 0, 0.65);
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
 }
-#overlay h1 { font-size: 64px; margin: 0; }
+#overlay h1 { font-size: 64px; margin: 0; text-shadow: 2px 2px 4px #000; }
+.overlay-card {
+    min-width: 420px;
+    background: rgba(10, 14, 20, 0.95);
+    border: 2px solid #4faaff;
+    padding: 28px;
+    box-shadow: 0 0 24px rgba(0,0,0,0.5);
+}
+#overlay-submsg { color: #d2e8ff; margin: 10px 0 24px; }
+.overlay-btn { width: auto; font-size: 18px; margin: 0 auto; }
 
 #tooltip {
     position: absolute; background: rgba(0,0,0,0.9); border: 1px solid #777;
