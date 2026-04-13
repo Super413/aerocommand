@@ -27,6 +27,8 @@ const islands = [];
 
 const mouse = { x: 0, y: 0, left: false, right: false, worldX: 0, worldY: 0 };
 let selection = [];
+let manualStrikeMode = false;
+let manualStrikePlan = null;
 
 function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 function angleTo(a, b) { return Math.atan2(b.y - a.y, b.x - a.x); }
@@ -60,6 +62,109 @@ function getConfiguredSlotAmmo(unitKey, slotIndex, weaponKey) {
         return Math.max(1, slot.customAmmoByWeapon[weaponKey]);
     }
     return getDefaultWeaponAmmo({ data: unit }, slot, weaponKey);
+}
+
+function findNearestFriendlyAirport(unit, searchRange = 120) {
+    let nearestAirport = null;
+    let minDistance = searchRange;
+    islands.forEach(i => {
+        if (i.owner !== unit.team) return;
+        i.buildings.forEach(b => {
+            if (b.type !== 'AIRPORT' || b.dead) return;
+            const d = dist(unit, b);
+            if (d < minDistance) {
+                minDistance = d;
+                nearestAirport = b;
+            }
+        });
+    });
+    return nearestAirport;
+}
+
+function findNearestFriendlyPort(unit, searchRange = 80) {
+    let nearestPort = null;
+    let minDistance = searchRange;
+    islands.forEach(i => {
+        if (i.owner !== unit.team) return;
+        i.buildings.forEach(b => {
+            if (b.type !== 'PORT' || b.dead) return;
+            const d = dist(unit, b);
+            if (d < minDistance) {
+                minDistance = d;
+                nearestPort = b;
+            }
+        });
+    });
+    return nearestPort;
+}
+
+function getIslandDefenseSpawn(island, index, total, radiusFactor = 0.55) {
+    const angle = (-Math.PI / 3) + (index / Math.max(1, total)) * (Math.PI * 2 / 3);
+    const r = island.radius * radiusFactor;
+    return {
+        x: island.x + Math.cos(angle) * r,
+        y: island.y + Math.sin(angle) * r
+    };
+}
+
+function createPortBuilding(island, team, angle = Math.random() * Math.PI * 2) {
+    const r = island.radius * 1.02;
+    const x = island.x + Math.cos(angle) * r;
+    const y = island.y + Math.sin(angle) * r;
+    const port = new Building(x, y, team, 'PORT');
+    port.dockAngle = angle;
+    return port;
+}
+
+function isWeaponAllowedForSlot(unitDef, slot, weaponKey) {
+    if (!slot || !weaponKey || !WEAPONS[weaponKey]) return false;
+    if (weaponKey === 'EMPTY') return true;
+    const w = WEAPONS[weaponKey];
+    if (!slot.types.includes(w.type)) return false;
+    if (slot.allowedWeapons && !slot.allowedWeapons.includes(weaponKey)) return false;
+
+    if (w.type === 'GUN' && (weaponKey === 'RAILGUN' || weaponKey === 'CANNON_127MM')) {
+        const isAllowedPlatform = unitDef.type === 'ship' || unitDef.role === 'Gunship' || (unitDef.name && unitDef.name.includes('AC-130'));
+        if (!isAllowedPlatform) return false;
+    }
+
+    if (unitDef.type === 'ground' && w.type === 'GUN' && !['RIFLE', 'GUN_BASIC', 'VULCAN', 'CIWS'].includes(weaponKey)) return false;
+    return true;
+}
+
+function pickBestUnlockedWeaponForSlot(team, unitDef, slot) {
+    const candidates = Object.keys(WEAPONS).filter(k => {
+        return isUnlocked(team, k) && isWeaponAllowedForSlot(unitDef, slot, k);
+    });
+    if (candidates.length === 0) return slot.equipped;
+
+    let best = slot.equipped;
+    let bestScore = -Infinity;
+    candidates.forEach(k => {
+        const w = WEAPONS[k];
+        let score = (w.damage || 0) * 3 + (w.range || 0) * 0.25;
+        if (unitDef.role === 'AA' && w.type.includes('AAM')) score += 180;
+        if (unitDef.role === 'SEAD' && (k === 'ARAD' || w.type === 'ECM')) score += 220;
+        if (unitDef.type === 'ship' && w.type === 'CRUISE') score += 60;
+        if (w.type === 'ECM') score += 25;
+        if (k === 'SIDEWINDER' && unitDef.role === 'AA') score += 120;
+        if (score > bestScore) { bestScore = score; best = k; }
+    });
+    return best;
+}
+
+function autoOptimizeTeamLoadouts(team) {
+    Object.values(UNIT_TYPES).forEach(unitDef => {
+        if (!unitDef.hardpoints) return;
+        unitDef.hardpoints.forEach(slot => {
+            if (!slot.types || slot.types.length === 0) return;
+            const next = pickBestUnlockedWeaponForSlot(team, unitDef, slot);
+            if (next && next !== 'EMPTY') slot.equipped = next;
+        });
+    });
+    entities.forEach(e => {
+        if (e.team === team && e instanceof Unit) e.initLoadout();
+    });
 }
 
 // --- Classes ---
@@ -122,6 +227,7 @@ class Building extends Entity {
     }
     update() {
         if (this.dead) return;
+        if (this.type === 'PORT') return;
         if (this.cooldown > 0) this.cooldown -= SPEED_SCALE;
         let validTypes = (this.type.includes('COASTAL') || this.type.includes('ASHM')) ? ['ship'] : ['air', 'heli', 'cruise'];
         if (this.team === TEAM_NEUTRAL) return; 
@@ -147,7 +253,14 @@ class Building extends Entity {
             }
 
             if (this.type === 'SAM_SITE' || this.type === 'DEPLOYED_MANPADS' || this.type === 'DEPLOYED_ASHM') {
-                projectiles.push(new Missile(this.x, this.y, target, this.team, this.stats.damage, this.type.includes('SAM') || this.type.includes('MANPADS'))); 
+                const sam = new Missile(this.x, this.y, target, this.team, this.stats.damage, this.type.includes('SAM') || this.type.includes('MANPADS'));
+                if (this.type === 'SAM_SITE') {
+                    sam.damage = WEAPONS.LRAAM.damage;
+                    sam.baseSpeed = WEAPONS.LRAAM.speed;
+                    sam.turnRate = WEAPONS.LRAAM.turn || sam.turnRate;
+                    sam.guidanceType = 'radar';
+                }
+                projectiles.push(sam); 
             } else {
                 projectiles.push(new Bullet(this.x, this.y, {x: leadX, y: leadY}, this.team, this.stats.damage));
             }
@@ -158,6 +271,32 @@ class Building extends Entity {
         ctx.save(); ctx.translate(this.x, this.y);
         if (this.hp < this.maxHp) { ctx.fillStyle = 'red'; ctx.fillRect(-10, -20, 20, 4); ctx.fillStyle = '#0f0'; ctx.fillRect(-10, -20, 20 * (this.hp/this.maxHp), 4); }
         if (this.type === 'AIRPORT') { ctx.fillStyle = '#222'; ctx.fillRect(-15, -15, 30, 30); ctx.fillStyle = COLORS[this.team]; ctx.font = '20px Arial'; ctx.fillText('H', -7, 7); } 
+        else if (this.type === 'PORT') {
+            const parentIsland = islands.find(i => dist(this, i) < i.radius * 1.4);
+            const outAngle = this.dockAngle !== undefined ? this.dockAngle : (parentIsland ? angleTo(parentIsland, this) : 0);
+            const nx = Math.cos(outAngle), ny = Math.sin(outAngle);
+            const tx = -Math.sin(outAngle), ty = Math.cos(outAngle);
+            const innerLen = 10, prongLen = 22, prongSpacing = 8;
+            const cx = -nx * innerLen * 0.5, cy = -ny * innerLen * 0.5;
+            ctx.strokeStyle = '#c8d3dd';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(cx - tx * prongSpacing, cy - ty * prongSpacing);
+            ctx.lineTo(cx + tx * prongSpacing, cy + ty * prongSpacing);
+            ctx.stroke();
+            ctx.strokeStyle = '#9fb2c3';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(cx - tx * prongSpacing, cy - ty * prongSpacing);
+            ctx.lineTo(cx - tx * prongSpacing + nx * prongLen, cy - ty * prongSpacing + ny * prongLen);
+            ctx.moveTo(cx + tx * prongSpacing, cy + ty * prongSpacing);
+            ctx.lineTo(cx + tx * prongSpacing + nx * prongLen, cy + ty * prongSpacing + ny * prongLen);
+            ctx.stroke();
+            ctx.fillStyle = '#2f4f67';
+            ctx.beginPath();
+            ctx.arc(0, 0, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
         else if (this.type.includes('COASTAL')) { ctx.fillStyle = '#443'; ctx.beginPath(); ctx.arc(0,0,10,0,Math.PI*2); ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(15,0); ctx.stroke(); } 
         else if (this.type.includes('ASHM')) { ctx.fillStyle = '#444'; ctx.fillRect(-10,-10,20,20); ctx.fillStyle = '#f00'; ctx.fillRect(-5,-5,10,10); } 
         else { ctx.fillStyle = '#444'; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = COLORS[this.team]; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0, -10); ctx.stroke(); }
@@ -182,6 +321,10 @@ class Unit extends Entity {
 
         this.targetPos = { x: x, y: y }; this.targetUnit = null; this.state = 'IDLE'; this.rtb = false; 
         this.transportMission = null;
+        this.orbitAngle = Math.random() * Math.PI * 2;
+        this.orbitDir = Math.random() < 0.5 ? 1 : -1;
+        this.turnBoost = 1;
+        this.cooldownBoost = 1;
     }
 
     initLoadout() {
@@ -193,7 +336,7 @@ class Unit extends Entity {
                if(!best) best = WEAPONS['EMPTY'];
                Object.keys(WEAPONS).forEach(k => {
                    const w = WEAPONS[k];
-                   if (isUnlocked(this.team, k) && slot.types.includes(w.type)) {
+                   if (isUnlocked(this.team, k) && isWeaponAllowedForSlot(this.data, slot, k)) {
                        if (w.damage > best.damage || (w.type === 'ECM' && k === 'JAMMER_POD')) {
                            best = w;
                            wKey = k;
@@ -222,22 +365,55 @@ class Unit extends Entity {
 
     update() {
         if (this.dead) return;
-        if (this.fireTimer > 0) this.fireTimer -= SPEED_SCALE;
-        if (this.takeoffTimer > 0) this.takeoffTimer -= SPEED_SCALE;
+        const cooldownScale = SPEED_SCALE * (this.cooldownBoost || 1);
+        if (this.fireTimer > 0) this.fireTimer -= cooldownScale;
+        if (this.takeoffTimer > 0) this.takeoffTimer -= cooldownScale;
 
-        if (this.typeKey === 'CRUISE_MISSILE_UNIT') {
-            this.hp -= 0.01 * SPEED_SCALE; 
+        if (this.typeKey === 'PILE_DRIVER_TBM_UNIT') {
+            if (!this.targetPos) { this.dead = true; return; }
+            const startX = this.launchX ?? this.x;
+            const startY = this.launchY ?? this.y;
+            const totalD = Math.hypot(this.targetPos.x - startX, this.targetPos.y - startY) || 1;
+            this.tbmProgress = (this.tbmProgress || 0) + ((this.data.speed * SPEED_SCALE) / totalD);
+            const p = Math.min(1, this.tbmProgress);
+            const arc = Math.sin(p * Math.PI) * 180;
+            this.x = startX + (this.targetPos.x - startX) * p;
+            this.y = startY + (this.targetPos.y - startY) * p - arc;
+            this.angle = angleTo(this, this.targetPos);
+            if (p >= 1 || dist(this, this.targetPos) < 16) {
+                this.dead = true;
+                createExplosion(this.targetPos.x, this.targetPos.y, 85);
+                entities.forEach(e => { if (e.team !== this.team && dist(this.targetPos, e) < 85) e.takeDamage(420); });
+                islands.forEach(i => { i.buildings.forEach(b => { if (b.team !== this.team && dist(this.targetPos, b) < 85) b.takeDamage(420); }); });
+            }
+            if (gameTime % 7 === 0) addParticle(this.x, this.y, 'smoke_light');
+            return;
+        }
+
+        if (this.typeKey === 'CRUISE_MISSILE_UNIT' || this.typeKey === 'HYPERSONIC_ASHM_UNIT') {
+            this.hp -= (this.typeKey === 'HYPERSONIC_ASHM_UNIT' ? 0.02 : 0.01) * SPEED_SCALE; 
             if (this.hp <= 0) this.dead = true;
             if (this.targetPos) {
-                 this.angle = angleTo(this, this.targetPos);
+                 const targetAngle = angleTo(this, this.targetPos);
+                 this.angle = targetAngle;
+                 const targetDistance = dist(this, this.targetPos);
+                 if (this.typeKey === 'HYPERSONIC_ASHM_UNIT' && targetDistance < 220) {
+                    const weave = Math.sin(gameTime * 0.35 + this.x * 0.01 + this.y * 0.01) * 0.32;
+                    this.angle += weave;
+                 }
                  this.x += Math.cos(this.angle) * this.data.speed * SPEED_SCALE;
                  this.y += Math.sin(this.angle) * this.data.speed * SPEED_SCALE;
                  if (dist(this, this.targetPos) < 20) {
-                     this.dead = true; createExplosion(this.x, this.y, 60);
-                     entities.forEach(e => { if (e.team !== this.team && dist(this, e) < 60) e.takeDamage(300); });
-                     islands.forEach(i => { i.buildings.forEach(b => { if (b.team !== this.team && dist(this, b) < 60) b.takeDamage(300); }); });
+                     this.dead = true;
+                     const blastRadius = this.typeKey === 'HYPERSONIC_ASHM_UNIT' ? 70 : 60;
+                     const blastDamage = this.typeKey === 'HYPERSONIC_ASHM_UNIT' ? 360 : 300;
+                     createExplosion(this.x, this.y, blastRadius);
+                     entities.forEach(e => { if (e.team !== this.team && dist(this, e) < blastRadius) e.takeDamage(blastDamage); });
+                     islands.forEach(i => { i.buildings.forEach(b => { if (b.team !== this.team && dist(this, b) < blastRadius) b.takeDamage(blastDamage); }); });
                  }
             }
+            if (this.typeKey === 'HYPERSONIC_ASHM_UNIT' && gameTime % 6 === 0) addParticle(this.x, this.y, 'smoke_light');
+            if (this.typeKey === 'CRUISE_MISSILE_UNIT' && gameTime % 8 === 0) addParticle(this.x, this.y, 'smoke_light');
             return; 
         }
 
@@ -248,6 +424,18 @@ class Unit extends Entity {
             let needsAmmo = expendableWeapons.length > 0 && expendableWeapons.every(w => w.ammo === 0);
             if (needsAmmo && this.typeKey === 'TRANSPORT' && this.weapons.some(w=>w.def.type==='DEPLOY')) needsAmmo = true; 
             if ((this.fuel < this.data.fuel * 0.3 || needsAmmo) && !this.rtb) { this.rtb = true; this.findBase(); }
+        }
+
+        if (this.data.type === 'ship') {
+            const port = findNearestFriendlyPort(this, 75);
+            if (port) {
+                this.hp = Math.min(this.maxHp, this.hp + 0.8 * SPEED_SCALE);
+                if (gameTime % 45 === 0) {
+                    this.weapons.forEach(w => {
+                        if (!w.def.passive && w.def.type !== 'GUN' && w.ammo < w.maxAmmo) w.ammo++;
+                    });
+                }
+            }
         }
 
         if (this.rtb && this.base && dist(this, this.base) < 30) { if (this.state !== 'LANDED') { this.state = 'LANDED'; this.initLoadout(); } }
@@ -277,9 +465,10 @@ class Unit extends Entity {
         this.weapons.forEach(w => {
             if (w.def.type === 'ECM') {
                 w.jammedTargets = w.jammedTargets.filter(p => !p.dead && dist(this, p) < w.def.range);
-                if (w.jammedTargets.length < (w.def.capacity || 2)) {
+                const jamCapacity = Math.min(2, w.def.capacity || 2);
+                if (w.jammedTargets.length < jamCapacity) {
                     projectiles.forEach(p => {
-                        if (p instanceof Missile && !p.isBomb && !p.isRocket && p.team !== this.team && !p.dead && !p.isJammed && dist(this, p) < w.def.range && w.jammedTargets.length < (w.def.capacity || 2)) {
+                        if (p instanceof Missile && !p.isBomb && !p.isRocket && p.team !== this.team && !p.dead && !p.isJammed && dist(this, p) < w.def.range && w.jammedTargets.length < jamCapacity) {
                             w.jammedTargets.push(p); p.isJammed = true; addParticle(p.x, p.y, 'text', 'JAMMED');
                         }
                     });
@@ -287,7 +476,7 @@ class Unit extends Entity {
                 w.jammedTargets.forEach(p => { p.jamTimer += SPEED_SCALE; p.angle += (Math.random() - 0.5) * 0.8; });
             }
             if (w.burstCount > 0) {
-                w.burstTimer -= SPEED_SCALE;
+                w.burstTimer -= cooldownScale;
                 if (w.burstTimer <= 0) {
                     w.burstCount--; w.burstTimer = 5; 
                     let p = new Missile(this.x, this.y, this.targetUnit, this.team, w.def.damage / 3);
@@ -295,7 +484,7 @@ class Unit extends Entity {
                 }
             }
             if (w.pendingSalvo > 0) {
-                w.salvoTimer -= SPEED_SCALE;
+                w.salvoTimer -= cooldownScale;
                 if (w.salvoTimer <= 0) {
                     const salvoTarget = w.salvoTarget && !w.salvoTarget.dead ? w.salvoTarget : null;
                     if (!salvoTarget) {
@@ -308,7 +497,7 @@ class Unit extends Entity {
                     }
                 }
             }
-            if (w.cooldown > 0) w.cooldown -= SPEED_SCALE;
+            if (w.cooldown > 0) w.cooldown -= cooldownScale;
         });
 
         if (this.targetUnit && this.targetUnit.dead) {
@@ -380,7 +569,16 @@ class Unit extends Entity {
             if (!this.base) this.findBase();
             if (this.base) moveTarget = this.base;
         } else if (this.targetUnit && !this.targetUnit.dead && this.data.type !== 'ship') {
-            moveTarget = this.targetUnit;
+            if (this.typeKey === 'AC130') {
+                this.orbitAngle += 0.01 * this.orbitDir * SPEED_SCALE * 5;
+                const orbitRadius = 150;
+                moveTarget = {
+                    x: this.targetUnit.x + Math.cos(this.orbitAngle) * orbitRadius,
+                    y: this.targetUnit.y + Math.sin(this.orbitAngle) * orbitRadius
+                };
+            } else {
+                moveTarget = this.targetUnit;
+            }
         }
         
         if (!moveTarget) { moveTarget = { x: this.x, y: this.y }; this.targetPos = { x: this.x, y: this.y }; }
@@ -390,7 +588,7 @@ class Unit extends Entity {
         if (this.data.type === 'ship' && !this.hasCommand && !this.rtb && distToTarget < 1) desiredAngle = this.angle;
         let diff = desiredAngle - this.angle;
         while (diff < -Math.PI) diff += Math.PI * 2; while (diff > Math.PI) diff -= Math.PI * 2;
-        const turnSpeed = this.data.turn * SPEED_SCALE;
+        const turnSpeed = this.data.turn * (this.turnBoost || 1) * SPEED_SCALE;
         
         let speed = this.data.speed * SPEED_SCALE; 
         if (this.data.type === 'air' && this.typeKey !== 'FIGHTER') speed *= 1; 
@@ -438,12 +636,21 @@ class Unit extends Entity {
                 if (w.ammo > 0 && w.cooldown <= 0 && w.burstCount === 0 && d <= w.def.range && !w.def.passive) {
                     if (this.takeoffTimer > 0) return;
                     if (w.def.type !== 'GUN' && this.fireTimer > 0) return;
+                    if (this.targetUnit && this.targetUnit.typeKey === 'PILE_DRIVER_TBM_UNIT' && w.name !== 'AIM-174B') return;
 
                     let tolerance = w.def.type === 'GUN' ? 0.3 : 0.8;
                     if (w.def.priorityTag && this.targetUnit.type !== w.def.priorityTag) return; 
                     
                     const omnidirectional = this.data.type === 'ship' && w.def.navalOmni;
-                    if (omnidirectional || Math.abs(aimDiff) < tolerance) {
+                    let firingArcOk = omnidirectional || Math.abs(aimDiff) < tolerance;
+                    if (this.typeKey === 'AC130') {
+                        const leftBearing = this.angle + Math.PI / 2;
+                        let sideDiff = angleToT - leftBearing;
+                        while (sideDiff < -Math.PI) sideDiff += Math.PI * 2;
+                        while (sideDiff > Math.PI) sideDiff -= Math.PI * 2;
+                        firingArcOk = Math.abs(sideDiff) < 0.55;
+                    }
+                    if (firingArcOk) {
                         if (isValidTarget(this.targetUnit, w.def.targets)) {
                             if (w.def.guided && w.def.type === 'BOMB') {
                                 this.fireWeapon(w, this.targetUnit);
@@ -458,6 +665,18 @@ class Unit extends Entity {
         }
 
         this.handleTransportDeployment();
+
+        if ((this.typeKey === 'IR_APC' || this.typeKey === 'AAA_BATTERY') && gameTime % 90 === 0) {
+            const base = findNearestFriendlyAirport(this, 130);
+            if (base) {
+                this.weapons.forEach(w => {
+                    if (!w.def.passive && w.def.type !== 'GUN' && w.ammo < w.maxAmmo) {
+                        w.ammo++;
+                        addParticle(this.x, this.y - 8, 'text', 'REARM');
+                    }
+                });
+            }
+        }
         
         if (this.typeKey === 'CARRIER') {
             entities.forEach(e => { if (e.team === this.team && e !== this && dist(this, e) < 50 && e.data.type !== 'ship') { if (e.rtb) { e.state = 'LANDED'; e.base = this; e.x = this.x; e.y = this.y; } } });
@@ -523,8 +742,20 @@ class Unit extends Entity {
         else if (w.type === 'CRUISE') {
             const cm = new Unit(this.x, this.y, this.team, 'CRUISE_MISSILE_UNIT');
             cm.angle = this.angle; cm.targetPos = target; entities.push(cm);
+        } else if (w.type === 'TBM') {
+            const tbm = new Unit(this.x, this.y, this.team, 'PILE_DRIVER_TBM_UNIT');
+            tbm.targetPos = { x: target.x, y: target.y };
+            tbm.launchX = this.x;
+            tbm.launchY = this.y;
+            tbm.tbmProgress = 0;
+            entities.push(tbm);
+        } else if (w.type === 'HYPERSONIC') {
+            const hm = new Unit(this.x, this.y, this.team, 'HYPERSONIC_ASHM_UNIT');
+            hm.angle = this.angle; hm.targetPos = target; entities.push(hm);
         } else if (w.type.includes('AAM') || w.type === 'AGM') {
-            projectiles.push(new Missile(this.x, this.y, target, this.team, w.damage));
+            const missile = new Missile(this.x, this.y, target, this.team, w.damage);
+            missile.guidanceType = w.guidance || null;
+            projectiles.push(missile);
         } else if (w.type === 'BOMB') {
             if (w.guided) {
                 const p = new Missile(this.x, this.y, target, this.team, w.damage);
@@ -540,12 +771,12 @@ class Unit extends Entity {
                 leadX = target.x + Math.cos(target.angle) * target.data.speed * SPEED_SCALE * timeToImpact * leadMultiplier;
                 leadY = target.y + Math.sin(target.angle) * target.data.speed * SPEED_SCALE * timeToImpact * leadMultiplier;
             }
-            projectiles.push(new Bullet(this.x, this.y, {x: leadX, y: leadY}, this.team, w.damage));
+            projectiles.push(new Bullet(this.x, this.y, {x: leadX, y: leadY}, this.team, w.damage, w.name === 'Railcannon'));
         }
     }
 
     handleTransportDeployment() {
-        if (this.typeKey !== 'TRANSPORT' || this.state === 'RETURN' || !this.targetPos) return;
+        if (!this.weapons.some(w => w.def.type === 'DEPLOY') || this.state === 'RETURN' || !this.targetPos) return;
         if (dist(this, this.targetPos) > 70) return;
 
         const deployContext = this.getTransportDeployContext();
@@ -575,12 +806,22 @@ class Unit extends Entity {
     }
 
     deployTransportUnit(deployDef, deployContext) {
-        if (deployDef.unitType !== 'SF') return false;
+        if (!deployDef.unitType || !UNIT_TYPES[deployDef.unitType]) return false;
         const mission = this.transportMission;
-        const dropIsland = mission?.targetIsland || deployContext.contestedIsland || deployContext.nearbyIsland;
+        const dropIsland = mission?.targetIsland || deployContext.contestedIsland;
         if (!dropIsland) return false;
 
-        const sf = new Unit(this.x, this.y + 10, this.team, deployDef.unitType);
+        const dropPos = mission?.dropPoint ? { x: mission.dropPoint.x, y: mission.dropPoint.y } : { x: this.x, y: this.y + 10 };
+        const toDropX = dropPos.x - dropIsland.x;
+        const toDropY = dropPos.y - dropIsland.y;
+        const toDropMag = Math.hypot(toDropX, toDropY) || 1;
+        const safeInset = dropIsland.radius * 0.92;
+        const spawnPoint = {
+            x: dropIsland.x + (toDropX / toDropMag) * safeInset,
+            y: dropIsland.y + (toDropY / toDropMag) * safeInset
+        };
+
+        const sf = new Unit(spawnPoint.x, spawnPoint.y, this.team, deployDef.unitType);
         if (mission && mission.capturePoint) sf.targetPos = { x: mission.capturePoint.x, y: mission.capturePoint.y };
         else sf.targetPos = { x: dropIsland.x, y: dropIsland.y };
         entities.push(sf);
@@ -588,7 +829,9 @@ class Unit extends Entity {
         if (mission) {
             this.transportMission = null;
             this.hasCommand = false;
-            this.state = 'IDLE';
+            this.state = 'RETURN';
+            this.rtb = true;
+            this.findBase();
         }
         return true;
     }
@@ -605,7 +848,7 @@ class Unit extends Entity {
     }
 
     setTransportAssaultMission(targetIsland, capturePoint = null) {
-        if (this.typeKey !== 'TRANSPORT') return;
+        if (!this.weapons.some(w => w.def.type === 'DEPLOY' && w.def.deployType === 'UNIT' && w.ammo > 0)) return;
         const toTransportX = this.x - targetIsland.x;
         const toTransportY = this.y - targetIsland.y;
         const mag = Math.hypot(toTransportX, toTransportY) || 1;
@@ -643,6 +886,26 @@ class Unit extends Entity {
         ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
         if (selection.includes(this)) {
             ctx.strokeStyle = '#0f0'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0,0, this.radius + 5, 0, Math.PI*2); ctx.stroke();
+            const rangeByType = {};
+            this.weapons.forEach(w => {
+                if (w.def.passive || !w.def.range || w.def.range <= 0) return;
+                const typeKey = w.def.type.includes('AAM') ? 'AAM' : w.def.type;
+                rangeByType[typeKey] = Math.max(rangeByType[typeKey] || 0, w.def.range);
+            });
+            const rangeColors = { GUN: 'rgba(255,255,255,0.35)', AAM: 'rgba(80,180,255,0.35)', AGM: 'rgba(255,120,120,0.35)', ROCKET: 'rgba(255,180,80,0.35)', BOMB: 'rgba(220,220,120,0.35)', CRUISE: 'rgba(200,80,255,0.35)', HYPERSONIC: 'rgba(255,80,180,0.4)', DEPLOY: 'rgba(120,255,120,0.35)' };
+            ctx.restore();
+            Object.keys(rangeByType).forEach(type => {
+                ctx.save();
+                ctx.strokeStyle = rangeColors[type] || 'rgba(120,255,120,0.35)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([6, 6]);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, rangeByType[type], 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
+            });
+            ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
             if (this.targetPos && !this.targetUnit && this.state !== 'IDLE') {
                 ctx.restore(); ctx.save(); ctx.strokeStyle = '#0f0'; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(this.targetPos.x, this.targetPos.y); ctx.stroke(); ctx.restore(); ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
             }
@@ -650,6 +913,8 @@ class Unit extends Entity {
         ctx.fillStyle = COLORS[this.team]; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
         
         if (this.typeKey === 'FIGHTER') { ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(-8, 6); ctx.lineTo(-5, 0); ctx.lineTo(-8, -6); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+        else if (this.typeKey === 'AC130') { ctx.fillStyle = '#4e5a6b'; ctx.fillRect(-16, -7, 30, 14); ctx.fillStyle = '#333'; ctx.fillRect(10, -3, 10, 6); ctx.fillStyle = '#8aa'; ctx.fillRect(-12, -1, 6, 2); ctx.fillRect(-12, 3, 6, 2); }
+        else if (this.typeKey === 'SEAD_FIGHTER') { ctx.beginPath(); ctx.moveTo(12,0); ctx.lineTo(-10, 7); ctx.lineTo(-6, 0); ctx.lineTo(-10, -7); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#222'; ctx.fillRect(-3,-3,6,6); }
         else if (this.typeKey === 'STRIKE') { ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(-8, 7); ctx.lineTo(-8, -7); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#333'; ctx.beginPath(); ctx.moveTo(-6,0); ctx.lineTo(-10, 3); ctx.lineTo(-10, -3); ctx.fill(); }
         else if (this.typeKey === 'BOMBER' || this.typeKey === 'AWACS') { 
             ctx.beginPath(); ctx.moveTo(15,0); ctx.lineTo(-10, 15); ctx.lineTo(-5, 0); ctx.lineTo(-10, -15); ctx.closePath(); ctx.fill(); ctx.stroke(); 
@@ -665,8 +930,40 @@ class Unit extends Entity {
             ctx.fillStyle = '#555'; ctx.beginPath(); ctx.moveTo(15, 0); ctx.lineTo(-20, 10); ctx.lineTo(-20, -10); ctx.fill();
             ctx.fillStyle = '#222'; ctx.fillRect(0, -5, 10, 10); 
         }
+        else if (this.typeKey === 'ARSENAL_CRUISER') {
+            ctx.fillStyle = '#2f3640'; ctx.fillRect(-19, -10, 38, 20);
+            ctx.fillStyle = '#555'; ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(-24, 12); ctx.lineTo(-24, -12); ctx.fill();
+            ctx.fillStyle = '#8892a0'; ctx.fillRect(-4, -6, 8, 12);
+            ctx.fillStyle = '#a33'; ctx.fillRect(-12, -3, 5, 6); ctx.fillRect(7, -3, 5, 6);
+        }
+        else if (this.typeKey === 'LANDING_SHIP') {
+            ctx.fillStyle = '#5a5f66'; ctx.fillRect(-18, -9, 36, 18);
+            ctx.fillStyle = '#7d8791'; ctx.fillRect(-6, -6, 12, 12);
+            ctx.fillStyle = '#333'; ctx.fillRect(-14, 2, 8, 5); ctx.fillRect(6, 2, 8, 5);
+        }
+        else if (this.typeKey === 'HUNTER_FRIGATE') {
+            ctx.fillStyle = '#2e3440'; ctx.fillRect(-16, -8, 32, 16);
+            ctx.fillStyle = '#667'; ctx.beginPath(); ctx.moveTo(17, 0); ctx.lineTo(-22, 11); ctx.lineTo(-22, -11); ctx.fill();
+            ctx.fillStyle = '#b22'; ctx.fillRect(-3, -5, 6, 10);
+        }
+        else if (this.typeKey === 'SSBN') {
+            ctx.fillStyle = '#1f2730'; ctx.fillRect(-20, -7, 40, 14);
+            ctx.fillStyle = '#4b5a6a'; ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(-24, 10); ctx.lineTo(-24, -10); ctx.fill();
+            ctx.fillStyle = '#8899aa'; ctx.fillRect(-6, -4, 10, 8);
+        }
+        else if (this.typeKey === 'IR_APC') {
+            ctx.fillStyle = '#4a5a3a'; ctx.fillRect(-9, -5, 18, 10);
+            ctx.fillStyle = '#2a2a2a'; ctx.fillRect(-10, -7, 20, 2); ctx.fillRect(-10, 5, 20, 2);
+            ctx.strokeStyle = '#bbb'; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(10,0); ctx.stroke();
+        }
+        else if (this.typeKey === 'AAA_BATTERY') {
+            ctx.fillStyle = '#3d3d3d'; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#9cf'; ctx.beginPath(); ctx.moveTo(-10, -3); ctx.lineTo(10, -3); ctx.moveTo(-10, 3); ctx.lineTo(10, 3); ctx.stroke();
+        }
         else if (this.typeKey === 'SF') { ctx.fillStyle = '#0f0'; ctx.beginPath(); ctx.arc(0,0, 3, 0, Math.PI*2); ctx.fill(); }
         else if (this.typeKey === 'CRUISE_MISSILE_UNIT') { ctx.fillStyle = '#fff'; ctx.fillRect(-5, -2, 10, 4); }
+        else if (this.typeKey === 'HYPERSONIC_ASHM_UNIT') { ctx.fillStyle = '#ffd6d6'; ctx.fillRect(-6, -2, 12, 4); ctx.fillStyle = '#f55'; ctx.fillRect(-2, -3, 4, 6); }
+        else if (this.typeKey === 'PILE_DRIVER_TBM_UNIT') { ctx.fillStyle = '#ddd'; ctx.fillRect(-5, -2, 10, 4); ctx.fillStyle = '#a44'; ctx.fillRect(-2, -4, 4, 2); }
 
         let ammoCount = this.weapons.reduce((sum, w) => sum + (w.def.type==='GUN' || w.def.passive ? 1 : w.ammo), 0);
         if (this.data.type === 'air' && (this.fuel < 300 || ammoCount === 0)) { ctx.fillStyle = 'orange'; ctx.beginPath(); ctx.arc(0, -10, 2, 0, Math.PI*2); ctx.fill(); }
@@ -703,8 +1000,18 @@ class Missile extends Projectile {
             while (diff < -Math.PI) diff += Math.PI * 2; while (diff > Math.PI) diff -= Math.PI * 2;
             
             if (gameTime % 30 === 0 && !this.isJammed && !this.isRocket) {
-                if (isUnlocked(this.target.team, 'FLARES') && Math.random() < 0.2) {
-                    addParticle(this.target.x, this.target.y, 'spark', 'FLARES');
+                const flareChance = this.guidanceType === 'heat' ? 0.55 : 0.2;
+                if (isUnlocked(this.target.team, 'FLARES') && Math.random() < flareChance) {
+                    for (let i = 0; i < 10; i++) {
+                        particles.push({
+                            x: this.target.x + (Math.random() - 0.5) * 18,
+                            y: this.target.y + (Math.random() - 0.5) * 18,
+                            type: 'flare',
+                            life: 26 + Math.random() * 10,
+                            vx: (Math.random() - 0.5) * 1.2,
+                            vy: (Math.random() - 0.5) * 1.2
+                        });
+                    }
                     this.isJammed = true; 
                 }
             }
@@ -744,12 +1051,13 @@ class Bomb extends Projectile {
 }
 
 class Bullet extends Projectile {
-    constructor(x, y, target, team, damage) {
+    constructor(x, y, target, team, damage, isRail = false) {
         super(x, y, target, team, damage);
         const a = Math.atan2(target.y - y, target.x - x);
         this.vx = Math.cos(a + (Math.random()-0.5)*0.02) * 8 * SPEED_SCALE;
         this.vy = Math.sin(a + (Math.random()-0.5)*0.02) * 8 * SPEED_SCALE;
         this.timer = 20 / SPEED_SCALE;
+        this.isRail = isRail;
     }
     update() {
         this.timer--; if (this.timer <= 0) this.dead = true;
@@ -759,8 +1067,31 @@ class Bullet extends Projectile {
                 e.takeDamage(this.damage); this.dead = true; addParticle(this.x, this.y, 'spark');
             }
         });
+        islands.forEach(i => {
+            i.buildings.forEach(b => {
+                if (this.dead || b.team === this.team || b.dead) return;
+                if (dist(this, b) < 10) {
+                    b.takeDamage(this.damage);
+                    this.dead = true;
+                    addParticle(this.x, this.y, 'spark');
+                }
+            });
+        });
     }
-    draw(ctx) { ctx.fillStyle = '#ff0'; ctx.fillRect(this.x-1, this.y-1, 2, 2); }
+    draw(ctx) {
+        if (this.isRail) {
+            ctx.strokeStyle = 'rgba(120, 240, 255, 0.95)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(this.x - this.vx * 0.6, this.y - this.vy * 0.6);
+            ctx.lineTo(this.x, this.y);
+            ctx.stroke();
+            ctx.fillStyle = '#e0ffff';
+            ctx.fillRect(this.x - 2, this.y - 2, 4, 4);
+            return;
+        }
+        ctx.fillStyle = '#ff0'; ctx.fillRect(this.x-1, this.y-1, 2, 2);
+    }
 }
 
 function isValidTarget(target, targetTypes) {
@@ -784,6 +1115,8 @@ function drawParticles(ctx) {
         if (p.type === 'text') { ctx.fillStyle = '#fff'; ctx.font = '12px Arial'; ctx.fillText(p.text, p.x, p.y); }
         else if (p.type === 'explosion') { ctx.fillStyle = `rgba(255, ${Math.floor(Math.random()*200)}, 0, ${p.life/30})`; ctx.beginPath(); ctx.arc(p.x, p.y, (30-p.life)/2, 0, Math.PI*2); ctx.fill(); }
         else if (p.type === 'smoke') { ctx.fillStyle = `rgba(200, 200, 200, ${p.life/30})`; ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI*2); ctx.fill(); }
+        else if (p.type === 'smoke_light') { ctx.fillStyle = `rgba(210, 210, 210, ${p.life/60})`; ctx.beginPath(); ctx.arc(p.x, p.y, 1.3, 0, Math.PI*2); ctx.fill(); }
+        else if (p.type === 'flare') { ctx.fillStyle = `rgba(255, ${180 + Math.floor(Math.random()*70)}, 80, ${p.life/36})`; ctx.beginPath(); ctx.arc(p.x, p.y, 1 + Math.random() * 2.2, 0, Math.PI*2); ctx.fill(); }
         else if (p.type === 'spark') { ctx.fillStyle = '#ff0'; ctx.fillRect(p.x, p.y, 2, 2); }
     });
 }
@@ -803,6 +1136,49 @@ function findTarget(source, range, types = null) {
             }
         });
     }
+    return best;
+}
+
+function getAiTargetPriority(target) {
+    if (target instanceof Building) {
+        if (target.type === 'SAM_SITE' || target.type.includes('MANPADS') || target.type.includes('SPAA')) return 120;
+        if (target.type === 'AIRPORT') return 95;
+        if (target.type === 'PORT') return 85;
+        return 60;
+    }
+    if (target instanceof Unit) {
+        if (target.data.type === 'air' || target.data.type === 'heli') return 80;
+        if (target.data.type === 'ship') return 75;
+        return 50;
+    }
+    return 0;
+}
+
+function chooseBestAiTarget(unit, team) {
+    const candidates = [];
+    entities.forEach(e => { if (e.team !== team && !e.dead && e.visible) candidates.push(e); });
+    islands.forEach(i => {
+        if (i.owner !== TEAM_NEUTRAL && i.owner !== team) {
+            i.buildings.forEach(b => { if (!b.dead) candidates.push(b); });
+        }
+    });
+
+    let best = null;
+    let bestScore = -Infinity;
+    candidates.forEach(target => {
+        const d = dist(unit, target);
+        let bestWeaponScore = -Infinity;
+        unit.weapons.forEach(w => {
+            if (w.ammo <= 0 && w.def.type !== 'GUN' && !w.def.passive) return;
+            if (!w.def.targets || !isValidTarget(target, w.def.targets)) return;
+            const rangeBias = Math.max(0, (w.def.range || 100) - d) * 0.02;
+            const damageBias = (w.def.damage || 5) * 0.3;
+            bestWeaponScore = Math.max(bestWeaponScore, rangeBias + damageBias);
+        });
+        if (bestWeaponScore === -Infinity) return;
+        const score = bestWeaponScore + getAiTargetPriority(target) - d * 0.03;
+        if (score > bestScore) { bestScore = score; best = target; }
+    });
     return best;
 }
 
@@ -852,15 +1228,17 @@ function generateMap() {
     camera.x = (worldWidth - window.innerWidth) / 2;
     camera.y = (worldHeight - (window.innerHeight - 150)) / 2;
 
-    islands.push(new Island(200, worldHeight/2, islSize + 20, true)); 
+    islands.push(new Island(200, worldHeight/2, islSize + 40, true)); 
     islands[0].owner = TEAM_PLAYER;
     islands[0].buildings.push(new Building(200, worldHeight/2, TEAM_PLAYER, 'AIRPORT'));
     islands[0].buildings.push(new Building(230, worldHeight/2 + 30, TEAM_PLAYER, 'SAM_SITE'));
+    islands[0].buildings.push(createPortBuilding(islands[0], TEAM_PLAYER, Math.PI * 0.85));
     
-    islands.push(new Island(worldWidth - 200, worldHeight/2, islSize + 20, true)); 
+    islands.push(new Island(worldWidth - 200, worldHeight/2, islSize + 40, true)); 
     islands[1].owner = TEAM_AI;
     islands[1].buildings.push(new Building(worldWidth - 200, worldHeight/2, TEAM_AI, 'AIRPORT'));
     islands[1].buildings.push(new Building(worldWidth - 230, worldHeight/2 - 30, TEAM_AI, 'SAM_SITE'));
+    islands[1].buildings.push(createPortBuilding(islands[1], TEAM_AI, Math.PI * -0.2));
 
     const islandCount = 4 * sizeMult;
     for(let i=0; i<islandCount; i++) {
@@ -869,6 +1247,7 @@ function generateMap() {
         if (islands.some(isl => Math.hypot(isl.x-x, isl.y-y) < (islSize * 3.5))) { i--; continue; }
         let isl = new Island(x, y, islSize);
         isl.buildings.push(new Building(x, y, TEAM_NEUTRAL, 'AIRPORT'));
+        isl.buildings.push(createPortBuilding(isl, TEAM_NEUTRAL));
         islands.push(isl);
     }
 }
@@ -892,6 +1271,28 @@ function startGame() {
     }
     
     entities.push(new Unit(250, worldHeight/2 - 50, TEAM_PLAYER, 'FIGHTER'));
+    const playerBaseIsland = islands.find(i => i.isMainBase && i.owner === TEAM_PLAYER);
+    const aiBaseIsland = islands.find(i => i.isMainBase && i.owner === TEAM_AI);
+    if (playerBaseIsland) {
+        [0, 1].forEach(i => {
+            const p = getIslandDefenseSpawn(playerBaseIsland, i, 4, 0.52);
+            entities.push(new Unit(p.x, p.y, TEAM_PLAYER, 'IR_APC'));
+        });
+        [2, 3].forEach(i => {
+            const p = getIslandDefenseSpawn(playerBaseIsland, i, 4, 0.58);
+            entities.push(new Unit(p.x, p.y, TEAM_PLAYER, 'AAA_BATTERY'));
+        });
+    }
+    if (aiBaseIsland) {
+        [0, 1].forEach(i => {
+            const p = getIslandDefenseSpawn(aiBaseIsland, i, 4, 0.52);
+            entities.push(new Unit(p.x, p.y, TEAM_AI, 'IR_APC'));
+        });
+        [2, 3].forEach(i => {
+            const p = getIslandDefenseSpawn(aiBaseIsland, i, 4, 0.58);
+            entities.push(new Unit(p.x, p.y, TEAM_AI, 'AAA_BATTERY'));
+        });
+    }
 
     document.getElementById('setup-menu').style.display = 'none';
     document.getElementById('ui-layer').style.display = 'flex';
@@ -920,6 +1321,53 @@ function setZoneMode(type) {
 function clearZones() {
     TEAMS[TEAM_PLAYER].zones = [];
     addParticle(camera.x + width/2, camera.y + height/2, 'text', 'ZONES CLEARED');
+}
+
+function openManualStrikeDialog() {
+    if (selection.length === 0 || !(selection[0] instanceof Unit)) return;
+    const unit = selection[0];
+    const eligibleWeapons = unit.weapons.filter(w => !w.def.passive && w.def.type !== 'GUN' && w.ammo > 0);
+    if (eligibleWeapons.length === 0) {
+        addParticle(unit.x, unit.y - 15, 'text', 'NO MUNITIONS');
+        return;
+    }
+    const menuText = eligibleWeapons.map((w, i) => `${i + 1}. ${w.def.name} (${w.ammo})`).join('\n');
+    const weaponChoice = parseInt(prompt(`Select weapon:\n${menuText}`, '1'), 10);
+    if (!weaponChoice || weaponChoice < 1 || weaponChoice > eligibleWeapons.length) return;
+    const selectedWeapon = eligibleWeapons[weaponChoice - 1];
+
+    const munitionCount = parseInt(prompt(`How many ${selectedWeapon.def.name} to fire? (max ${selectedWeapon.ammo})`, `${Math.min(4, selectedWeapon.ammo)}`), 10);
+    if (!munitionCount || munitionCount < 1) return;
+    const targetCount = parseInt(prompt('How many targets for this salvo?', '1'), 10);
+    if (!targetCount || targetCount < 1) return;
+
+    manualStrikeMode = true;
+    manualStrikePlan = {
+        unit,
+        weapon: selectedWeapon,
+        remainingShots: Math.min(selectedWeapon.ammo, munitionCount),
+        targetsNeeded: targetCount,
+        targets: []
+    };
+    addParticle(unit.x, unit.y - 20, 'text', `MANUAL STRIKE: PICK ${targetCount} TARGETS`);
+}
+
+function executeManualStrikePlan() {
+    if (!manualStrikePlan || !manualStrikePlan.unit || manualStrikePlan.unit.dead) return;
+    const { unit, weapon, targets, remainingShots } = manualStrikePlan;
+    if (!weapon || weapon.ammo <= 0 || targets.length === 0) return;
+
+    const shots = Math.min(remainingShots, weapon.ammo);
+    for (let s = 0; s < shots; s++) {
+        const target = targets[s % targets.length];
+        if (!target || target.dead) continue;
+        weapon.ammo--;
+        unit.spawnWeaponProjectile(weapon, target);
+    }
+    weapon.cooldown = Math.max(1, weapon.cooldown);
+    unit.fireTimer = 0;
+    manualStrikeMode = false;
+    manualStrikePlan = null;
 }
 
 // --- UI / TECH ---
@@ -996,7 +1444,7 @@ function selectSlot(index, domElement) {
 
     Object.keys(WEAPONS).forEach(wKey => {
         const w = WEAPONS[wKey];
-        if (wKey === 'EMPTY' || allowedTypes.includes(w.type)) {
+        if (isWeaponAllowedForSlot(UNIT_TYPES[editingUnitKey], slotDef, wKey)) {
             const opt = document.createElement('div');
             opt.className = 'weapon-option';
             if (slotDef.equipped === wKey) opt.classList.add('selected');
@@ -1127,6 +1575,7 @@ function researchPlayer(techId, cost) {
     if (TEAMS[TEAM_PLAYER].money >= cost) {
         TEAMS[TEAM_PLAYER].money -= cost;
         TEAMS[TEAM_PLAYER].tech.add(techId);
+        autoOptimizeTeamLoadouts(TEAM_PLAYER);
         openResearch(); 
         addParticle(width/2, height/2, 'text', `RESEARCH COMPLETE`);
         
@@ -1142,7 +1591,7 @@ function createUI() {
     panel.innerHTML = '';
     
     Object.keys(UNIT_TYPES).forEach(key => {
-        if (key === 'SF' || key === 'CRUISE_MISSILE_UNIT') return; 
+        if (key === 'SF' || key === 'CRUISE_MISSILE_UNIT' || key === 'HYPERSONIC_ASHM_UNIT' || key === 'PILE_DRIVER_TBM_UNIT') return; 
         const data = UNIT_TYPES[key];
         
         // Hide naval units on Land maps
@@ -1232,6 +1681,7 @@ function updateTeamAI(team) {
             if (TEAMS[team].money >= target.cost) {
                 TEAMS[team].money -= target.cost;
                 TEAMS[team].tech.add(target.id);
+                autoOptimizeTeamLoadouts(team);
                 if (team === TEAM_PLAYER && isSpectator) {
                     addParticle(camera.x + width/2, camera.y + height/2, 'text', `AI RESEARCHED: ${target.id}`);
                     if (document.getElementById('research-modal').style.display === 'flex') openResearch();
@@ -1246,11 +1696,19 @@ function updateTeamAI(team) {
     
     let toBuild = null;
     if (enemyIslands.length > 0 && !hasTransport) toBuild = 'TRANSPORT';
+    else if (myUnits.filter(u => u.typeKey === 'IR_APC').length < 3) toBuild = 'IR_APC';
+    else if (myUnits.filter(u => u.typeKey === 'AAA_BATTERY').length < 2) toBuild = 'AAA_BATTERY';
     else if (myUnits.filter(u => u.typeKey === 'FIGHTER').length < 3) toBuild = 'FIGHTER';
+    else if (myUnits.filter(u => u.typeKey === 'SEAD_FIGHTER').length < 1) toBuild = 'SEAD_FIGHTER';
     else if (myUnits.filter(u => u.typeKey === 'STRIKE').length < 3) toBuild = 'STRIKE';
+    else if (myUnits.filter(u => u.typeKey === 'AC130').length < 1) toBuild = 'AC130';
     else if (myUnits.filter(u => u.typeKey === 'BOMBER').length < 1) toBuild = 'BOMBER';
     else if (myUnits.filter(u => u.typeKey === 'AWACS').length < 1) toBuild = 'AWACS';
     else if (myUnits.filter(u => u.typeKey === 'DESTROYER').length < 2 && currentMapType !== 'LAND') toBuild = 'DESTROYER';
+    else if (myUnits.filter(u => u.typeKey === 'LANDING_SHIP').length < 1 && currentMapType !== 'LAND') toBuild = 'LANDING_SHIP';
+    else if (myUnits.filter(u => u.typeKey === 'HUNTER_FRIGATE').length < 1 && currentMapType !== 'LAND') toBuild = 'HUNTER_FRIGATE';
+    else if (myUnits.filter(u => u.typeKey === 'SSBN').length < 1 && currentMapType !== 'LAND') toBuild = 'SSBN';
+    else if (currentMapType !== 'LAND' && isUnlocked(team, 'HYPERSONIC_ASHM') && myUnits.filter(u => u.typeKey === 'ARSENAL_CRUISER').length < 1) toBuild = 'ARSENAL_CRUISER';
     else if (Math.random() > 0.7) toBuild = 'ATTACK_HELI';
 
     if (toBuild && (!UNIT_TYPES[toBuild].type.includes('ship') || currentMapType !== 'LAND')) {
@@ -1274,10 +1732,28 @@ function updateTeamAI(team) {
                     const target = islands.find(i => i.owner === team && i.buildings.length < 4);
                     if (target) { u.targetPos = target; u.hasCommand = true; }
                 }
+            } else if (u.typeKey === 'LANDING_SHIP' && deployWeapon) {
+                let target = islands.find(i => i.owner === TEAM_NEUTRAL);
+                if (!target) target = islands.find(i => i.owner !== team);
+                if (target) u.setTransportAssaultMission(target, { x: target.x, y: target.y });
             } else if (u.data.role === 'AA' || u.data.role === 'Multi') {
-                 // Check zones for targets first? For now simple logic
-                 const targets = entities.filter(e => e.team !== team && e.visible);
-                 if (targets.length > 0) u.targetUnit = targets[Math.floor(Math.random() * targets.length)];
+                 const preferred = chooseBestAiTarget(u, team);
+                 if (preferred) u.targetUnit = preferred;
+            } else if (u.typeKey === 'IR_APC' || u.typeKey === 'AAA_BATTERY') {
+                const ownedIslands = islands.filter(i => i.owner === team);
+                const defendIsland = ownedIslands.find(i => dist(u, i) > i.radius * 0.8) || ownedIslands.find(i => i.isMainBase) || ownedIslands[0];
+                if (defendIsland) {
+                    const dx = (Math.random() - 0.5) * defendIsland.radius * 0.6;
+                    const dy = (Math.random() - 0.5) * defendIsland.radius * 0.6;
+                    u.targetPos = { x: defendIsland.x + dx, y: defendIsland.y + dy };
+                    u.hasCommand = true;
+                }
+            } else if (u.typeKey === 'HUNTER_FRIGATE' || u.typeKey === 'ARSENAL_CRUISER' || u.typeKey === 'BOMBER' || u.typeKey === 'STRIKE') {
+                const suppressionTarget = chooseBestAiTarget(u, team);
+                if (suppressionTarget) {
+                    u.targetUnit = suppressionTarget;
+                    u.hasCommand = true;
+                }
             } else if (u.typeKey === 'CARRIER') {
                 if (!u.hasCommand) {
                     const target = islands.find(i => i.owner === team && Math.hypot(i.x - u.x, i.y - u.y) > 100);
@@ -1298,7 +1774,13 @@ function updateTeamAI(team) {
 }
 
 // --- Loop & Camera ---
-window.addEventListener('keydown', e => inputKeys[e.key] = true);
+window.addEventListener('keydown', e => {
+    inputKeys[e.key] = true;
+    if (e.key === 'Escape' && manualStrikeMode) {
+        manualStrikeMode = false;
+        manualStrikePlan = null;
+    }
+});
 window.addEventListener('keyup', e => inputKeys[e.key] = false);
 
 canvas.addEventListener('mousedown', e => {
@@ -1323,6 +1805,16 @@ canvas.addEventListener('mousedown', e => {
         }
     } else if (e.button === 2) { 
         e.preventDefault();
+        if (manualStrikeMode && manualStrikePlan) {
+            let target = entities.find(u => Math.hypot(u.x - mouse.worldX, u.y - mouse.worldY) < 20 && u.team !== TEAM_PLAYER && u.visible);
+            if (!target) { islands.forEach(i => { if (i.owner !== TEAM_PLAYER) i.buildings.forEach(b => { if(Math.hypot(b.x - mouse.worldX, b.y - mouse.worldY) < 20) target = b; }); }); }
+            if (target) {
+                manualStrikePlan.targets.push(target);
+                addParticle(target.x, target.y, 'text', `SALVO ${manualStrikePlan.targets.length}/${manualStrikePlan.targetsNeeded}`);
+                if (manualStrikePlan.targets.length >= manualStrikePlan.targetsNeeded) executeManualStrikePlan();
+            }
+            return;
+        }
         if (selection.length > 0 && selection[0] instanceof Unit) {
             let friendlyBase = null;
             let clickedCarrier = entities.find(u => Math.hypot(u.x - mouse.worldX, u.y - mouse.worldY) < 20 && u.team === TEAM_PLAYER && u.typeKey === 'CARRIER');
@@ -1336,17 +1828,38 @@ canvas.addEventListener('mousedown', e => {
             let target = entities.find(u => Math.hypot(u.x - mouse.worldX, u.y - mouse.worldY) < 20 && u.team !== TEAM_PLAYER && u.visible);
             if (!target) { islands.forEach(i => { if (i.owner !== TEAM_PLAYER) i.buildings.forEach(b => { if(Math.hypot(b.x - mouse.worldX, b.y - mouse.worldY) < 20) target = b; }); }); }
             const clickedEnemyIsland = islands.find(i => i.owner !== TEAM_PLAYER && Math.hypot(i.x - mouse.worldX, i.y - mouse.worldY) < i.radius);
+            const clickedAnyIsland = islands.find(i => Math.hypot(i.x - mouse.worldX, i.y - mouse.worldY) < i.radius);
             selection.forEach(u => {
-                if (u.typeKey === 'TRANSPORT' && u.weapons.some(w => w.def.type === 'DEPLOY' && w.def.deployType === 'UNIT')) {
-                    const missionIsland = clickedEnemyIsland || (target ? islands.find(i => Math.hypot(i.x - target.x, i.y - target.y) < i.radius * 1.2 && i.owner !== TEAM_PLAYER) : null);
+                const hasDropTeam = (u.data.type === 'heli' || u.data.type === 'ship') && u.weapons.some(w => w.def.type === 'DEPLOY' && w.def.deployType === 'UNIT' && w.ammo > 0);
+                if (hasDropTeam) {
+                    const missionIsland = clickedEnemyIsland || (target ? islands.find(i => Math.hypot(i.x - target.x, i.y - target.y) < i.radius * 1.2 && i.owner !== TEAM_PLAYER) : null) || clickedAnyIsland;
                     if (missionIsland) {
                         const capturePoint = target ? { x: target.x, y: target.y } : { x: missionIsland.x, y: missionIsland.y };
-                        u.setTransportAssaultMission(missionIsland, capturePoint);
+                        if (u.typeKey === 'TRANSPORT' || u.typeKey === 'LANDING_SHIP') {
+                            u.setTransportAssaultMission(missionIsland, capturePoint);
+                        } else {
+                            u.targetPos = capturePoint;
+                            u.targetUnit = null;
+                            u.hasCommand = true;
+                            u.state = 'MOVE';
+                        }
                         addParticle(capturePoint.x, capturePoint.y, 'text', 'INSERT');
                         return;
                     }
                 }
-                if (target) { u.targetUnit = target; u.targetPos = null; addParticle(target.x, target.y, 'text', 'ATTACK'); }
+                if (target) {
+                    u.targetUnit = target;
+                    if (u.data.type !== 'ship') u.targetPos = null;
+                    u.fireTimer = 0;
+                    u.weapons.forEach(w => {
+                        w.burstCount = 0;
+                        w.burstTimer = 0;
+                        w.pendingSalvo = 0;
+                        w.salvoTimer = 0;
+                    });
+                    u.hasCommand = true;
+                    addParticle(target.x, target.y, 'text', 'ATTACK');
+                }
                 else { 
                     u.targetPos = { x: mouse.worldX, y: mouse.worldY }; u.targetUnit = null; u.rtb = false; u.state = 'MOVE'; 
                     u.hasCommand = true; addParticle(mouse.worldX, mouse.worldY, 'spark', null); 
@@ -1404,6 +1917,15 @@ function updateSelectionUI() {
     }
 }
 
+function cleanupSelection() {
+    selection = selection.filter(s => {
+        if (!s || s.dead) return false;
+        if (s instanceof Unit) return entities.includes(s);
+        if (s instanceof Building) return islands.some(i => i.buildings.includes(s));
+        return false;
+    });
+}
+
 function loop() {
     if (gameOver) return;
     
@@ -1436,6 +1958,18 @@ function loop() {
             aiTimer = 0;
         }
 
+        entities.forEach(e => { if (e instanceof Unit) { e.turnBoost = 1; e.cooldownBoost = 1; } });
+        entities.forEach(source => {
+            if (!(source instanceof Unit) || !source.data.commandAuraRadius) return;
+            entities.forEach(target => {
+                if (!(target instanceof Unit) || target.team !== source.team || target === source || target.dead) return;
+                if (dist(source, target) <= source.data.commandAuraRadius) {
+                    target.turnBoost = Math.max(target.turnBoost || 1, source.data.commandTurnBoost || 1);
+                    target.cooldownBoost = Math.max(target.cooldownBoost || 1, source.data.commandCooldownBoost || 1);
+                }
+            });
+        });
+
         entities.forEach(e => e.update());
         islands.forEach(i => i.buildings.forEach(b => b.update()));
         projectiles.forEach(p => p.update());
@@ -1443,6 +1977,7 @@ function loop() {
         for (let i = entities.length - 1; i >= 0; i--) { if (entities[i].dead) entities.splice(i, 1); }
         for (let i = projectiles.length - 1; i >= 0; i--) { if (projectiles[i].dead) projectiles.splice(i, 1); }
         islands.forEach(i => { for (let b = i.buildings.length - 1; b >= 0; b--) { if (i.buildings[b].dead) i.buildings.splice(b, 1); } });
+        cleanupSelection();
         
         const playerBase = islands.find(i => i.isMainBase && i.owner === TEAM_PLAYER);
         const aiBase = islands.find(i => i.isMainBase && i.owner === TEAM_AI);
