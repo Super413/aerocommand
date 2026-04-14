@@ -78,10 +78,6 @@ function cloneUnitLoadout(unitDef) {
 
 function getRoadNodeWorldPos(node) {
     if (!node) return null;
-    if (node.kind === 'island') {
-        const island = islands[node.islandIndex];
-        return island ? { x: island.x, y: island.y } : null;
-    }
     return { x: node.x, y: node.y };
 }
 
@@ -111,7 +107,15 @@ function buildPathBetweenRoadNodes(startIdx, endIdx) {
         }
         const node = roadNodes[current];
         (node.neighbors || []).forEach(nIdx => {
-            const tentative = (gScore.get(current) ?? Infinity) + dist(roadNodes[current], roadNodes[nIdx]);
+            let edgeMult = 1.1;
+            const edge = landRoads.find(seg => {
+                const sa = seg.nodeA === current && seg.nodeB === nIdx;
+                const sb = seg.nodeA === nIdx && seg.nodeB === current;
+                return sa || sb;
+            });
+            if (edge?.surface === 'asphalt') edgeMult = 0.75;
+            else if (edge?.surface === 'dirt') edgeMult = 1;
+            const tentative = (gScore.get(current) ?? Infinity) + dist(roadNodes[current], roadNodes[nIdx]) * edgeMult;
             if (tentative < (gScore.get(nIdx) ?? Infinity)) {
                 cameFrom.set(nIdx, current);
                 gScore.set(nIdx, tentative);
@@ -143,21 +147,71 @@ function getRoadPath(startPos, endPos) {
     return points;
 }
 
+function distPointToSegment(p, a, b) {
+    const abx = b.x - a.x;
+    const aby = b.y - a.y;
+    const abLenSq = abx * abx + aby * aby || 1;
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * abx + (p.y - a.y) * aby) / abLenSq));
+    const proj = { x: a.x + abx * t, y: a.y + aby * t };
+    return dist(p, proj);
+}
+
+function getGroundRoadSpeedMultiplier(unit) {
+    if (currentMapType !== 'LAND' || landRoads.length === 0) return 1;
+    let nearest = Infinity;
+    landRoads.forEach(seg => { nearest = Math.min(nearest, distPointToSegment(unit, seg.a, seg.b)); });
+    if (nearest < 14) return 1.35;
+    if (nearest < 30) return 1.18;
+    return 1;
+}
+
 function buildLandRoadNetwork() {
     landRoads.length = 0;
     roadNodes.length = 0;
     if (islands.length < 2) return;
-    const ordered = islands.map((i, index) => ({ index, x: i.x })).sort((a, b) => a.x - b.x);
-    ordered.forEach(item => {
-        roadNodes.push({ kind: 'island', islandIndex: item.index, x: islands[item.index].x, y: islands[item.index].y, neighbors: [] });
-    });
-    for (let i = 0; i < roadNodes.length - 1; i++) {
-        roadNodes[i].neighbors.push(i + 1);
-        roadNodes[i + 1].neighbors.push(i);
-        const a = getRoadNodeWorldPos(roadNodes[i]);
-        const b = getRoadNodeWorldPos(roadNodes[i + 1]);
-        landRoads.push({ a, b });
+    const addNode = (x, y) => {
+        roadNodes.push({ x, y, neighbors: [] });
+        return roadNodes.length - 1;
+    };
+    const connect = (aIdx, bIdx, surface = 'dirt') => {
+        if (aIdx === bIdx || aIdx < 0 || bIdx < 0) return;
+        if (!roadNodes[aIdx].neighbors.includes(bIdx)) roadNodes[aIdx].neighbors.push(bIdx);
+        if (!roadNodes[bIdx].neighbors.includes(aIdx)) roadNodes[bIdx].neighbors.push(aIdx);
+        landRoads.push({ a: getRoadNodeWorldPos(roadNodes[aIdx]), b: getRoadNodeWorldPos(roadNodes[bIdx]), surface, nodeA: aIdx, nodeB: bIdx });
+    };
+
+    const leftBase = islands.find(i => i.isMainBase && i.owner === TEAM_PLAYER) || islands[0];
+    const rightBase = islands.find(i => i.isMainBase && i.owner === TEAM_AI) || islands[islands.length - 1];
+    const mainCount = Math.max(10, Math.floor(worldWidth / 260));
+    const amp = Math.max(90, worldHeight * 0.15);
+    const phase = Math.random() * Math.PI * 2;
+    let prevMain = -1;
+    const mainRoadNodes = [];
+
+    for (let i = 0; i <= mainCount; i++) {
+        const t = i / mainCount;
+        const x = leftBase.x + (rightBase.x - leftBase.x) * t;
+        const centerY = worldHeight * 0.5 + Math.sin((t * Math.PI * 2.1) + phase) * amp * (0.7 + 0.3 * Math.sin(t * Math.PI));
+        const y = i === 0 ? leftBase.y : (i === mainCount ? rightBase.y : Math.max(70, Math.min(worldHeight - 70, centerY)));
+        const idx = addNode(x, y);
+        mainRoadNodes.push(idx);
+        if (prevMain !== -1) connect(prevMain, idx, 'asphalt');
+        prevMain = idx;
     }
+
+    islands.forEach(isl => {
+        let closestMain = mainRoadNodes[0];
+        let best = Infinity;
+        mainRoadNodes.forEach(idx => {
+            const d = dist(isl, roadNodes[idx]);
+            if (d < best) { best = d; closestMain = idx; }
+        });
+        const branchStart = roadNodes[closestMain];
+        const mid = addNode((branchStart.x + isl.x) / 2 + (Math.random() - 0.5) * 40, (branchStart.y + isl.y) / 2 + (Math.random() - 0.5) * 40);
+        const end = addNode(isl.x, isl.y);
+        connect(closestMain, mid, 'dirt');
+        connect(mid, end, 'dirt');
+    });
 }
 
 function findNearestFriendlyAirport(unit, searchRange = 120) {
@@ -498,6 +552,25 @@ class Unit extends Entity {
         if (this.fireTimer > 0) this.fireTimer -= cooldownScale;
         if (this.takeoffTimer > 0) this.takeoffTimer -= cooldownScale;
 
+        if (this.convoyLeaderId) {
+            const leader = entities.find(e => e.id === this.convoyLeaderId && !e.dead);
+            if (leader) {
+                const idx = (leader.convoyMembers || []).indexOf(this.id);
+                const col = (idx >= 0 ? idx : 0) % 3;
+                const row = Math.floor((idx >= 0 ? idx : 0) / 3);
+                const offX = -45 - row * 28;
+                const offY = (col - 1) * 22;
+                this.targetPos = {
+                    x: leader.x + Math.cos(leader.angle) * offX - Math.sin(leader.angle) * offY,
+                    y: leader.y + Math.sin(leader.angle) * offX + Math.cos(leader.angle) * offY
+                };
+                this.targetUnit = leader.targetUnit;
+                this.hasCommand = true;
+            } else {
+                this.convoyLeaderId = null;
+            }
+        }
+
         if (this.typeKey === 'PILE_DRIVER_TBM_UNIT') {
             if (!this.targetPos) { this.dead = true; return; }
             const startX = this.launchX ?? this.x;
@@ -637,7 +710,7 @@ class Unit extends Entity {
 
         // --- TARGETING ---
         // 1. Check Strike Zones
-        if (!this.targetUnit && this.state !== 'RETURN' && this.data.role !== 'Transport') {
+        if (!this.convoyLeaderId && !this.targetUnit && this.state !== 'RETURN' && this.data.role !== 'Transport') {
             const teamZones = TEAMS[this.team].zones;
             const strikeZone = teamZones.find(z => z.type === 'STRIKE');
             const validTargets = this.getValidTargetTypes();
@@ -660,7 +733,7 @@ class Unit extends Entity {
         }
 
         // 2. Default Targeting (Self Defense/Proximity)
-        if (!this.targetUnit && this.state !== 'RETURN' && this.data.role !== 'Transport') {
+        if (!this.convoyLeaderId && !this.targetUnit && this.state !== 'RETURN' && this.data.role !== 'Transport') {
             const validTargets = this.getValidTargetTypes();
             let maxRange = 0; this.weapons.forEach(w => maxRange = Math.max(maxRange, w.def.range));
             if (maxRange === 0) maxRange = 100;
@@ -707,9 +780,11 @@ class Unit extends Entity {
             }
         }
 
-        if (this.hasCommand && this.targetPos && !this.targetUnit && !this.rtb && dist(this, this.targetPos) < 30) {
+        if (this.hasCommand && this.targetPos && !this.targetUnit && !this.rtb && dist(this, this.targetPos) < 18) {
             this.hasCommand = false;
             this.state = 'IDLE';
+            this.pathNodes = null;
+            this.pathIndex = 0;
         }
 
         if (this.rtb) {
@@ -761,7 +836,8 @@ class Unit extends Entity {
                 const groundIsland = islands.find(i => dist(this, i) < i.radius * 1.1);
                 if (!groundIsland) speed = 0;
             } else {
-                speed *= 1.08;
+                speed *= getGroundRoadSpeedMultiplier(this);
+                if (distToTarget < 7) speed = 0;
             }
         }
 
@@ -1504,28 +1580,6 @@ function startGame() {
     }
     
     entities.push(new Unit(250, worldHeight/2 - 50, TEAM_PLAYER, 'FIGHTER'));
-    const playerBaseIsland = islands.find(i => i.isMainBase && i.owner === TEAM_PLAYER);
-    const aiBaseIsland = islands.find(i => i.isMainBase && i.owner === TEAM_AI);
-    if (playerBaseIsland) {
-        [0, 1].forEach(i => {
-            const p = getIslandDefenseSpawn(playerBaseIsland, i, 4, 0.52);
-            entities.push(new Unit(p.x, p.y, TEAM_PLAYER, 'IR_APC'));
-        });
-        [2, 3].forEach(i => {
-            const p = getIslandDefenseSpawn(playerBaseIsland, i, 4, 0.58);
-            entities.push(new Unit(p.x, p.y, TEAM_PLAYER, 'AAA_BATTERY'));
-        });
-    }
-    if (aiBaseIsland) {
-        [0, 1].forEach(i => {
-            const p = getIslandDefenseSpawn(aiBaseIsland, i, 4, 0.52);
-            entities.push(new Unit(p.x, p.y, TEAM_AI, 'IR_APC'));
-        });
-        [2, 3].forEach(i => {
-            const p = getIslandDefenseSpawn(aiBaseIsland, i, 4, 0.58);
-            entities.push(new Unit(p.x, p.y, TEAM_AI, 'AAA_BATTERY'));
-        });
-    }
 
     document.getElementById('setup-menu').style.display = 'none';
     document.getElementById('ui-layer').style.display = 'flex';
@@ -1902,7 +1956,7 @@ function spawnUnit(team, typeKey, specificSpawner = null) {
         entities.push(u);
 
         if (typeKey === 'CONVOY') {
-            const escorts = ['IR_APC', 'AAA_BATTERY', 'IR_APC', 'SF'];
+            const escorts = ['IR_APC', 'AAA_BATTERY', 'IR_APC', 'AAA_BATTERY'];
             u.convoyMembers = [];
             escorts.forEach((memberType, idx) => {
                 const col = idx % 2;
@@ -2293,14 +2347,19 @@ function draw() {
     if (currentMapType === 'LAND' && landRoads.length > 0) {
         ctx.lineCap = 'round';
         landRoads.forEach(seg => {
-            ctx.strokeStyle = '#5d5340';
-            ctx.lineWidth = 14;
+            if (seg.surface === 'asphalt') {
+                ctx.strokeStyle = '#2f3338';
+                ctx.lineWidth = 16;
+            } else {
+                ctx.strokeStyle = '#7a6543';
+                ctx.lineWidth = 10;
+            }
             ctx.beginPath();
             ctx.moveTo(seg.a.x, seg.a.y);
             ctx.lineTo(seg.b.x, seg.b.y);
             ctx.stroke();
-            ctx.strokeStyle = '#8d7a5d';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = seg.surface === 'asphalt' ? '#d4c17a' : '#a98e63';
+            ctx.lineWidth = seg.surface === 'asphalt' ? 2 : 1.5;
             ctx.beginPath();
             ctx.moveTo(seg.a.x, seg.a.y);
             ctx.lineTo(seg.b.x, seg.b.y);
