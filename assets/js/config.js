@@ -123,6 +123,7 @@ const UNIT_TYPES = {
     AAA_BATTERY: { name: 'AAA Battery', type: 'ground', role: 'Air Defense', cost: 900, hp: 420, speed: 0.2, turn: 0.2, fuel: 9999, ammo: 1, icon: '🛡️', hardpoints: [
         { name: 'CIWS Mount', types: ['GUN'], equipped: 'CIWS', x: 0, y: 0 }
     ] },
+    CONVOY: { name: 'Mechanized Convoy', type: 'ground', role: 'Convoy Command', cost: 1800, hp: 900, speed: 0.34, turn: 0.09, fuel: 9999, ammo: 0, icon: '🚚🚚', hardpoints: [] },
     CARRIER: { name: 'Carrier', type: 'ship', role: 'Base', cost: 2500, hp: 2000, speed: 0.6, turn: 0.04, fuel: 0, ammo: 999, icon: '🚢', commandAuraRadius: 220, commandTurnBoost: 1.2, commandCooldownBoost: 1.15, hardpoints: [
         { name: 'Bow AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -50, allowedWeapons: ['GUN_BASIC', 'CIWS'] },
         { name: 'Stern AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: 80, allowedWeapons: ['GUN_BASIC', 'CIWS'] },
@@ -170,5 +171,7 @@ const BUILDINGS = {
     DEPLOYED_COASTAL: { hp: 400, range: 250, damage: 80, reload: 180, name: 'Coast Gun' }, 
     DEPLOYED_MANPADS: { hp: 150, range: 180, damage: 35, reload: 100, name: 'MANPADS' },
     DEPLOYED_ASHM: { hp: 300, range: 400, damage: 150, reload: 400, name: 'AShM Bat' },
-    PORT: { hp: 1400, range: 60, name: 'Port' }
+    PORT: { hp: 1400, range: 60, name: 'Port' },
+    CONSTRUCTION_YARD: { hp: 700, range: 0, name: 'Construction Yard' },
+    BASE_FORT: { hp: 1100, range: 0, name: 'Base Fortification' }
 };

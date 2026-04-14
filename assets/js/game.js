@@ -26,6 +26,9 @@ const entities = [];
 const particles = [];
 const projectiles = [];
 const islands = [];
+const landRoads = [];
+const roadNodes = [];
+let nextEntityId = 1;
 
 const mouse = { x: 0, y: 0, left: false, right: false, worldX: 0, worldY: 0 };
 let selection = [];
@@ -64,6 +67,97 @@ function getConfiguredSlotAmmo(unitKey, slotIndex, weaponKey) {
         return Math.max(1, slot.customAmmoByWeapon[weaponKey]);
     }
     return getDefaultWeaponAmmo({ data: unit }, slot, weaponKey);
+}
+
+function cloneUnitLoadout(unitDef) {
+    return (unitDef.hardpoints || []).map(slot => ({
+        equipped: slot.equipped,
+        customAmmoByWeapon: slot.customAmmoByWeapon ? { ...slot.customAmmoByWeapon } : null
+    }));
+}
+
+function getRoadNodeWorldPos(node) {
+    if (!node) return null;
+    if (node.kind === 'island') {
+        const island = islands[node.islandIndex];
+        return island ? { x: island.x, y: island.y } : null;
+    }
+    return { x: node.x, y: node.y };
+}
+
+function buildPathBetweenRoadNodes(startIdx, endIdx) {
+    if (startIdx === endIdx) return [startIdx];
+    const open = [startIdx];
+    const cameFrom = new Map();
+    const gScore = new Map([[startIdx, 0]]);
+    const fScore = new Map([[startIdx, dist(roadNodes[startIdx], roadNodes[endIdx])]]);
+
+    while (open.length > 0) {
+        let currentPos = 0;
+        for (let i = 1; i < open.length; i++) {
+            const a = fScore.get(open[i]) ?? Infinity;
+            const b = fScore.get(open[currentPos]) ?? Infinity;
+            if (a < b) currentPos = i;
+        }
+        const current = open.splice(currentPos, 1)[0];
+        if (current === endIdx) {
+            const path = [current];
+            let step = current;
+            while (cameFrom.has(step)) {
+                step = cameFrom.get(step);
+                path.unshift(step);
+            }
+            return path;
+        }
+        const node = roadNodes[current];
+        (node.neighbors || []).forEach(nIdx => {
+            const tentative = (gScore.get(current) ?? Infinity) + dist(roadNodes[current], roadNodes[nIdx]);
+            if (tentative < (gScore.get(nIdx) ?? Infinity)) {
+                cameFrom.set(nIdx, current);
+                gScore.set(nIdx, tentative);
+                fScore.set(nIdx, tentative + dist(roadNodes[nIdx], roadNodes[endIdx]));
+                if (!open.includes(nIdx)) open.push(nIdx);
+            }
+        });
+    }
+    return null;
+}
+
+function getRoadPath(startPos, endPos) {
+    if (roadNodes.length < 2) return [endPos];
+    let startIdx = 0;
+    let endIdx = 0;
+    let bestStart = Infinity;
+    let bestEnd = Infinity;
+    roadNodes.forEach((n, idx) => {
+        const ds = dist(startPos, n);
+        const de = dist(endPos, n);
+        if (ds < bestStart) { bestStart = ds; startIdx = idx; }
+        if (de < bestEnd) { bestEnd = de; endIdx = idx; }
+    });
+
+    const indexPath = buildPathBetweenRoadNodes(startIdx, endIdx);
+    if (!indexPath) return [endPos];
+    const points = indexPath.map(idx => getRoadNodeWorldPos(roadNodes[idx])).filter(Boolean);
+    points.push({ x: endPos.x, y: endPos.y });
+    return points;
+}
+
+function buildLandRoadNetwork() {
+    landRoads.length = 0;
+    roadNodes.length = 0;
+    if (islands.length < 2) return;
+    const ordered = islands.map((i, index) => ({ index, x: i.x })).sort((a, b) => a.x - b.x);
+    ordered.forEach(item => {
+        roadNodes.push({ kind: 'island', islandIndex: item.index, x: islands[item.index].x, y: islands[item.index].y, neighbors: [] });
+    });
+    for (let i = 0; i < roadNodes.length - 1; i++) {
+        roadNodes[i].neighbors.push(i + 1);
+        roadNodes[i + 1].neighbors.push(i);
+        const a = getRoadNodeWorldPos(roadNodes[i]);
+        const b = getRoadNodeWorldPos(roadNodes[i + 1]);
+        landRoads.push({ a, b });
+    }
 }
 
 function findNearestFriendlyAirport(unit, searchRange = 120) {
@@ -165,7 +259,11 @@ function autoOptimizeTeamLoadouts(team) {
         });
     });
     entities.forEach(e => {
-        if (e.team === team && e instanceof Unit) e.initLoadout();
+        if (!(e instanceof Unit) || e.team !== team) return;
+        if (team === TEAM_AI || isSpectator) {
+            e.loadoutConfig = cloneUnitLoadout(e.data);
+            e.initLoadout();
+        }
     });
 }
 
@@ -206,6 +304,7 @@ class Island {
 class Entity {
     constructor(x, y, team) {
         this.x = x; this.y = y; this.team = team;
+        this.id = nextEntityId++;
         this.dead = false; this.hp = 100; this.maxHp = 100;
         this.radius = 10; this.angle = 0; this.visible = true; 
     }
@@ -230,6 +329,7 @@ class Building extends Entity {
     update() {
         if (this.dead) return;
         if (this.type === 'PORT') return;
+        if (!this.stats.range || !this.stats.damage || !this.stats.reload) return;
         if (this.cooldown > 0) this.cooldown -= SPEED_SCALE;
         let validTypes = (this.type.includes('COASTAL') || this.type.includes('ASHM')) ? ['ship'] : ['air', 'heli', 'cruise'];
         if (this.team === TEAM_NEUTRAL) return; 
@@ -299,6 +399,23 @@ class Building extends Entity {
             ctx.arc(0, 0, 4, 0, Math.PI * 2);
             ctx.fill();
         }
+        else if (this.type === 'CONSTRUCTION_YARD') {
+            ctx.fillStyle = '#6d5f3f';
+            ctx.fillRect(-12, -10, 24, 20);
+            ctx.strokeStyle = '#dbb65d';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-12, -10, 24, 20);
+            ctx.beginPath();
+            ctx.moveTo(-8, 6); ctx.lineTo(8, -6);
+            ctx.moveTo(-2, 10); ctx.lineTo(10, -2);
+            ctx.stroke();
+        }
+        else if (this.type === 'BASE_FORT') {
+            ctx.fillStyle = '#4d4d52';
+            ctx.fillRect(-11, -9, 22, 18);
+            ctx.fillStyle = COLORS[this.team];
+            ctx.fillRect(-9, -7, 18, 4);
+        }
         else if (this.type.includes('COASTAL')) { ctx.fillStyle = '#443'; ctx.beginPath(); ctx.arc(0,0,10,0,Math.PI*2); ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(15,0); ctx.stroke(); } 
         else if (this.type.includes('ASHM')) { ctx.fillStyle = '#444'; ctx.fillRect(-10,-10,20,20); ctx.fillStyle = '#f00'; ctx.fillRect(-5,-5,10,10); } 
         else { ctx.fillStyle = '#444'; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = COLORS[this.team]; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0, -10); ctx.stroke(); }
@@ -311,6 +428,7 @@ class Unit extends Entity {
         super(x, y, team);
         this.data = UNIT_TYPES[typeKey];
         this.typeKey = typeKey;
+        this.loadoutConfig = cloneUnitLoadout(this.data);
         this.hp = this.data.hp; this.maxHp = this.data.hp;
         this.fuel = this.data.fuel;
         this.hasCommand = false;
@@ -327,12 +445,18 @@ class Unit extends Entity {
         this.orbitDir = Math.random() < 0.5 ? 1 : -1;
         this.turnBoost = 1;
         this.cooldownBoost = 1;
+        this.pathNodes = null;
+        this.pathIndex = 0;
+        this.convoyMembers = [];
+        this.convoyLeaderId = null;
+        this.isConvoyLead = typeKey === 'CONVOY';
     }
 
     initLoadout() {
         this.weapons = [];
         this.data.hardpoints.forEach((slot, slotIndex) => {
-            let wKey = slot.equipped;
+            const configured = this.loadoutConfig?.[slotIndex];
+            let wKey = configured?.equipped ?? slot.equipped;
             if (this.team === TEAM_AI || (this.team === TEAM_PLAYER && isSpectator)) {
                let best = WEAPONS[wKey];
                if(!best) best = WEAPONS['EMPTY'];
@@ -348,7 +472,10 @@ class Unit extends Entity {
             }
             if (wKey && wKey !== 'EMPTY') {
                 const def = WEAPONS[wKey];
-                const ammoCount = getConfiguredSlotAmmo(this.typeKey, slotIndex, wKey);
+                let ammoCount = getConfiguredSlotAmmo(this.typeKey, slotIndex, wKey);
+                if (configured?.customAmmoByWeapon && configured.customAmmoByWeapon[wKey] !== undefined) {
+                    ammoCount = Math.max(1, configured.customAmmoByWeapon[wKey]);
+                }
                 this.weapons.push({
                     def: def,
                     hardpointIndex: slotIndex,
@@ -542,6 +669,25 @@ class Unit extends Entity {
 
         // --- MOVEMENT ---
         let moveTarget = this.targetPos;
+
+        if (this.isConvoyLead) {
+            this.convoyMembers = this.convoyMembers.filter(id => entities.some(e => e.id === id && !e.dead));
+            this.convoyMembers.forEach((memberId, idx) => {
+                const member = entities.find(e => e.id === memberId);
+                if (!member || member.dead) return;
+                member.targetUnit = this.targetUnit;
+                member.rtb = false;
+                member.hasCommand = this.hasCommand;
+                const col = idx % 3;
+                const row = Math.floor(idx / 3);
+                const offX = -45 - row * 28;
+                const offY = (col - 1) * 22;
+                member.targetPos = {
+                    x: this.x + Math.cos(this.angle) * offX - Math.sin(this.angle) * offY,
+                    y: this.y + Math.sin(this.angle) * offX + Math.cos(this.angle) * offY
+                };
+            });
+        }
         
         // Zone Patrol Logic (Idle)
         if (this.state === 'IDLE' && !this.hasCommand && !this.targetUnit && !this.rtb) {
@@ -573,7 +719,9 @@ class Unit extends Entity {
         } else if (this.targetUnit && !this.targetUnit.dead && this.data.type !== 'ship') {
             if (this.typeKey === 'AC130') {
                 this.orbitAngle += 0.01 * this.orbitDir * SPEED_SCALE * 5;
-                const orbitRadius = 150;
+                const gunRanges = this.weapons.filter(w => w.def.type === 'GUN').map(w => w.def.range || 150);
+                const minRange = gunRanges.length ? Math.min(...gunRanges) : 150;
+                const orbitRadius = Math.max(90, Math.min(minRange * 0.72, 170));
                 moveTarget = {
                     x: this.targetUnit.x + Math.cos(this.orbitAngle) * orbitRadius,
                     y: this.targetUnit.y + Math.sin(this.orbitAngle) * orbitRadius
@@ -584,6 +732,19 @@ class Unit extends Entity {
         }
         
         if (!moveTarget) { moveTarget = { x: this.x, y: this.y }; this.targetPos = { x: this.x, y: this.y }; }
+
+        if (this.data.type === 'ground' && currentMapType === 'LAND' && moveTarget) {
+            if (!this.pathNodes || !this.pathNodes.length || (this.pathGoal && dist(this.pathGoal, moveTarget) > 25)) {
+                this.pathNodes = getRoadPath(this, moveTarget);
+                this.pathIndex = 0;
+                this.pathGoal = { x: moveTarget.x, y: moveTarget.y };
+            }
+            if (this.pathNodes && this.pathNodes[this.pathIndex]) {
+                const waypoint = this.pathNodes[this.pathIndex];
+                moveTarget = waypoint;
+                if (dist(this, waypoint) < 22 && this.pathIndex < this.pathNodes.length - 1) this.pathIndex++;
+            }
+        }
 
         const dx = moveTarget.x - this.x; const dy = moveTarget.y - this.y;
         const distToTarget = Math.hypot(dx, dy); let desiredAngle = Math.atan2(dy, dx);
@@ -596,8 +757,12 @@ class Unit extends Entity {
         if (this.data.type === 'air' && this.typeKey !== 'FIGHTER') speed *= 1; 
         if ((this.data.type === 'heli' || this.data.type === 'ship') && distToTarget < 15 && !this.rtb) speed = 0;
         if (this.data.type === 'ground') {
-            const groundIsland = islands.find(i => dist(this, i) < i.radius * 1.1);
-            if (!groundIsland) speed = 0;
+            if (currentMapType !== 'LAND') {
+                const groundIsland = islands.find(i => dist(this, i) < i.radius * 1.1);
+                if (!groundIsland) speed = 0;
+            } else {
+                speed *= 1.08;
+            }
         }
 
         // --- BOOM & ZOOM / EXTEND LOGIC ---
@@ -650,7 +815,8 @@ class Unit extends Entity {
                         let sideDiff = angleToT - leftBearing;
                         while (sideDiff < -Math.PI) sideDiff += Math.PI * 2;
                         while (sideDiff > Math.PI) sideDiff -= Math.PI * 2;
-                        firingArcOk = Math.abs(sideDiff) < 0.55;
+                        const ac130Arc = w.def.range >= 180 ? 1.2 : 1.35;
+                        firingArcOk = Math.abs(sideDiff) < ac130Arc;
                     }
                     if (firingArcOk) {
                         if (isValidTarget(this.targetUnit, w.def.targets)) {
@@ -962,6 +1128,11 @@ class Unit extends Entity {
             ctx.fillStyle = '#3d3d3d'; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
             ctx.strokeStyle = '#9cf'; ctx.beginPath(); ctx.moveTo(-10, -3); ctx.lineTo(10, -3); ctx.moveTo(-10, 3); ctx.lineTo(10, 3); ctx.stroke();
         }
+        else if (this.typeKey === 'CONVOY') {
+            ctx.fillStyle = '#6b5b3f'; ctx.fillRect(-12, -6, 24, 12);
+            ctx.fillStyle = '#2f2f2f'; ctx.fillRect(-10, -8, 20, 3); ctx.fillRect(-10, 5, 20, 3);
+            ctx.fillStyle = '#89a'; ctx.fillRect(2, -4, 7, 8);
+        }
         else if (this.typeKey === 'SF') { ctx.fillStyle = '#0f0'; ctx.beginPath(); ctx.arc(0,0, 3, 0, Math.PI*2); ctx.fill(); }
         else if (this.typeKey === 'CRUISE_MISSILE_UNIT') { ctx.fillStyle = '#fff'; ctx.fillRect(-5, -2, 10, 4); }
         else if (this.typeKey === 'HYPERSONIC_ASHM_UNIT') { ctx.fillStyle = '#ffd6d6'; ctx.fillRect(-6, -2, 12, 4); ctx.fillStyle = '#f55'; ctx.fillRect(-2, -3, 4, 6); }
@@ -1253,6 +1424,8 @@ function randomizeMap() {
 function generateMap() {
     islands.length = 0; 
     entities.length = 0; 
+    landRoads.length = 0;
+    roadNodes.length = 0;
     TEAMS[TEAM_PLAYER].zones = [];
     TEAMS[TEAM_AI].zones = [];
     
@@ -1271,12 +1444,16 @@ function generateMap() {
     islands[0].buildings.push(new Building(200, worldHeight/2, TEAM_PLAYER, 'AIRPORT'));
     islands[0].buildings.push(new Building(230, worldHeight/2 + 30, TEAM_PLAYER, 'SAM_SITE'));
     islands[0].buildings.push(createPortBuilding(islands[0], TEAM_PLAYER, Math.PI * 0.85));
+    islands[0].buildings.push(new Building(170, worldHeight/2 + 40, TEAM_PLAYER, 'CONSTRUCTION_YARD'));
+    islands[0].buildings.push(new Building(165, worldHeight/2 - 35, TEAM_PLAYER, 'BASE_FORT'));
     
     islands.push(new Island(worldWidth - 200, worldHeight/2, islSize + 40, true)); 
     islands[1].owner = TEAM_AI;
     islands[1].buildings.push(new Building(worldWidth - 200, worldHeight/2, TEAM_AI, 'AIRPORT'));
     islands[1].buildings.push(new Building(worldWidth - 230, worldHeight/2 - 30, TEAM_AI, 'SAM_SITE'));
     islands[1].buildings.push(createPortBuilding(islands[1], TEAM_AI, Math.PI * -0.2));
+    islands[1].buildings.push(new Building(worldWidth - 170, worldHeight/2 - 42, TEAM_AI, 'CONSTRUCTION_YARD'));
+    islands[1].buildings.push(new Building(worldWidth - 165, worldHeight/2 + 35, TEAM_AI, 'BASE_FORT'));
 
     const islandCount = 4 * sizeMult;
     for(let i=0; i<islandCount; i++) {
@@ -1286,8 +1463,12 @@ function generateMap() {
         let isl = new Island(x, y, islSize);
         isl.buildings.push(new Building(x, y, TEAM_NEUTRAL, 'AIRPORT'));
         isl.buildings.push(createPortBuilding(isl, TEAM_NEUTRAL));
+        if (currentMapType === 'LAND' && Math.random() < 0.45) {
+            isl.buildings.push(new Building(x + 24, y + 24, TEAM_NEUTRAL, 'CONSTRUCTION_YARD'));
+        }
         islands.push(isl);
     }
+    if (currentMapType === 'LAND') buildLandRoadNetwork();
 }
 
 function startGame() {
@@ -1717,8 +1898,22 @@ function spawnUnit(team, typeKey, specificSpawner = null) {
         const u = new Unit(spawnPoint.x, spawnPoint.y, team, typeKey);
         u.angle = team === TEAM_PLAYER ? 0 : Math.PI;
         u.state = 'IDLE'; 
-        if (UNIT_TYPES[typeKey].type === 'air') u.speed = u.data.speed * SPEED_SCALE; 
+        if (UNIT_TYPES[typeKey].type === 'air') u.speed = u.data.speed * SPEED_SCALE;
         entities.push(u);
+
+        if (typeKey === 'CONVOY') {
+            const escorts = ['IR_APC', 'AAA_BATTERY', 'IR_APC', 'SF'];
+            u.convoyMembers = [];
+            escorts.forEach((memberType, idx) => {
+                const col = idx % 2;
+                const row = Math.floor(idx / 2);
+                const member = new Unit(spawnPoint.x - 35 - row * 24, spawnPoint.y + (col === 0 ? -20 : 20), team, memberType);
+                member.convoyLeaderId = u.id;
+                member.hasCommand = true;
+                entities.push(member);
+                u.convoyMembers.push(member.id);
+            });
+        }
     }
 }
 
@@ -1755,6 +1950,7 @@ function updateTeamAI(team) {
     if (enemyIslands.length > 0 && !hasTransport) toBuild = 'TRANSPORT';
     else if (myUnits.filter(u => u.typeKey === 'IR_APC').length < 3) toBuild = 'IR_APC';
     else if (myUnits.filter(u => u.typeKey === 'AAA_BATTERY').length < 2) toBuild = 'AAA_BATTERY';
+    else if (currentMapType === 'LAND' && myUnits.filter(u => u.typeKey === 'CONVOY').length < 1) toBuild = 'CONVOY';
     else if (myUnits.filter(u => u.typeKey === 'FIGHTER').length < 3) toBuild = 'FIGHTER';
     else if (myUnits.filter(u => u.typeKey === 'SEAD_FIGHTER').length < 1) toBuild = 'SEAD_FIGHTER';
     else if (myUnits.filter(u => u.typeKey === 'STRIKE').length < 3) toBuild = 'STRIKE';
@@ -1851,7 +2047,7 @@ canvas.addEventListener('mousedown', e => {
             zoneDragStart = { x: mouse.worldX, y: mouse.worldY };
         } else {
             selection = [];
-            const clickedUnit = entities.find(u => Math.hypot(u.x - mouse.worldX, u.y - mouse.worldY) < 20 && u.team === TEAM_PLAYER && u.typeKey !== 'SF' && u.visible);
+            const clickedUnit = entities.find(u => Math.hypot(u.x - mouse.worldX, u.y - mouse.worldY) < 20 && u.team === TEAM_PLAYER && u.typeKey !== 'SF' && !u.convoyLeaderId && u.visible);
             if (clickedUnit) selection.push(clickedUnit);
             else {
                 islands.forEach(i => {
@@ -2092,6 +2288,24 @@ function draw() {
         ctx.fillRect(zoneDragStart.x, zoneDragStart.y, w, h);
         ctx.strokeStyle = '#fff';
         ctx.strokeRect(zoneDragStart.x, zoneDragStart.y, w, h);
+    }
+
+    if (currentMapType === 'LAND' && landRoads.length > 0) {
+        ctx.lineCap = 'round';
+        landRoads.forEach(seg => {
+            ctx.strokeStyle = '#5d5340';
+            ctx.lineWidth = 14;
+            ctx.beginPath();
+            ctx.moveTo(seg.a.x, seg.a.y);
+            ctx.lineTo(seg.b.x, seg.b.y);
+            ctx.stroke();
+            ctx.strokeStyle = '#8d7a5d';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(seg.a.x, seg.a.y);
+            ctx.lineTo(seg.b.x, seg.b.y);
+            ctx.stroke();
+        });
     }
 
     islands.forEach(i => { i.draw(ctx); i.buildings.forEach(b => b.draw(ctx)); });
