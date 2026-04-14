@@ -558,14 +558,24 @@ class Unit extends Entity {
                 const idx = (leader.convoyMembers || []).indexOf(this.id);
                 const col = (idx >= 0 ? idx : 0) % 3;
                 const row = Math.floor((idx >= 0 ? idx : 0) / 3);
-                const offX = -45 - row * 28;
-                const offY = (col - 1) * 22;
-                this.targetPos = {
+                const sway = Math.sin((gameTime * 0.08) + this.id) * 4;
+                const offX = -45 - row * 28 + sway;
+                const offY = (col - 1) * 22 + Math.cos((gameTime * 0.06) + this.id) * 2.5;
+                const desired = {
                     x: leader.x + Math.cos(leader.angle) * offX - Math.sin(leader.angle) * offY,
                     y: leader.y + Math.sin(leader.angle) * offX + Math.cos(leader.angle) * offY
                 };
+                this.x += (desired.x - this.x) * 0.22;
+                this.y += (desired.y - this.y) * 0.22;
+                let dA = leader.angle - this.angle;
+                while (dA < -Math.PI) dA += Math.PI * 2;
+                while (dA > Math.PI) dA -= Math.PI * 2;
+                this.angle += dA * 0.18;
+                this.state = leader.state;
                 this.targetUnit = leader.targetUnit;
                 this.hasCommand = true;
+                this.rtb = false;
+                return;
             } else {
                 this.convoyLeaderId = null;
             }
@@ -924,6 +934,18 @@ class Unit extends Entity {
         
         if (this.typeKey === 'CARRIER') {
             entities.forEach(e => { if (e.team === this.team && e !== this && dist(this, e) < 50 && e.data.type !== 'ship') { if (e.rtb) { e.state = 'LANDED'; e.base = this; e.x = this.x; e.y = this.y; } } });
+        }
+        if (this.typeKey === 'CONVOY') {
+            const island = islands.find(i => dist(this, i) < i.radius * 1.1);
+            if (island && island.owner !== this.team) {
+                island.captureProgress += 0.28 * SPEED_SCALE;
+                if (island.captureProgress >= 100) {
+                    island.owner = this.team;
+                    island.captureProgress = 0;
+                    island.buildings.forEach(b => { b.team = this.team; b.hp = b.maxHp; });
+                    addParticle(this.x, this.y, 'text', 'CONVOY CAPTURE');
+                }
+            }
         }
         if (this.typeKey === 'SF') {
             const island = islands.find(i => dist(this, i) < i.radius * 1.5);
@@ -1999,9 +2021,11 @@ function updateTeamAI(team) {
     const myUnits = entities.filter(e => e.team === team);
     const enemyIslands = islands.filter(i => i.owner !== team);
     const hasTransport = myUnits.some(u => u.typeKey === 'TRANSPORT');
+    const offensiveCount = myUnits.filter(u => ['FIGHTER', 'STRIKE', 'SEAD_FIGHTER', 'BOMBER', 'AC130', 'CONVOY'].includes(u.typeKey)).length;
     
     let toBuild = null;
-    if (enemyIslands.length > 0 && !hasTransport) toBuild = 'TRANSPORT';
+    if (currentMapType === 'LAND' && enemyIslands.length > 0 && myUnits.filter(u => u.typeKey === 'CONVOY').length < 2) toBuild = 'CONVOY';
+    else if (enemyIslands.length > 0 && !hasTransport && currentMapType !== 'LAND') toBuild = 'TRANSPORT';
     else if (myUnits.filter(u => u.typeKey === 'IR_APC').length < 3) toBuild = 'IR_APC';
     else if (myUnits.filter(u => u.typeKey === 'AAA_BATTERY').length < 2) toBuild = 'AAA_BATTERY';
     else if (currentMapType === 'LAND' && myUnits.filter(u => u.typeKey === 'CONVOY').length < 1) toBuild = 'CONVOY';
@@ -2016,7 +2040,8 @@ function updateTeamAI(team) {
     else if (myUnits.filter(u => u.typeKey === 'HUNTER_FRIGATE').length < 1 && currentMapType !== 'LAND') toBuild = 'HUNTER_FRIGATE';
     else if (myUnits.filter(u => u.typeKey === 'SSBN').length < 1 && currentMapType !== 'LAND') toBuild = 'SSBN';
     else if (currentMapType !== 'LAND' && isUnlocked(team, 'HYPERSONIC_ASHM') && myUnits.filter(u => u.typeKey === 'ARSENAL_CRUISER').length < 1) toBuild = 'ARSENAL_CRUISER';
-    else if (Math.random() > 0.7) toBuild = 'ATTACK_HELI';
+    else if (offensiveCount < 3) toBuild = currentMapType === 'LAND' ? 'CONVOY' : 'STRIKE';
+    else if (Math.random() > 0.78 && offensiveCount >= 4) toBuild = 'ATTACK_HELI';
 
     if (toBuild && (!UNIT_TYPES[toBuild].type.includes('ship') || currentMapType !== 'LAND')) {
          spawnUnit(team, toBuild);
@@ -2043,6 +2068,15 @@ function updateTeamAI(team) {
                 let target = islands.find(i => i.owner === TEAM_NEUTRAL);
                 if (!target) target = islands.find(i => i.owner !== team);
                 if (target) u.setTransportAssaultMission(target, { x: target.x, y: target.y });
+            } else if (u.typeKey === 'CONVOY') {
+                let target = islands.find(i => i.owner === TEAM_NEUTRAL);
+                if (!target) target = islands.find(i => i.owner !== team);
+                if (target) {
+                    u.targetPos = { x: target.x, y: target.y };
+                    u.targetUnit = null;
+                    u.hasCommand = true;
+                    u.state = 'MOVE';
+                }
             } else if (u.data.role === 'AA' || u.data.role === 'Multi') {
                  const preferred = chooseBestAiTarget(u, team);
                  if (preferred) u.targetUnit = preferred;
