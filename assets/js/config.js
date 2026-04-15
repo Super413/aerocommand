@@ -41,6 +41,12 @@ const WEAPONS = {
     DEPLOY_ASHM: { name: 'AShM Bat', type: 'DEPLOY', damage: 0, cooldown: 300, range: 20, targets: [], capacity: 1, icon: '🚢💥', deployType: 'BUILDING', buildType: 'DEPLOYED_ASHM' },
     DEPLOY_IR_APC: { name: 'Unload IR APC', type: 'DEPLOY', damage: 0, cooldown: 150, range: 25, targets: [], capacity: 2, icon: '🚛', deployType: 'UNIT', unitType: 'IR_APC' },
     DEPLOY_AAA_BATTERY: { name: 'Unload AAA', type: 'DEPLOY', damage: 0, cooldown: 180, range: 25, targets: [], capacity: 2, icon: '🛡️', deployType: 'UNIT', unitType: 'AAA_BATTERY' },
+    DEPLOY_SOLDIER_SQUAD: { name: 'Deploy Soldiers', type: 'DEPLOY', damage: 0, cooldown: 140, range: 25, targets: [], capacity: 2, icon: '👥', deployType: 'UNIT', unitType: 'SOLDIER_SQUAD' },
+    CONVOY_SLOT_TANK: { name: 'Tank Element', type: 'DEPLOY', damage: 0, cooldown: 1, range: 1, targets: [], capacity: 1, icon: '🛡️🚜', deployType: 'UNIT', unitType: 'TANK' },
+    CONVOY_SLOT_IFV: { name: 'IFV Element', type: 'DEPLOY', damage: 0, cooldown: 1, range: 1, targets: [], capacity: 1, icon: '🚙🎯', deployType: 'UNIT', unitType: 'IFV' },
+    CONVOY_SLOT_APC: { name: 'APC Element', type: 'DEPLOY', damage: 0, cooldown: 1, range: 1, targets: [], capacity: 1, icon: '🚛', deployType: 'UNIT', unitType: 'APC' },
+    CONVOY_SLOT_AAA: { name: 'AAA Element', type: 'DEPLOY', damage: 0, cooldown: 1, range: 1, targets: [], capacity: 1, icon: '🛡️', deployType: 'UNIT', unitType: 'AAA_BATTERY' },
+    CONVOY_SLOT_SOLDIERS: { name: 'Soldier Element', type: 'DEPLOY', damage: 0, cooldown: 1, range: 1, targets: [], capacity: 1, icon: '👥', deployType: 'UNIT', unitType: 'SOLDIER_SQUAD' },
     JAMMER_POD: { name: 'ECM Pod', type: 'ECM', damage: 0, cooldown: 10, range: 100, targets: [], icon: '📡', passive: true, capacity: 2 }
 };
 
@@ -58,7 +64,7 @@ const TECH_TREE = {
 };
 
 // Initial unlocks per team
-const DEFAULT_UNLOCKS = ['EMPTY', 'GUN_BASIC', 'RIFLE', 'ROCKET_HYDRA', 'BOMB_IRON', 'SF_DEPLOY', 'CANNON_127MM'];
+const DEFAULT_UNLOCKS = ['EMPTY', 'GUN_BASIC', 'RIFLE', 'ROCKET_HYDRA', 'BOMB_IRON', 'SF_DEPLOY', 'CANNON_127MM', 'DEPLOY_SOLDIER_SQUAD', 'CONVOY_SLOT_TANK', 'CONVOY_SLOT_IFV', 'CONVOY_SLOT_APC', 'CONVOY_SLOT_AAA', 'CONVOY_SLOT_SOLDIERS'];
 
 // State per team (Ensuring robust init)
 const TEAMS = {
@@ -115,13 +121,42 @@ const UNIT_TYPES = {
         { name: 'L Tip', types: ['AAM_LIGHT', 'ECM'], equipped: 'EMPTY', x: -70, y: -20, ammoByWeapon: { SIDEWINDER: 2 } },
         { name: 'R Tip', types: ['AAM_LIGHT', 'ECM'], equipped: 'EMPTY', x: 70, y: -20, ammoByWeapon: { SIDEWINDER: 2 } }
     ] },
-    TRANSPORT: { name: 'CH-47 Chinook', type: 'heli', role: 'Transport', cost: 300, hp: 200, speed: 1.6, turn: 0.05, fuel: 2500, ammo: 0, capacity: 4, icon: '📦', hardpoints: [ { name: 'Cargo Bay', types: ['DEPLOY'], equipped: 'SF_DEPLOY', x: 0, y: 0, ammoByWeapon: { SF_DEPLOY: 2, DEPLOY_SPAA: 1, DEPLOY_COASTAL: 1, DEPLOY_MANPADS: 2, DEPLOY_ASHM: 1 } } ] },
+    TRANSPORT: { name: 'CH-47 Chinook', type: 'heli', role: 'Transport', cost: 300, hp: 200, speed: 1.6, turn: 0.05, fuel: 2500, ammo: 0, capacity: 4, icon: '📦', hardpoints: [ { name: 'Cargo Bay', types: ['DEPLOY'], equipped: 'SF_DEPLOY', x: 0, y: 0, ammoByWeapon: { SF_DEPLOY: 2, DEPLOY_SOLDIER_SQUAD: 2, DEPLOY_SPAA: 1, DEPLOY_COASTAL: 1, DEPLOY_MANPADS: 2, DEPLOY_ASHM: 1 } } ] },
     SF: { name: 'SF Team', type: 'ground', role: 'Capture', cost: 100, hp: 50, speed: 0.5, turn: 1, fuel: 0, ammo: 999, icon: '🔫', hardpoints: [{ name: 'Gun', types: ['GUN'], equipped: 'RIFLE', x:0, y:0 }] },
+    SOLDIER_SQUAD: { name: 'Soldier Squad', type: 'ground', role: 'Capture', cost: 240, hp: 110, speed: 0.55, turn: 0.28, fuel: 9999, ammo: 1, icon: '👥', hardpoints: [{ name: 'Lead Rifle', types: ['GUN'], equipped: 'RIFLE', x:0, y:0 }] },
+    SQUAD_AT: { name: 'AT Specialist', type: 'ground', role: 'AT', cost: 0, hp: 58, speed: 0.54, turn: 0.28, fuel: 9999, ammo: 1, icon: '🎯', hardpoints: [
+        { name: 'Rifle', types: ['GUN'], equipped: 'RIFLE', x: 0, y: 0 },
+        { name: 'Rocket', types: ['ROCKET'], equipped: 'ROCKET_HYDRA', x: 0, y: -6, ammoByWeapon: { ROCKET_HYDRA: 1 } },
+        { name: 'Heavy', types: ['AGM'], equipped: 'HELLFIRE', x: 0, y: 6, ammoByWeapon: { HELLFIRE: 1 } }
+    ] },
+    SQUAD_AA: { name: 'AA Specialist', type: 'ground', role: 'AA', cost: 0, hp: 58, speed: 0.54, turn: 0.28, fuel: 9999, ammo: 1, icon: '🛰️', hardpoints: [
+        { name: 'Rifle', types: ['GUN'], equipped: 'RIFLE', x: 0, y: 0 },
+        { name: 'IR Missile', types: ['AAM_LIGHT'], equipped: 'SIDEWINDER', x: 0, y: -6, ammoByWeapon: { SIDEWINDER: 1 } }
+    ] },
+    SQUAD_ASSISTANT: { name: 'AT Assistant', type: 'ground', role: 'Support', cost: 0, hp: 62, speed: 0.54, turn: 0.28, fuel: 9999, ammo: 1, icon: '🧰', hardpoints: [{ name: 'Rifle', types: ['GUN'], equipped: 'RIFLE', x:0, y:0 }] },
+    APC: { name: 'Assault APC', type: 'ground', role: 'Transport', cost: 520, hp: 320, speed: 0.62, turn: 0.11, fuel: 9999, ammo: 1, icon: '🚛', hardpoints: [
+        { name: 'MG', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -5 },
+        { name: 'Troop Bay', types: ['DEPLOY'], equipped: 'DEPLOY_SOLDIER_SQUAD', x: 0, y: 6, ammoByWeapon: { DEPLOY_SOLDIER_SQUAD: 2, SF_DEPLOY: 2 } }
+    ] },
+    IFV: { name: 'IFV', type: 'ground', role: 'Armor', cost: 680, hp: 420, speed: 0.6, turn: 0.1, fuel: 9999, ammo: 1, icon: '🚙', hardpoints: [
+        { name: 'AutoCannon', types: ['GUN'], equipped: 'VULCAN', x: 0, y: -5, allowedWeapons: ['GUN_BASIC', 'VULCAN'] },
+        { name: 'Missile', types: ['AGM'], equipped: 'MAVERICK', x: 0, y: 6, ammoByWeapon: { MAVERICK: 2, HELLFIRE: 2 } }
+    ] },
+    TANK: { name: 'MBT', type: 'ground', role: 'Armor', cost: 820, hp: 640, speed: 0.5, turn: 0.08, fuel: 9999, ammo: 1, icon: '🛡️🚜', hardpoints: [
+        { name: 'Main Gun', types: ['GUN'], equipped: 'CANNON_127MM', x: 0, y: -5, allowedWeapons: ['CANNON_127MM'] },
+        { name: 'Coax', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: 6, allowedWeapons: ['GUN_BASIC', 'VULCAN'] }
+    ] },
     IR_APC: { name: 'IR APC', type: 'ground', role: 'Missile Defense', cost: 700, hp: 260, speed: 0.45, turn: 0.09, fuel: 9999, ammo: 1, icon: '🚛', hardpoints: [
         { name: 'IR Launcher', types: ['AAM_LIGHT'], equipped: 'SIDEWINDER', x: 0, y: -10, ammoByWeapon: { SIDEWINDER: 4 } }
     ] },
     AAA_BATTERY: { name: 'AAA Battery', type: 'ground', role: 'Air Defense', cost: 900, hp: 420, speed: 0.2, turn: 0.2, fuel: 9999, ammo: 1, icon: '🛡️', hardpoints: [
         { name: 'CIWS Mount', types: ['GUN'], equipped: 'CIWS', x: 0, y: 0 }
+    ] },
+    CONVOY: { name: 'Mechanized Convoy', type: 'ground', role: 'Convoy Command', cost: 1800, hp: 900, speed: 0.34, turn: 0.09, fuel: 9999, ammo: 0, icon: '🚚🚚', hardpoints: [
+        { name: 'Lead', types: ['DEPLOY'], equipped: 'CONVOY_SLOT_TANK', x: -10, y: -10, allowedWeapons: ['CONVOY_SLOT_TANK', 'CONVOY_SLOT_IFV', 'CONVOY_SLOT_APC', 'CONVOY_SLOT_AAA', 'CONVOY_SLOT_SOLDIERS'] },
+        { name: 'Wing 1', types: ['DEPLOY'], equipped: 'CONVOY_SLOT_IFV', x: 10, y: -10, allowedWeapons: ['CONVOY_SLOT_TANK', 'CONVOY_SLOT_IFV', 'CONVOY_SLOT_APC', 'CONVOY_SLOT_AAA', 'CONVOY_SLOT_SOLDIERS'] },
+        { name: 'Wing 2', types: ['DEPLOY'], equipped: 'CONVOY_SLOT_APC', x: -10, y: 10, allowedWeapons: ['CONVOY_SLOT_TANK', 'CONVOY_SLOT_IFV', 'CONVOY_SLOT_APC', 'CONVOY_SLOT_AAA', 'CONVOY_SLOT_SOLDIERS'] },
+        { name: 'Rear', types: ['DEPLOY'], equipped: 'CONVOY_SLOT_AAA', x: 10, y: 10, allowedWeapons: ['CONVOY_SLOT_TANK', 'CONVOY_SLOT_IFV', 'CONVOY_SLOT_APC', 'CONVOY_SLOT_AAA', 'CONVOY_SLOT_SOLDIERS'] }
     ] },
     CARRIER: { name: 'Carrier', type: 'ship', role: 'Base', cost: 2500, hp: 2000, speed: 0.6, turn: 0.04, fuel: 0, ammo: 999, icon: '🚢', commandAuraRadius: 220, commandTurnBoost: 1.2, commandCooldownBoost: 1.15, hardpoints: [
         { name: 'Bow AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -50, allowedWeapons: ['GUN_BASIC', 'CIWS'] },
@@ -170,5 +205,7 @@ const BUILDINGS = {
     DEPLOYED_COASTAL: { hp: 400, range: 250, damage: 80, reload: 180, name: 'Coast Gun' }, 
     DEPLOYED_MANPADS: { hp: 150, range: 180, damage: 35, reload: 100, name: 'MANPADS' },
     DEPLOYED_ASHM: { hp: 300, range: 400, damage: 150, reload: 400, name: 'AShM Bat' },
-    PORT: { hp: 1400, range: 60, name: 'Port' }
+    PORT: { hp: 1400, range: 60, name: 'Port' },
+    CONSTRUCTION_YARD: { hp: 700, range: 85, damage: 0, reload: 45, name: 'Construction Yard' },
+    BASE_FORT: { hp: 1100, range: 220, damage: 16, reload: 24, name: 'Base Fortification' }
 };
