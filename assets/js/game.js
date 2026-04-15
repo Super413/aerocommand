@@ -160,8 +160,8 @@ function getGroundRoadSpeedMultiplier(unit) {
     if (currentMapType !== 'LAND' || landRoads.length === 0) return 1;
     let nearest = Infinity;
     landRoads.forEach(seg => { nearest = Math.min(nearest, distPointToSegment(unit, seg.a, seg.b)); });
-    if (nearest < 14) return 1.35;
-    if (nearest < 30) return 1.18;
+    if (nearest < 14) return 2.0;
+    if (nearest < 30) return 1.5;
     return 1;
 }
 
@@ -504,6 +504,7 @@ class Unit extends Entity {
         this.convoyMembers = [];
         this.convoyLeaderId = null;
         this.isConvoyLead = typeKey === 'CONVOY';
+        this.convoyTrail = [];
     }
 
     initLoadout() {
@@ -556,21 +557,18 @@ class Unit extends Entity {
             const leader = entities.find(e => e.id === this.convoyLeaderId && !e.dead);
             if (leader) {
                 const idx = (leader.convoyMembers || []).indexOf(this.id);
-                const col = (idx >= 0 ? idx : 0) % 3;
-                const row = Math.floor((idx >= 0 ? idx : 0) / 3);
-                const sway = Math.sin((gameTime * 0.08) + this.id) * 4;
-                const offX = -45 - row * 28 + sway;
-                const offY = (col - 1) * 22 + Math.cos((gameTime * 0.06) + this.id) * 2.5;
-                const desired = {
-                    x: leader.x + Math.cos(leader.angle) * offX - Math.sin(leader.angle) * offY,
-                    y: leader.y + Math.sin(leader.angle) * offX + Math.cos(leader.angle) * offY
-                };
+                const columnIndex = Math.max(0, idx) + 1;
+                const trailStep = 8;
+                const trailPos = (leader.convoyTrail && leader.convoyTrail.length > 0)
+                    ? leader.convoyTrail[Math.min(leader.convoyTrail.length - 1, columnIndex * trailStep)]
+                    : { x: leader.x - Math.cos(leader.angle) * (columnIndex * 16), y: leader.y - Math.sin(leader.angle) * (columnIndex * 16), angle: leader.angle };
+                const desired = { x: trailPos.x, y: trailPos.y };
                 this.x += (desired.x - this.x) * 0.22;
                 this.y += (desired.y - this.y) * 0.22;
-                let dA = leader.angle - this.angle;
+                let dA = (trailPos.angle ?? leader.angle) - this.angle;
                 while (dA < -Math.PI) dA += Math.PI * 2;
                 while (dA > Math.PI) dA -= Math.PI * 2;
-                this.angle += dA * 0.18;
+                this.angle += dA * 0.25;
                 this.state = leader.state;
                 this.targetUnit = leader.targetUnit;
                 this.hasCommand = true;
@@ -579,6 +577,10 @@ class Unit extends Entity {
             } else {
                 this.convoyLeaderId = null;
             }
+        }
+        if (this.isConvoyLead) {
+            this.convoyTrail.unshift({ x: this.x, y: this.y, angle: this.angle });
+            if (this.convoyTrail.length > 180) this.convoyTrail.length = 180;
         }
 
         if (this.typeKey === 'PILE_DRIVER_TBM_UNIT') {
@@ -755,20 +757,12 @@ class Unit extends Entity {
 
         if (this.isConvoyLead) {
             this.convoyMembers = this.convoyMembers.filter(id => entities.some(e => e.id === id && !e.dead));
-            this.convoyMembers.forEach((memberId, idx) => {
+            this.convoyMembers.forEach(memberId => {
                 const member = entities.find(e => e.id === memberId);
                 if (!member || member.dead) return;
                 member.targetUnit = this.targetUnit;
                 member.rtb = false;
                 member.hasCommand = this.hasCommand;
-                const col = idx % 3;
-                const row = Math.floor(idx / 3);
-                const offX = -45 - row * 28;
-                const offY = (col - 1) * 22;
-                member.targetPos = {
-                    x: this.x + Math.cos(this.angle) * offX - Math.sin(this.angle) * offY,
-                    y: this.y + Math.sin(this.angle) * offX + Math.cos(this.angle) * offY
-                };
             });
         }
         
