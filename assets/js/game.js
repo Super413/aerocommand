@@ -588,39 +588,58 @@ class Unit extends Entity {
         if (this.fireTimer > 0) this.fireTimer -= cooldownScale;
         if (this.takeoffTimer > 0) this.takeoffTimer -= cooldownScale;
 
+        this.isSquadFollower = false;
         if (this.convoyLeaderId) {
             const leader = entities.find(e => e.id === this.convoyLeaderId && !e.dead);
             if (leader) {
                 const idx = (leader.convoyMembers || []).indexOf(this.id);
                 const columnIndex = Math.max(0, idx) + 1;
-                const trailStep = leader.typeKey === 'SOLDIER_SQUAD' ? 4 : 12;
+                const isSquadLeader = leader.typeKey === 'SOLDIER_SQUAD';
+                this.isSquadFollower = isSquadLeader;
+                const trailStep = isSquadLeader ? 2 : 14;
                 const trailPos = (leader.convoyTrail && leader.convoyTrail.length > 0)
                     ? leader.convoyTrail[Math.min(leader.convoyTrail.length - 1, columnIndex * trailStep)]
-                    : { x: leader.x - Math.cos(leader.angle) * (columnIndex * 24), y: leader.y - Math.sin(leader.angle) * (columnIndex * 24), angle: leader.angle };
+                    : { x: leader.x - Math.cos(leader.angle) * (columnIndex * 30), y: leader.y - Math.sin(leader.angle) * (columnIndex * 30), angle: leader.angle };
                 let desired = { x: trailPos.x, y: trailPos.y };
-                if (leader.typeKey === 'SOLDIER_SQUAD') {
+                if (isSquadLeader) {
                     const veeOffsets = [
-                        { back: 8, side: -9 },
-                        { back: 8, side: 9 },
-                        { back: 18, side: 0 }
+                        { back: 5, side: -6 },
+                        { back: 5, side: 6 },
+                        { back: 10, side: 0 }
                     ];
-                    const off = veeOffsets[Math.max(0, idx)] || { back: 18, side: 0 };
+                    const off = veeOffsets[Math.max(0, idx)] || { back: 10, side: 0 };
                     desired = {
-                        x: trailPos.x - Math.cos(trailPos.angle) * off.back - Math.sin(trailPos.angle) * off.side,
-                        y: trailPos.y - Math.sin(trailPos.angle) * off.back + Math.cos(trailPos.angle) * off.side
+                        x: leader.x - Math.cos(leader.angle) * off.back - Math.sin(leader.angle) * off.side,
+                        y: leader.y - Math.sin(leader.angle) * off.back + Math.cos(leader.angle) * off.side
                     };
+                    this.targetPos = desired;
+                } else {
+                    this.x += (desired.x - this.x) * 0.24;
+                    this.y += (desired.y - this.y) * 0.24;
+                    let dA = (trailPos.angle ?? leader.angle) - this.angle;
+                    while (dA < -Math.PI) dA += Math.PI * 2;
+                    while (dA > Math.PI) dA -= Math.PI * 2;
+                    this.angle += dA * 0.25;
                 }
-                this.x += (desired.x - this.x) * 0.22;
-                this.y += (desired.y - this.y) * 0.22;
-                let dA = (trailPos.angle ?? leader.angle) - this.angle;
-                while (dA < -Math.PI) dA += Math.PI * 2;
-                while (dA > Math.PI) dA -= Math.PI * 2;
-                this.angle += dA * 0.25;
                 this.state = leader.state;
                 this.targetUnit = leader.targetUnit;
                 this.hasCommand = true;
                 this.rtb = false;
-                return;
+
+                if (!isSquadLeader) {
+                    if (!this.targetUnit || this.targetUnit.dead || dist(this, this.targetUnit) > 260) {
+                        this.targetUnit = findTarget(this, 260, this.getValidTargetTypes());
+                        leader.targetUnit = this.targetUnit || leader.targetUnit;
+                    }
+                    if (this.targetUnit && !this.targetUnit.dead) {
+                        this.weapons.forEach(w => {
+                            if (w.ammo > 0 && w.cooldown <= 0 && dist(this, this.targetUnit) <= (w.def.range || 0)) {
+                                this.fireWeapon(w, this.targetUnit);
+                            }
+                        });
+                    }
+                    return;
+                }
             } else {
                 this.convoyLeaderId = null;
             }
@@ -788,7 +807,7 @@ class Unit extends Entity {
 
         // --- TARGETING ---
         // 1. Check Strike Zones
-        if (!this.convoyLeaderId && !this.targetUnit && this.state !== 'RETURN' && this.data.role !== 'Transport') {
+        if ((!this.convoyLeaderId || this.isSquadFollower) && !this.targetUnit && this.state !== 'RETURN' && this.data.role !== 'Transport') {
             const teamZones = TEAMS[this.team].zones;
             const strikeZone = teamZones.find(z => z.type === 'STRIKE');
             const validTargets = this.getValidTargetTypes();
@@ -811,7 +830,7 @@ class Unit extends Entity {
         }
 
         // 2. Default Targeting (Self Defense/Proximity)
-        if (!this.convoyLeaderId && !this.targetUnit && this.state !== 'RETURN' && this.data.role !== 'Transport') {
+        if ((!this.convoyLeaderId || this.isSquadFollower) && !this.targetUnit && this.state !== 'RETURN' && this.data.role !== 'Transport') {
             const validTargets = this.getValidTargetTypes();
             let maxRange = 0; this.weapons.forEach(w => maxRange = Math.max(maxRange, w.def.range));
             if (maxRange === 0) maxRange = 100;
@@ -823,6 +842,9 @@ class Unit extends Entity {
 
         if (this.isConvoyLead) {
             this.convoyMembers = this.convoyMembers.filter(id => entities.some(e => e.id === id && !e.dead));
+            if (!this.targetUnit || this.targetUnit.dead || dist(this, this.targetUnit) > 300) {
+                this.targetUnit = findTarget(this, 300, ['ground', 'air', 'heli', 'structure']);
+            }
             this.convoyMembers.forEach(memberId => {
                 const member = entities.find(e => e.id === memberId);
                 if (!member || member.dead) return;
