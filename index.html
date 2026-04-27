@@ -23,6 +23,27 @@
     <div id="main-menu" class="menu-screen">
         <div class="menu-title">AeroCommand</div>
         <div class="menu-btn" onclick="showSetup()">PLAY</div>
+        <div class="menu-btn" onclick="showEncyclopedia()">ENCYCLOPEDIA</div>
+    </div>
+
+    <!-- Encyclopedia Menu -->
+    <div id="encyclopedia-menu" class="menu-screen" style="display:none;">
+        <div class="menu-title" style="font-size: 48px;">Encyclopedia</div>
+        <div id="encyclopedia-content">
+            <div id="encyclopedia-category-tabs"></div>
+            <div id="encyclopedia-entry-card">
+                <div id="encyclopedia-entry-title"></div>
+                <div id="encyclopedia-entry-subtitle"></div>
+                <div id="encyclopedia-entry-description"></div>
+                <div id="encyclopedia-entry-stats"></div>
+            </div>
+            <div id="encyclopedia-nav">
+                <button class="encyclopedia-nav-btn" onclick="cycleEncyclopediaEntry(-1)">◀ Prev</button>
+                <div id="encyclopedia-progress"></div>
+                <button class="encyclopedia-nav-btn" onclick="cycleEncyclopediaEntry(1)">Next ▶</button>
+            </div>
+        </div>
+        <div class="menu-btn" style="font-size: 16px; width: 150px; padding: 10px;" onclick="showMainMenu()">Back</div>
     </div>
 
     <!-- Setup Menu -->
