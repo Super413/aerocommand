@@ -210,6 +210,39 @@ const BUILDINGS = {
     BASE_FORT: { hp: 1100, range: 220, damage: 16, reload: 24, name: 'Base Fortification' }
 };
 
+const ENCYCLOPEDIA_DESCRIPTION_OVERRIDES = {
+    // Edit any unit/structure/weapon description here by key.
+    // Example:
+    // units: { F35: 'Stealth multirole strike fighter used for precision attacks.' }
+    // weapons: { AMRAAM: 'Beyond-visual-range radar-guided air-to-air missile.' }
+    units: {
+        AIRPORT: 'Primary launch and recovery complex for air operations.',
+        PORT: 'Naval logistics node that supports maritime operations.',
+        CONSTRUCTION_YARD: 'Forward engineering structure used for expansion and sustainment.'
+    },
+    weapons: {}
+};
+
+function buildGeneratedDescriptionCatalog() {
+    const unitDescriptions = {};
+    Object.entries(UNIT_TYPES).forEach(([key, unit]) => {
+        const roleText = unit.role ? ` Role: ${unit.role}.` : '';
+        unitDescriptions[key] = `${unit.name || key} (${unit.type} unit).${roleText}`;
+    });
+    Object.entries(BUILDINGS).forEach(([key, building]) => {
+        unitDescriptions[key] = `${building.name || key} (ground structure).`;
+    });
+
+    const weaponDescriptions = {};
+    Object.entries(WEAPONS).forEach(([key, weapon]) => {
+        weaponDescriptions[key] = `${weapon.name || key} (${weapon.type || 'munition'}).`;
+    });
+
+    return { unitDescriptions, weaponDescriptions };
+}
+
+const generatedDescriptionCatalog = buildGeneratedDescriptionCatalog();
+
 const ENCYCLOPEDIA_DESCRIPTIONS = {
     categories: {
         ground: 'Ground forces and static structures used for territorial control, defense, and logistics.',
@@ -217,13 +250,6 @@ const ENCYCLOPEDIA_DESCRIPTIONS = {
         air: 'Aircraft and rotorcraft used for interception, strike, reconnaissance, and rapid response.',
         munitions: 'Weapons and payload systems that define lethality, range, and mission profiles.'
     },
-    units: {
-        default: 'No custom developer description yet. Add text in ENCYCLOPEDIA_DESCRIPTIONS.units.<UNIT_KEY>.',
-        AIRPORT: 'Primary launch and recovery complex for air operations.',
-        PORT: 'Naval logistics node that supports maritime operations.',
-        CONSTRUCTION_YARD: 'Forward engineering structure used for expansion and sustainment.'
-    },
-    weapons: {
-        default: 'No custom developer description yet. Add text in ENCYCLOPEDIA_DESCRIPTIONS.weapons.<WEAPON_KEY>.'
-    }
+    units: { ...generatedDescriptionCatalog.unitDescriptions, ...ENCYCLOPEDIA_DESCRIPTION_OVERRIDES.units },
+    weapons: { ...generatedDescriptionCatalog.weaponDescriptions, ...ENCYCLOPEDIA_DESCRIPTION_OVERRIDES.weapons }
 };
