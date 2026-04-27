@@ -22,6 +22,8 @@ let currentMapType = 'ARCHIPELAGO';
 let multiplayerMode = 'OFF';
 let multiplayerSessionCode = '';
 let encyclopediaState = { category: 'ground', index: 0, entries: null };
+let encyclopediaDescriptions = { units: {}, structures: {}, munitions: {} };
+let encyclopediaDescriptionsLoaded = false;
 
 const entities = [];
 const particles = [];
@@ -1605,6 +1607,43 @@ function formatStatValue(value) {
     return `${value}`;
 }
 
+async function loadEncyclopediaDescriptions() {
+    if (encyclopediaDescriptionsLoaded) return;
+    const response = await fetch('encyclopedia_discriptions.txt', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Failed to load encyclopedia descriptions (${response.status})`);
+    const text = await response.text();
+    const parsed = { units: {}, structures: {}, munitions: {} };
+    let section = null;
+
+    text.split('\n').forEach(rawLine => {
+        const line = rawLine.trim();
+        if (!line || line.startsWith('#')) return;
+        if (line.startsWith('[') && line.endsWith(']')) {
+            const sectionName = line.slice(1, -1).toLowerCase();
+            section = ['units', 'structures', 'munitions'].includes(sectionName) ? sectionName : null;
+            return;
+        }
+        if (!section) return;
+        const splitIndex = line.indexOf('|');
+        if (splitIndex === -1) return;
+        const key = line.slice(0, splitIndex).trim();
+        const description = line.slice(splitIndex + 1).trim();
+        if (key) parsed[section][key] = description;
+    });
+
+    encyclopediaDescriptions = parsed;
+    encyclopediaDescriptionsLoaded = true;
+}
+
+function getEncyclopediaDescription(type, key, fallback) {
+    const sectionMap = {
+        unit: encyclopediaDescriptions.units,
+        structure: encyclopediaDescriptions.structures,
+        munition: encyclopediaDescriptions.munitions
+    };
+    return sectionMap[type]?.[key] || fallback;
+}
+
 function getEncyclopediaData() {
     if (encyclopediaState.entries) return encyclopediaState.entries;
     const unitTypeCategory = { ground: 'ground', ship: 'naval', air: 'air', heli: 'air' };
@@ -1628,7 +1667,7 @@ function getEncyclopediaData() {
             icon: def.icon || '🧩',
             name: def.name || key,
             subtitle: `${category.toUpperCase()} UNIT`,
-            description: ENCYCLOPEDIA_DESCRIPTIONS?.units?.[key] || ENCYCLOPEDIA_DESCRIPTIONS?.units?.default || 'No description.',
+            description: getEncyclopediaDescription('unit', key, `${def.name || key} (${def.type} unit).`),
             stats
         });
     });
@@ -1643,7 +1682,7 @@ function getEncyclopediaData() {
             icon: '🏗️',
             name: def.name || key,
             subtitle: 'GROUND STRUCTURE',
-            description: ENCYCLOPEDIA_DESCRIPTIONS?.units?.[key] || ENCYCLOPEDIA_DESCRIPTIONS?.units?.default || 'No description.',
+            description: getEncyclopediaDescription('structure', key, `${def.name || key} (ground structure).`),
             stats
         });
     });
@@ -1658,7 +1697,7 @@ function getEncyclopediaData() {
             icon: def.icon || '💥',
             name: def.name || key,
             subtitle: 'MUNITION',
-            description: ENCYCLOPEDIA_DESCRIPTIONS?.weapons?.[key] || ENCYCLOPEDIA_DESCRIPTIONS?.weapons?.default || 'No description.',
+            description: getEncyclopediaDescription('munition', key, `${def.name || key} (${def.type || 'munition'}).`),
             stats
         });
     });
@@ -1711,10 +1750,15 @@ function renderEncyclopedia() {
     document.getElementById('encyclopedia-progress').innerText = `${encyclopediaState.index + 1} / ${activeList.length}`;
 }
 
-function showEncyclopedia() {
+async function showEncyclopedia() {
     document.getElementById('main-menu').style.display = 'none';
     document.getElementById('setup-menu').style.display = 'none';
     document.getElementById('encyclopedia-menu').style.display = 'flex';
+    try {
+        await loadEncyclopediaDescriptions();
+    } catch (err) {
+        console.warn(err);
+    }
     encyclopediaState.entries = null;
     renderEncyclopedia();
     gameState = 'ENCYCLOPEDIA';

@@ -1,0 +1,83 @@
+# Encyclopedia descriptions loaded by game.js
+# Format: KEY|Description text
+
+[units]
+FIGHTER|TODO: Add description for F-16 Viper.
+STRIKE|TODO: Add description for F/A-18 Hornet.
+BOMBER|TODO: Add description for B-52 Stratos.
+AWACS|TODO: Add description for E-3 Sentry.
+AC130|TODO: Add description for AC-130 Spectre.
+SEAD_FIGHTER|TODO: Add description for F-35G Shrike.
+ATTACK_HELI|TODO: Add description for AH-64 Apache.
+TRANSPORT|TODO: Add description for CH-47 Chinook.
+SF|TODO: Add description for SF Team.
+SOLDIER_SQUAD|TODO: Add description for Soldier Squad.
+SQUAD_AT|TODO: Add description for AT Specialist.
+SQUAD_AA|TODO: Add description for AA Specialist.
+SQUAD_ASSISTANT|TODO: Add description for AT Assistant.
+APC|TODO: Add description for Assault APC.
+IFV|TODO: Add description for IFV.
+TANK|TODO: Add description for MBT.
+IR_APC|TODO: Add description for IR APC.
+AAA_BATTERY|TODO: Add description for AAA Battery.
+CONVOY|TODO: Add description for Mechanized Convoy.
+CARRIER|TODO: Add description for Carrier.
+DESTROYER|TODO: Add description for Destroyer.
+ARSENAL_CRUISER|TODO: Add description for Arsenal Cruiser.
+LANDING_SHIP|TODO: Add description for Landing Ship.
+HUNTER_FRIGATE|TODO: Add description for Hunter Frigate.
+SSBN|TODO: Add description for SSBN.
+CRUISE_MISSILE_UNIT|TODO: Add description for Tomahawk.
+HYPERSONIC_ASHM_UNIT|TODO: Add description for Hypersonic AShM.
+PILE_DRIVER_TBM_UNIT|TODO: Add description for Pile-Driver TBM.
+
+[structures]
+AIRPORT|TODO: Add description for Airbase.
+SAM_SITE|TODO: Add description for SAM Site.
+SPAA|TODO: Add description for SPAA.
+DEPLOYED_SPAA|TODO: Add description for Light AA.
+DEPLOYED_COASTAL|TODO: Add description for Coast Gun.
+DEPLOYED_MANPADS|TODO: Add description for MANPADS.
+DEPLOYED_ASHM|TODO: Add description for AShM Bat.
+PORT|TODO: Add description for Port.
+CONSTRUCTION_YARD|TODO: Add description for Construction Yard.
+BASE_FORT|TODO: Add description for Base Fortification.
+
+[munitions]
+EMPTY|TODO: Add description for Empty.
+GUN_BASIC|TODO: Add description for .50 Cal MG.
+VULCAN|TODO: Add description for 20mm Vulcan.
+CANNON_127MM|TODO: Add description for 127mm Cannon.
+RAILGUN|TODO: Add description for Railcannon.
+CIWS|TODO: Add description for Phalanx CIWS.
+RIFLE|TODO: Add description for Assault Rifle.
+ROCKET_HYDRA|TODO: Add description for Hydra 70.
+ROCKET_DAGR|TODO: Add description for DAGR.
+ROCKET_DU|TODO: Add description for DU Rocket.
+BOMB_IRON|TODO: Add description for Mk82.
+BOMB_GUIDED|TODO: Add description for GBU-12.
+BOMB_CLUSTER|TODO: Add description for CBU-87.
+BOMB_SDB|TODO: Add description for SDB Glide.
+SIDEWINDER|TODO: Add description for AIM-9X.
+AMRAAM|TODO: Add description for AIM-120.
+LRAAM|TODO: Add description for AIM-174B.
+MAVERICK|TODO: Add description for AGM-65.
+HELLFIRE|TODO: Add description for AGM-114.
+HYPERSONIC_ASHM|TODO: Add description for Hypersonic AShM.
+TOMAHAWK|TODO: Add description for Tomahawk.
+PILE_DRIVER|TODO: Add description for Pile-Driver TBM.
+ARAD|TODO: Add description for HARM.
+SF_DEPLOY|TODO: Add description for SF Team.
+DEPLOY_SPAA|TODO: Add description for Light AA.
+DEPLOY_COASTAL|TODO: Add description for Coast Gun.
+DEPLOY_MANPADS|TODO: Add description for MANPADS.
+DEPLOY_ASHM|TODO: Add description for AShM Bat.
+DEPLOY_IR_APC|TODO: Add description for Unload IR APC.
+DEPLOY_AAA_BATTERY|TODO: Add description for Unload AAA.
+DEPLOY_SOLDIER_SQUAD|TODO: Add description for Deploy Soldiers.
+CONVOY_SLOT_TANK|TODO: Add description for Tank Element.
+CONVOY_SLOT_IFV|TODO: Add description for IFV Element.
+CONVOY_SLOT_APC|TODO: Add description for APC Element.
+CONVOY_SLOT_AAA|TODO: Add description for AAA Element.
+CONVOY_SLOT_SOLDIERS|TODO: Add description for Soldier Element.
+JAMMER_POD|TODO: Add description for ECM Pod.
