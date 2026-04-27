@@ -2,28 +2,28 @@
 # Format: KEY|Description text
 
 [units]
-FIGHTER|TODO: Add description for F-16 Viper.
-STRIKE|TODO: Add description for F/A-18 Hornet.
-BOMBER|TODO: Add description for B-52 Stratos.
-AWACS|TODO: Add description for E-3 Sentry.
-AC130|TODO: Add description for AC-130 Spectre.
-SEAD_FIGHTER|TODO: Add description for F-35G Shrike.
-ATTACK_HELI|TODO: Add description for AH-64 Apache.
-TRANSPORT|TODO: Add description for CH-47 Chinook.
-SF|TODO: Add description for SF Team.
-SOLDIER_SQUAD|TODO: Add description for Soldier Squad.
-SQUAD_AT|TODO: Add description for AT Specialist.
-SQUAD_AA|TODO: Add description for AA Specialist.
-SQUAD_ASSISTANT|TODO: Add description for AT Assistant.
-APC|TODO: Add description for Assault APC.
-IFV|TODO: Add description for IFV.
-TANK|TODO: Add description for MBT.
-IR_APC|TODO: Add description for IR APC.
-AAA_BATTERY|TODO: Add description for AAA Battery.
-CONVOY|TODO: Add description for Mechanized Convoy.
-CARRIER|TODO: Add description for Carrier.
-DESTROYER|TODO: Add description for Destroyer.
-ARSENAL_CRUISER|TODO: Add description for Arsenal Cruiser.
+FIGHTER|F-16 Viper: A versatile air superiority fighter for controlling the skies.
+STRIKE|F/A-18 Hornet: A multirole strike aircraft, mainly for air-ground combat, but has armaments to fill any role.
+BOMBER|B-52 Stratos: A strong bomber, with plenty of conventional bombs as well as cruise missiles for stand-off strikes.
+AWACS|E-3 Sentry: An electronic warfare support craft, for jamming radars and missile for friendly jets.
+AC130|AC-130 Spectre: A close air support gunship specializing in destroying convoys.
+SEAD_FIGHTER|F-35G Shrike: A stealthy SEAD fighter, with jammers and ARAD missiles to take down the longest range threats.
+ATTACK_HELI|AH-64 Apache: An attack helicopter for air-ground strikes, with limited self-defence options against enemy air threats.
+TRANSPORT|CH-47 Chinook: A transport helicopter for transporting and deploying spec ops teams to capture outposts, or deploying infantry to protect an area.
+SF|SF Team: Lightly armed and armored soldiers that capture outposts.
+SOLDIER_SQUAD|Soldier, Squad Leader: The commanding officer of an infantry squad. Gives orders and directions.
+SQUAD_AT|AT Specialist: Infantry carrying with an anti-tank missile.
+SQUAD_AA|AA Specialist: Infantry carrying a stinger anti-air missile for self defence.
+SQUAD_ASSISTANT|AT Assistant: Infantry supporting AT specialists with faster reload speeds.
+APC|Assault APC: Lightly armed ground vehicle for transporting friendly infantry squads safely.
+IFV|IFV: Headily armed infantry transport, capable of being a signifigant threat against light armor and infantry.
+TANK|MBT: Main battle tank, for direct engagement of enemy armor.
+IR_APC|IR APC: A standard APC equipped with a stinger missile launcher for engaging air targets.
+AAA_BATTERY|AAA Battery: A cluster of AA guns for defending a point.
+CONVOY|Mechanized Convoy Command Unit: The unit that controls all subordinate units in a convoy. Equal to an APC
+CARRIER|Carrier: Flagship of a fleet, capable of spawning all aircraft and manouvering the seas. Has 3 anti air gun emplacements.
+DESTROYER|Destroyer: A versatile escort ship, capable of taking on an air defense or ground strike role with large numbers of cruise missiles or AIM-120s.
+ARSENAL_CRUISER|Arsenal Cruiser: A strong anti-ship platform, capable of carrying large numbers of AShM cruise missiles.
 LANDING_SHIP|TODO: Add description for Landing Ship.
 HUNTER_FRIGATE|TODO: Add description for Hunter Frigate.
 SSBN|TODO: Add description for SSBN.
