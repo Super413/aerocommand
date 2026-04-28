@@ -23,34 +23,34 @@ AAA_BATTERY|AAA Battery: A cluster of AA guns for defending a point.
 CONVOY|Mechanized Convoy Command Unit: The unit that controls all subordinate units in a convoy. Equal to an APC
 CARRIER|Carrier: Flagship of a fleet, capable of spawning all aircraft and manouvering the seas. Has 3 anti air gun emplacements.
 DESTROYER|Destroyer: A versatile escort ship, capable of taking on an air defense or ground strike role with large numbers of cruise missiles or AIM-120s.
-ARSENAL_CRUISER|Arsenal Cruiser: A strong anti-ship platform, capable of carrying large numbers of AShM cruise missiles.
-LANDING_SHIP|TODO: Add description for Landing Ship.
-HUNTER_FRIGATE|TODO: Add description for Hunter Frigate.
-SSBN|TODO: Add description for SSBN.
-CRUISE_MISSILE_UNIT|TODO: Add description for Tomahawk.
-HYPERSONIC_ASHM_UNIT|TODO: Add description for Hypersonic AShM.
-PILE_DRIVER_TBM_UNIT|TODO: Add description for Pile-Driver TBM.
+ARSENAL_CRUISER|Arsenal Cruiser: A strong anti-ship platform, capable of carrying large numbers of AShM cruise missiles. Includes radar jammers for defending friendly fighters.
+LANDING_SHIP|Landing Ship: An alternative to helicopters for deploying troops to islands. Has CIWS and an autocannon for self defense.
+HUNTER_FRIGATE|Hunter Frigate: A fast ship designed for intercepting enemy ships and performing SEAD roles.
+SSBN|SSBN: A submarine hosting multiple piledriver TBMs, designed to strike anywhere.
+CRUISE_MISSILE_UNIT|Tomahawk: A versatile cruise missile, able to be carried by several platforms. Slow, but numerous.
+HYPERSONIC_ASHM_UNIT|Hypersonic AShM: A faster cruise missile designed for getting past ship defenses, however its larger size reduces how many can be carried.
+PILE_DRIVER_TBM_UNIT|Pile-Driver TBM: A tactical ballistic missile carried by the SSBN, it arcs up high in the sky before speeding down on a target, leaving little reaction time, and making it unable to be intercepted except by long range air defenses.
 
 [structures]
-AIRPORT|TODO: Add description for Airbase.
-SAM_SITE|TODO: Add description for SAM Site.
-SPAA|TODO: Add description for SPAA.
-DEPLOYED_SPAA|TODO: Add description for Light AA.
-DEPLOYED_COASTAL|TODO: Add description for Coast Gun.
-DEPLOYED_MANPADS|TODO: Add description for MANPADS.
-DEPLOYED_ASHM|TODO: Add description for AShM Bat.
-PORT|TODO: Add description for Port.
-CONSTRUCTION_YARD|TODO: Add description for Construction Yard.
-BASE_FORT|TODO: Add description for Base Fortification.
+AIRPORT|Airbase: Where planes spawn from.
+SAM_SITE|SAM Site: Launches long range radar guided missiles to defend the main island.
+SPAA|SPAA: I don't remember what this unit does.
+DEPLOYED_SPAA|Light AA: I forgot about this one too
+DEPLOYED_COASTAL|Coast Gun: Big gun that shoots at ships.
+DEPLOYED_MANPADS|MANPADS: Defensive anti air unit.
+DEPLOYED_ASHM|AShM Bat: I don't remember if this even works
+PORT|Port: Rearms and repairs friendly ships that are nearby.
+CONSTRUCTION_YARD|Construction Yard: No function (yet)
+BASE_FORT|Base Fortification: It's just a gun platform basically.
 
 [munitions]
-EMPTY|TODO: Add description for Empty.
-GUN_BASIC|TODO: Add description for .50 Cal MG.
-VULCAN|TODO: Add description for 20mm Vulcan.
-CANNON_127MM|TODO: Add description for 127mm Cannon.
-RAILGUN|TODO: Add description for Railcannon.
-CIWS|TODO: Add description for Phalanx CIWS.
-RIFLE|TODO: Add description for Assault Rifle.
+EMPTY|Empty: delete this entry later
+GUN_BASIC|.50 Cal MG: basic gun, low damage, RoF and range.
+VULCAN|TODO: Add description for 20mm Vulcan: Aircraft autocannon, high RoF and damage.
+CANNON_127MM|TODO: Add description for 127mm Cannon: Slow firing main cannon for warships.
+RAILGUN|TODO: Add description for Railcannon: Elecromagnetically propelled projectiles replacing the 127mm cannon.
+CIWS|TODO: Add description for Phalanx CIWS: Self defense protection against enemy planes and munitions.
+RIFLE|TODO: Add description for Assault Rifle
 ROCKET_HYDRA|TODO: Add description for Hydra 70.
 ROCKET_DAGR|TODO: Add description for DAGR.
 ROCKET_DU|TODO: Add description for DU Rocket.
@@ -58,9 +58,9 @@ BOMB_IRON|TODO: Add description for Mk82.
 BOMB_GUIDED|TODO: Add description for GBU-12.
 BOMB_CLUSTER|TODO: Add description for CBU-87.
 BOMB_SDB|TODO: Add description for SDB Glide.
-SIDEWINDER|TODO: Add description for AIM-9X.
-AMRAAM|TODO: Add description for AIM-120.
-LRAAM|TODO: Add description for AIM-174B.
+SIDEWINDER|TODO: Add description for AIM-9X: Short range IR AAM.
+AMRAAM|TODO: Add description for AIM-120: Longer range radar AAM.
+LRAAM|TODO: Add description for AIM-174B: Longest range radar AAM.
 MAVERICK|TODO: Add description for AGM-65.
 HELLFIRE|TODO: Add description for AGM-114.
 HYPERSONIC_ASHM|TODO: Add description for Hypersonic AShM.
@@ -79,5 +79,4 @@ CONVOY_SLOT_TANK|TODO: Add description for Tank Element.
 CONVOY_SLOT_IFV|TODO: Add description for IFV Element.
 CONVOY_SLOT_APC|TODO: Add description for APC Element.
 CONVOY_SLOT_AAA|TODO: Add description for AAA Element.
-CONVOY_SLOT_SOLDIERS|TODO: Add description for Soldier Element.
-JAMMER_POD|TODO: Add description for ECM Pod.
+JAMMER_POD|I jam stuff
