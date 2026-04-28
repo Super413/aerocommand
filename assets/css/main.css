@@ -242,6 +242,67 @@ p { margin: 2px 0; color: #ccc; }
 select, input[type=range], input[type=text] { background: #333; color: white; padding: 5px 10px; border: 1px solid #555; font-size: 16px; width: 200px; box-sizing: border-box; }
 .setup-status { color: #8fd4ff; font-size: 14px; }
 
+#encyclopedia-content {
+    width: min(920px, 90vw);
+    max-height: 70vh;
+    background: rgba(10, 18, 26, 0.95);
+    border: 2px solid #2e4b63;
+    padding: 16px;
+    margin: 8px 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+#encyclopedia-category-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.encyclopedia-tab {
+    background: #1a2734;
+    border: 1px solid #43617a;
+    color: #a6c5dd;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.encyclopedia-tab.active {
+    background: #4faaff;
+    color: #001729;
+    border-color: #8cd3ff;
+}
+#encyclopedia-entry-card {
+    background: #101820;
+    border: 1px solid #2f475b;
+    padding: 14px;
+    min-height: 280px;
+}
+#encyclopedia-entry-title { font-size: 28px; color: #fff; font-weight: 700; }
+#encyclopedia-entry-subtitle { font-size: 14px; color: #8fd4ff; margin: 3px 0 10px; text-transform: uppercase; }
+#encyclopedia-entry-description { color: #d7e3ed; margin-bottom: 12px; line-height: 1.4; }
+#encyclopedia-entry-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
+}
+.encyclopedia-stat {
+    background: #152433;
+    border: 1px solid #2b465d;
+    color: #bcd5e8;
+    padding: 6px 8px;
+    font-size: 13px;
+}
+#encyclopedia-nav { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.encyclopedia-nav-btn {
+    background: #203548;
+    color: #d2e7f7;
+    border: 1px solid #4a7090;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-weight: bold;
+}
+#encyclopedia-progress { color: #9dc6e1; font-size: 13px; }
+
 #overlay {
     position: absolute; inset: 0;
     text-align: center; display: none; z-index: 100;

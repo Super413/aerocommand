@@ -209,3 +209,12 @@ const BUILDINGS = {
     CONSTRUCTION_YARD: { hp: 700, range: 85, damage: 0, reload: 45, name: 'Construction Yard' },
     BASE_FORT: { hp: 1100, range: 220, damage: 16, reload: 24, name: 'Base Fortification' }
 };
+
+const ENCYCLOPEDIA_DESCRIPTIONS = {
+    categories: {
+        ground: 'Ground forces and static structures used for territorial control, defense, and logistics.',
+        naval: 'Naval combatants and support hulls used for sea control and long-range power projection.',
+        air: 'Aircraft and rotorcraft used for interception, strike, reconnaissance, and rapid response.',
+        munitions: 'Weapons and payload systems that define lethality, range, and mission profiles.'
+    }
+};

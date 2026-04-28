@@ -1,0 +1,82 @@
+# Encyclopedia descriptions loaded by game.js
+# Format: KEY|Description text
+
+[units]
+FIGHTER|F-16 Viper: A versatile air superiority fighter for controlling the skies.
+STRIKE|F/A-18 Hornet: A multirole strike aircraft, mainly for air-ground combat, but has armaments to fill any role.
+BOMBER|B-52 Stratos: A strong bomber, with plenty of conventional bombs as well as cruise missiles for stand-off strikes.
+AWACS|E-3 Sentry: An electronic warfare support craft, for jamming radars and missile for friendly jets.
+AC130|AC-130 Spectre: A close air support gunship specializing in destroying convoys.
+SEAD_FIGHTER|F-35G Shrike: A stealthy SEAD fighter, with jammers and ARAD missiles to take down the longest range threats.
+ATTACK_HELI|AH-64 Apache: An attack helicopter for air-ground strikes, with limited self-defence options against enemy air threats.
+TRANSPORT|CH-47 Chinook: A transport helicopter for transporting and deploying spec ops teams to capture outposts, or deploying infantry to protect an area.
+SF|SF Team: Lightly armed and armored soldiers that capture outposts.
+SOLDIER_SQUAD|Soldier, Squad Leader: The commanding officer of an infantry squad. Gives orders and directions.
+SQUAD_AT|AT Specialist: Infantry carrying with an anti-tank missile.
+SQUAD_AA|AA Specialist: Infantry carrying a stinger anti-air missile for self defence.
+SQUAD_ASSISTANT|AT Assistant: Infantry supporting AT specialists with faster reload speeds.
+APC|Assault APC: Lightly armed ground vehicle for transporting friendly infantry squads safely.
+IFV|IFV: Headily armed infantry transport, capable of being a signifigant threat against light armor and infantry.
+TANK|MBT: Main battle tank, for direct engagement of enemy armor.
+IR_APC|IR APC: A standard APC equipped with a stinger missile launcher for engaging air targets.
+AAA_BATTERY|AAA Battery: A cluster of AA guns for defending a point.
+CONVOY|Mechanized Convoy Command Unit: The unit that controls all subordinate units in a convoy. Equal to an APC
+CARRIER|Carrier: Flagship of a fleet, capable of spawning all aircraft and manouvering the seas. Has 3 anti air gun emplacements.
+DESTROYER|Destroyer: A versatile escort ship, capable of taking on an air defense or ground strike role with large numbers of cruise missiles or AIM-120s.
+ARSENAL_CRUISER|Arsenal Cruiser: A strong anti-ship platform, capable of carrying large numbers of AShM cruise missiles. Includes radar jammers for defending friendly fighters.
+LANDING_SHIP|Landing Ship: An alternative to helicopters for deploying troops to islands. Has CIWS and an autocannon for self defense.
+HUNTER_FRIGATE|Hunter Frigate: A fast ship designed for intercepting enemy ships and performing SEAD roles.
+SSBN|SSBN: A submarine hosting multiple piledriver TBMs, designed to strike anywhere.
+CRUISE_MISSILE_UNIT|Tomahawk: A versatile cruise missile, able to be carried by several platforms. Slow, but numerous.
+HYPERSONIC_ASHM_UNIT|Hypersonic AShM: A faster cruise missile designed for getting past ship defenses, however its larger size reduces how many can be carried.
+PILE_DRIVER_TBM_UNIT|Pile-Driver TBM: A tactical ballistic missile carried by the SSBN, it arcs up high in the sky before speeding down on a target, leaving little reaction time, and making it unable to be intercepted except by long range air defenses.
+
+[structures]
+AIRPORT|Airbase: Where planes spawn from.
+SAM_SITE|SAM Site: Launches long range radar guided missiles to defend the main island.
+SPAA|SPAA: I don't remember what this unit does.
+DEPLOYED_SPAA|Light AA: I forgot about this one too
+DEPLOYED_COASTAL|Coast Gun: Big gun that shoots at ships.
+DEPLOYED_MANPADS|MANPADS: Defensive anti air unit.
+DEPLOYED_ASHM|AShM Bat: I don't remember if this even works
+PORT|Port: Rearms and repairs friendly ships that are nearby.
+CONSTRUCTION_YARD|Construction Yard: No function (yet)
+BASE_FORT|Base Fortification: It's just a gun platform basically.
+
+[munitions]
+EMPTY|Empty: delete this entry later
+GUN_BASIC|.50 Cal MG: basic gun, low damage, RoF and range.
+VULCAN|TODO: Add description for 20mm Vulcan: Aircraft autocannon, high RoF and damage.
+CANNON_127MM|TODO: Add description for 127mm Cannon: Slow firing main cannon for warships.
+RAILGUN|TODO: Add description for Railcannon: Elecromagnetically propelled projectiles replacing the 127mm cannon.
+CIWS|TODO: Add description for Phalanx CIWS: Self defense protection against enemy planes and munitions.
+RIFLE|TODO: Add description for Assault Rifle
+ROCKET_HYDRA|TODO: Add description for Hydra 70.
+ROCKET_DAGR|TODO: Add description for DAGR.
+ROCKET_DU|TODO: Add description for DU Rocket.
+BOMB_IRON|TODO: Add description for Mk82.
+BOMB_GUIDED|TODO: Add description for GBU-12.
+BOMB_CLUSTER|TODO: Add description for CBU-87.
+BOMB_SDB|TODO: Add description for SDB Glide.
+SIDEWINDER|TODO: Add description for AIM-9X: Short range IR AAM.
+AMRAAM|TODO: Add description for AIM-120: Longer range radar AAM.
+LRAAM|TODO: Add description for AIM-174B: Longest range radar AAM.
+MAVERICK|TODO: Add description for AGM-65.
+HELLFIRE|TODO: Add description for AGM-114.
+HYPERSONIC_ASHM|TODO: Add description for Hypersonic AShM.
+TOMAHAWK|TODO: Add description for Tomahawk.
+PILE_DRIVER|TODO: Add description for Pile-Driver TBM.
+ARAD|TODO: Add description for HARM.
+SF_DEPLOY|TODO: Add description for SF Team.
+DEPLOY_SPAA|TODO: Add description for Light AA.
+DEPLOY_COASTAL|TODO: Add description for Coast Gun.
+DEPLOY_MANPADS|TODO: Add description for MANPADS.
+DEPLOY_ASHM|TODO: Add description for AShM Bat.
+DEPLOY_IR_APC|TODO: Add description for Unload IR APC.
+DEPLOY_AAA_BATTERY|TODO: Add description for Unload AAA.
+DEPLOY_SOLDIER_SQUAD|TODO: Add description for Deploy Soldiers.
+CONVOY_SLOT_TANK|TODO: Add description for Tank Element.
+CONVOY_SLOT_IFV|TODO: Add description for IFV Element.
+CONVOY_SLOT_APC|TODO: Add description for APC Element.
+CONVOY_SLOT_AAA|TODO: Add description for AAA Element.
+JAMMER_POD|I jam stuff

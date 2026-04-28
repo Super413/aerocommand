@@ -21,6 +21,9 @@ let zoneDragStart = null;
 let currentMapType = 'ARCHIPELAGO';
 let multiplayerMode = 'OFF';
 let multiplayerSessionCode = '';
+let encyclopediaState = { category: 'ground', index: 0, entries: null };
+let encyclopediaDescriptions = { units: {}, structures: {}, munitions: {} };
+let encyclopediaDescriptionsLoaded = false;
 
 const entities = [];
 const particles = [];
@@ -1593,6 +1596,182 @@ function hideEndOverlay() {
     document.getElementById('overlay').style.display = 'none';
 }
 
+function toDisplayStatLabel(key) {
+    return key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/\s+/g, ' ').trim()
+        .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function formatStatValue(value) {
+    if (typeof value === 'number') return Number.isInteger(value) ? `${value}` : value.toFixed(2);
+    if (Array.isArray(value)) return value.join(', ');
+    return `${value}`;
+}
+
+async function loadEncyclopediaDescriptions() {
+    if (encyclopediaDescriptionsLoaded) return;
+    const response = await fetch('encyclopedia_discriptions.txt', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Failed to load encyclopedia descriptions (${response.status})`);
+    const text = await response.text();
+    const parsed = { units: {}, structures: {}, munitions: {} };
+    let section = null;
+
+    text.split('\n').forEach(rawLine => {
+        const line = rawLine.trim();
+        if (!line || line.startsWith('#')) return;
+        if (line.startsWith('[') && line.endsWith(']')) {
+            const sectionName = line.slice(1, -1).toLowerCase();
+            section = ['units', 'structures', 'munitions'].includes(sectionName) ? sectionName : null;
+            return;
+        }
+        if (!section) return;
+        const splitIndex = line.indexOf('|');
+        if (splitIndex === -1) return;
+        const key = line.slice(0, splitIndex).trim();
+        const description = line.slice(splitIndex + 1).trim();
+        if (key) parsed[section][key] = description;
+    });
+
+    encyclopediaDescriptions = parsed;
+    encyclopediaDescriptionsLoaded = true;
+}
+
+function getEncyclopediaDescription(type, key, fallback) {
+    const sectionMap = {
+        unit: encyclopediaDescriptions.units,
+        structure: encyclopediaDescriptions.structures,
+        munition: encyclopediaDescriptions.munitions
+    };
+    return sectionMap[type]?.[key] || fallback;
+}
+
+function getEncyclopediaData() {
+    if (encyclopediaState.entries) return encyclopediaState.entries;
+    const unitTypeCategory = { ground: 'ground', ship: 'naval', air: 'air', heli: 'air' };
+    const hiddenUnitTypes = new Set(['cruise']);
+    const hiddenUnits = new Set(['CRUISE_MISSILE_UNIT', 'HYPERSONIC_ASHM_UNIT', 'PILE_DRIVER_TBM_UNIT']);
+    const categories = { ground: [], naval: [], air: [], munitions: [] };
+    const unitStats = ['cost', 'hp', 'speed', 'turn', 'fuel', 'ammo', 'capacity', 'range', 'damage', 'reload'];
+
+    Object.entries(UNIT_TYPES).forEach(([key, def]) => {
+        if (hiddenUnits.has(key) || hiddenUnitTypes.has(def.type)) return;
+        const category = unitTypeCategory[def.type];
+        if (!category) return;
+        const stats = {};
+        unitStats.forEach(statKey => {
+            if (def[statKey] !== undefined) stats[toDisplayStatLabel(statKey)] = formatStatValue(def[statKey]);
+        });
+        stats.Role = def.role || 'N/A';
+        stats.Hardpoints = `${def.hardpoints?.length || 0}`;
+        categories[category].push({
+            key,
+            icon: def.icon || '🧩',
+            name: def.name || key,
+            subtitle: `${category.toUpperCase()} UNIT`,
+            description: getEncyclopediaDescription('unit', key, `${def.name || key} (${def.type} unit).`),
+            stats
+        });
+    });
+
+    Object.entries(BUILDINGS).forEach(([key, def]) => {
+        const stats = {};
+        ['hp', 'range', 'damage', 'reload'].forEach(statKey => {
+            if (def[statKey] !== undefined) stats[toDisplayStatLabel(statKey)] = formatStatValue(def[statKey]);
+        });
+        categories.ground.push({
+            key,
+            icon: '🏗️',
+            name: def.name || key,
+            subtitle: 'GROUND STRUCTURE',
+            description: getEncyclopediaDescription('structure', key, `${def.name || key} (ground structure).`),
+            stats
+        });
+    });
+
+    Object.entries(WEAPONS).forEach(([key, def]) => {
+        const stats = {};
+        ['type', 'damage', 'cooldown', 'speed', 'range', 'turn', 'ammo', 'burst', 'guidance', 'targets'].forEach(statKey => {
+            if (def[statKey] !== undefined) stats[toDisplayStatLabel(statKey)] = formatStatValue(def[statKey]);
+        });
+        categories.munitions.push({
+            key,
+            icon: def.icon || '💥',
+            name: def.name || key,
+            subtitle: 'MUNITION',
+            description: getEncyclopediaDescription('munition', key, `${def.name || key} (${def.type || 'munition'}).`),
+            stats
+        });
+    });
+
+    Object.values(categories).forEach(list => list.sort((a, b) => a.name.localeCompare(b.name)));
+    encyclopediaState.entries = categories;
+    return categories;
+}
+
+function renderEncyclopedia() {
+    const data = getEncyclopediaData();
+    const tabs = document.getElementById('encyclopedia-category-tabs');
+    const categoryLabels = {
+        ground: 'Ground Units + Structures',
+        naval: 'Naval Units',
+        air: 'Air Units',
+        munitions: 'Munitions'
+    };
+    tabs.innerHTML = '';
+    Object.entries(categoryLabels).forEach(([key, label]) => {
+        const btn = document.createElement('button');
+        btn.className = `encyclopedia-tab ${encyclopediaState.category === key ? 'active' : ''}`;
+        btn.innerText = label;
+        btn.onclick = () => {
+            encyclopediaState.category = key;
+            encyclopediaState.index = 0;
+            renderEncyclopedia();
+        };
+        tabs.appendChild(btn);
+    });
+
+    const activeList = data[encyclopediaState.category] || [];
+    if (activeList.length === 0) return;
+    encyclopediaState.index = (encyclopediaState.index + activeList.length) % activeList.length;
+    const entry = activeList[encyclopediaState.index];
+
+    document.getElementById('encyclopedia-entry-title').innerText = `${entry.icon} ${entry.name}`;
+    document.getElementById('encyclopedia-entry-subtitle').innerText = entry.subtitle;
+    const categoryDescription = ENCYCLOPEDIA_DESCRIPTIONS?.categories?.[encyclopediaState.category] || '';
+    document.getElementById('encyclopedia-entry-description').innerText = `${entry.description}\n\n${categoryDescription}`;
+
+    const statsContainer = document.getElementById('encyclopedia-entry-stats');
+    statsContainer.innerHTML = '';
+    Object.entries(entry.stats).forEach(([label, value]) => {
+        const statDiv = document.createElement('div');
+        statDiv.className = 'encyclopedia-stat';
+        statDiv.innerHTML = `<strong>${label}:</strong> ${value}`;
+        statsContainer.appendChild(statDiv);
+    });
+    document.getElementById('encyclopedia-progress').innerText = `${encyclopediaState.index + 1} / ${activeList.length}`;
+}
+
+async function showEncyclopedia() {
+    document.getElementById('main-menu').style.display = 'none';
+    document.getElementById('setup-menu').style.display = 'none';
+    document.getElementById('encyclopedia-menu').style.display = 'flex';
+    try {
+        await loadEncyclopediaDescriptions();
+    } catch (err) {
+        console.warn(err);
+    }
+    encyclopediaState.entries = null;
+    renderEncyclopedia();
+    gameState = 'ENCYCLOPEDIA';
+}
+
+function cycleEncyclopediaEntry(delta) {
+    const data = getEncyclopediaData();
+    const activeList = data[encyclopediaState.category] || [];
+    if (activeList.length === 0) return;
+    encyclopediaState.index = (encyclopediaState.index + delta + activeList.length) % activeList.length;
+    renderEncyclopedia();
+}
+
 function initGame() {
     width = canvas.width = window.innerWidth;
     height = canvas.height = window.innerHeight; 
@@ -1604,6 +1783,7 @@ function initGame() {
 function showMainMenu() {
     document.getElementById('main-menu').style.display = 'flex';
     document.getElementById('setup-menu').style.display = 'none';
+    document.getElementById('encyclopedia-menu').style.display = 'none';
     document.getElementById('ui-layer').style.display = 'none';
     hideEndOverlay();
     gamePaused = false;
