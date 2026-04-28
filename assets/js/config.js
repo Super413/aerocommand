@@ -202,7 +202,7 @@ const UNIT_TYPES = {
 // Example: FIGHTER: 'fighter.png'
 const UNIT_ICON_ASSETS = {
     basePath: 'assets/images/units',
-    units: {}
+    units: {FIGHTER: 'fighter.png'}
 };
 
 const BUILDINGS = {
