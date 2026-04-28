@@ -84,8 +84,8 @@ const UNIT_TYPES = {
     STRIKE: { name: 'F/A-18 Hornet', type: 'air', role: 'Multi', cost: 600, hp: 140, speed: 2.8, turn: 0.06, fuel: 1800, ammo: 1, icon: '⚔️', hardpoints: [
         { name: 'Gun', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -90, allowedWeapons: ['GUN_BASIC', 'VULCAN'] },
         { name: 'Center', types: ['ECM', 'BOMB', 'AGM'], equipped: 'EMPTY', x: 0, y: 10, ammoByWeapon: { BOMB_IRON: 3, BOMB_SDB: 4, MAVERICK: 2 } },
-        { name: 'L Outer', types: ['AGM', 'BOMB', 'ROCKET', 'CRUISE'], equipped: 'ROCKET_HYDRA', x: -100, y: 40, ammoByWeapon: { ROCKET_HYDRA: 6, HELLFIRE: 4, TOMAHAWK: 1 } },
-        { name: 'R Outer', types: ['AGM', 'BOMB', 'ROCKET', 'CRUISE'], equipped: 'ROCKET_HYDRA', x: 100, y: 40, ammoByWeapon: { ROCKET_HYDRA: 6, HELLFIRE: 4, TOMAHAWK: 1 } },
+        { name: 'L Outer', types: ['AGM', 'BOMB', 'ROCKET', ], equipped: 'ROCKET_HYDRA', x: -100, y: 40, ammoByWeapon: { ROCKET_HYDRA: 6, HELLFIRE: 4 } },
+        { name: 'R Outer', types: ['AGM', 'BOMB', 'ROCKET', ], equipped: 'ROCKET_HYDRA', x: 100, y: 40, ammoByWeapon: { ROCKET_HYDRA: 6, HELLFIRE: 4 } },
         { name: 'L Inner', types: ['AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET', 'CRUISE'], equipped: 'BOMB_IRON', x: -50, y: 60, ammoByWeapon: { AMRAAM: 2, BOMB_IRON: 2, ROCKET_HYDRA: 4, TOMAHAWK: 1 } },
         { name: 'R Inner', types: ['AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET', 'CRUISE'], equipped: 'BOMB_IRON', x: 50, y: 60, ammoByWeapon: { AMRAAM: 2, BOMB_IRON: 2, ROCKET_HYDRA: 4, TOMAHAWK: 1 } }
     ] },
@@ -102,9 +102,9 @@ const UNIT_TYPES = {
         { name: 'R Wing', types: ['ECM', 'AAM_LIGHT'], equipped: 'EMPTY', x: 80, y: 20, ammoByWeapon: { SIDEWINDER: 2 } }
     ] },
     AC130: { name: 'AC-130 Spectre', type: 'air', role: 'Gunship', cost: 2200, hp: 520, speed: 1.35, turn: 0.03, fuel: 3200, ammo: 1, icon: '🛩️🔫', hardpoints: [
-        { name: 'Port Cannon', types: ['GUN'], equipped: 'CANNON_127MM', x: -12, y: 0, allowedWeapons: ['CANNON_127MM', 'RAILGUN'] },
-        { name: 'Port Gun 1', types: ['GUN'], equipped: 'VULCAN', x: -30, y: -10, allowedWeapons: ['GUN_BASIC', 'VULCAN'] },
-        { name: 'Port Gun 2', types: ['GUN'], equipped: 'GUN_BASIC', x: -30, y: 10, allowedWeapons: ['GUN_BASIC', 'VULCAN'] }
+        { name: 'Howitzer', types: ['GUN'], equipped: 'CANNON_127MM', x: -12, y: 0, allowedWeapons: ['CANNON_127MM', 'RAILGUN'] },
+        { name: '40MM Slot', types: ['GUN'], equipped: 'GUN_BASIC', x: -30, y: -10, allowedWeapons: ['GUN_BASIC', 'VULCAN'] },
+        { name: 'Small Arms Slot', types: ['GUN'], equipped: 'GUN_BASIC', x: -30, y: 10, allowedWeapons: ['GUN_BASIC'] }
     ] },
     SEAD_FIGHTER: { name: 'F-35G Shrike', type: 'air', role: 'SEAD', cost: 1400, hp: 220, speed: 2.7, turn: 0.055, fuel: 2200, ammo: 1, icon: '🦅📡', hardpoints: [
         { name: 'Gun', types: ['GUN'], equipped: 'VULCAN', x: 0, y: -85, allowedWeapons: ['GUN_BASIC', 'VULCAN'] },
@@ -172,8 +172,8 @@ const UNIT_TYPES = {
     ARSENAL_CRUISER: { name: 'Arsenal Cruiser', type: 'ship', role: 'Missile Command', cost: 3200, hp: 1700, speed: 0.65, turn: 0.04, fuel: 9999, ammo: 1, icon: '🚢🚀', hardpoints: [
         { name: 'Main Gun', types: ['GUN'], equipped: 'CANNON_127MM', x: 0, y: -40, allowedWeapons: ['CANNON_127MM', 'RAILGUN'] },
         { name: 'CIWS Bow', types: ['GUN'], equipped: 'CIWS', x: 0, y: -18, allowedWeapons: ['GUN_BASIC', 'CIWS'] },
-        { name: 'VLS Heavy 1', types: ['CRUISE', 'AGM', 'AAM_HEAVY', 'HYPERSONIC'], equipped: 'TOMAHAWK', x: -8, y: 2, ammoByWeapon: { TOMAHAWK: 6, AMRAAM: 12, MAVERICK: 10, HELLFIRE: 10, HYPERSONIC_ASHM: 4 } },
-        { name: 'VLS Heavy 2', types: ['CRUISE', 'AGM', 'AAM_HEAVY', 'HYPERSONIC'], equipped: 'TOMAHAWK', x: 8, y: 2, ammoByWeapon: { TOMAHAWK: 6, AMRAAM: 12, MAVERICK: 10, HELLFIRE: 10, HYPERSONIC_ASHM: 4 } },
+        { name: 'VLS Heavy 1', types: ['CRUISE', 'AGM', 'AAM_HEAVY', 'HYPERSONIC', 'TBM' ], equipped: 'TOMAHAWK', x: -8, y: 2, ammoByWeapon: { TOMAHAWK: 6, AMRAAM: 12, LRAAM: 10, MAVERICK: 10, HELLFIRE: 10, HYPERSONIC_ASHM: 4, PILE_DRIVER: 1 } },
+        { name: 'VLS Heavy 2', types: ['CRUISE', 'AGM', 'AAM_HEAVY', 'HYPERSONIC', 'TBM' ], equipped: 'TOMAHAWK', x: 8, y: 2, ammoByWeapon: { TOMAHAWK: 6, AMRAAM: 12, LRAAM: 10, MAVERICK: 10, HELLFIRE: 10, HYPERSONIC_ASHM: 4, PILE_DRIVER: 1 } },
         { name: 'EW Suite', types: ['ECM'], equipped: 'EMPTY', x: 0, y: 22 },
         { name: 'CIWS Aft', types: ['GUN'], equipped: 'CIWS', x: 0, y: 50, allowedWeapons: ['GUN_BASIC', 'CIWS'] }
     ] },
@@ -185,8 +185,8 @@ const UNIT_TYPES = {
     ] },
     HUNTER_FRIGATE: { name: 'Hunter Frigate', type: 'ship', role: 'SEAD/Interdiction', cost: 2400, hp: 1400, speed: 0.85, turn: 0.06, fuel: 9999, ammo: 1, icon: '⚓🎯', commandAuraRadius: 170, commandTurnBoost: 1.15, commandCooldownBoost: 1.1, hardpoints: [
         { name: 'Main Gun', types: ['GUN'], equipped: 'CANNON_127MM', x: 0, y: -35, allowedWeapons: ['CANNON_127MM', 'RAILGUN'] },
-        { name: 'SEAD Rack', types: ['AGM', 'AAM_HEAVY'], equipped: 'ARAD', x: -8, y: 4, ammoByWeapon: { ARAD: 6, AMRAAM: 8, MAVERICK: 8 } },
-        { name: 'Strike Rack', types: ['AGM', 'CRUISE', 'AAM_HEAVY'], equipped: 'MAVERICK', x: 8, y: 8, ammoByWeapon: { ARAD: 4, AMRAAM: 8, MAVERICK: 10, TOMAHAWK: 4 } },
+        { name: 'SEAD Rack', types: ['AGM', 'AAM_HEAVY'], equipped: 'ARAD', x: -8, y: 4, ammoByWeapon: { ARAD: 6, AMRAAM: 8, LRAAM: 6, MAVERICK: 8 } },
+        { name: 'Strike Rack', types: ['AGM', 'CRUISE', 'AAM_HEAVY'], equipped: 'MAVERICK', x: 8, y: 8, ammoByWeapon: { ARAD: 4, AMRAAM: 8, LRAAM: 6, MAVERICK: 10, TOMAHAWK: 4 } },
         { name: 'CIWS', types: ['GUN'], equipped: 'CIWS', x: 0, y: 45, allowedWeapons: ['GUN_BASIC', 'CIWS'] }
     ] },
     SSBN: { name: 'SSBN', type: 'ship', role: 'Strategic', cost: 3800, hp: 1800, speed: 0.45, turn: 0.03, fuel: 9999, ammo: 1, icon: '🛳️🧱', hardpoints: [
