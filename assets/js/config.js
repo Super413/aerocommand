@@ -76,8 +76,8 @@ const UNIT_TYPES = {
     FIGHTER: { name: 'F-16 Viper', type: 'air', role: 'AA', cost: 400, hp: 100, speed: 3.5, turn: 0.08, fuel: 1500, ammo: 1, icon: '✈️', hardpoints: [
         { name: 'Gun', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -80, allowedWeapons: ['GUN_BASIC', 'VULCAN'] },
         { name: 'Center', types: ['ECM'], equipped: 'EMPTY', x: 0, y: 10, allowedWeapons: ['EMPTY', 'JAMMER_POD'] },
-        { name: 'L Wing', types: ['AAM_LIGHT', 'AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET'], equipped: 'ROCKET_HYDRA', x: -70, y: 30, ammoByWeapon: { SIDEWINDER: 2, AMRAAM: 1, ROCKET_HYDRA: 4, HELLFIRE: 2 } },
-        { name: 'R Wing', types: ['AAM_LIGHT', 'AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET'], equipped: 'ROCKET_HYDRA', x: 70, y: 30, ammoByWeapon: { SIDEWINDER: 2, AMRAAM: 1, ROCKET_HYDRA: 4, HELLFIRE: 2 } },
+        { name: 'L Wing', types: ['AAM_LIGHT', 'AAM_HEAVY'], equipped: 'EMPTY', x: -70, y: 30, ammoByWeapon: { SIDEWINDER: 1, AMRAAM: 1} },
+        { name: 'R Wing', types: ['AAM_LIGHT', 'AAM_HEAVY'], equipped: 'EMPTY', x: 70, y: 30, ammoByWeapon: { SIDEWINDER: 1, AMRAAM: 1} },
         { name: 'L Tip', types: ['AAM_LIGHT', 'AAM_HEAVY'], equipped: 'EMPTY', x: -130, y: 10, ammoByWeapon: { SIDEWINDER: 2, AMRAAM: 1 } },
         { name: 'R Tip', types: ['AAM_LIGHT', 'AAM_HEAVY'], equipped: 'EMPTY', x: 130, y: 10, ammoByWeapon: { SIDEWINDER: 2, AMRAAM: 1 } }
     ] },
@@ -86,8 +86,8 @@ const UNIT_TYPES = {
         { name: 'Center', types: ['ECM', 'BOMB', 'AGM'], equipped: 'EMPTY', x: 0, y: 10, ammoByWeapon: { BOMB_IRON: 3, BOMB_SDB: 4, MAVERICK: 2 } },
         { name: 'L Outer', types: ['AGM', 'BOMB', 'ROCKET', 'CRUISE'], equipped: 'ROCKET_HYDRA', x: -100, y: 40, ammoByWeapon: { ROCKET_HYDRA: 6, HELLFIRE: 4, TOMAHAWK: 1 } },
         { name: 'R Outer', types: ['AGM', 'BOMB', 'ROCKET', 'CRUISE'], equipped: 'ROCKET_HYDRA', x: 100, y: 40, ammoByWeapon: { ROCKET_HYDRA: 6, HELLFIRE: 4, TOMAHAWK: 1 } },
-        { name: 'L Inner', types: ['AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET'], equipped: 'BOMB_IRON', x: -50, y: 60, ammoByWeapon: { AMRAAM: 2, BOMB_IRON: 2, ROCKET_HYDRA: 4 } },
-        { name: 'R Inner', types: ['AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET'], equipped: 'BOMB_IRON', x: 50, y: 60, ammoByWeapon: { AMRAAM: 2, BOMB_IRON: 2, ROCKET_HYDRA: 4 } }
+        { name: 'L Inner', types: ['AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET', 'CRUISE'], equipped: 'BOMB_IRON', x: -50, y: 60, ammoByWeapon: { AMRAAM: 2, BOMB_IRON: 2, ROCKET_HYDRA: 4, TOMAHAWK: 1 } },
+        { name: 'R Inner', types: ['AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET', 'CRUISE'], equipped: 'BOMB_IRON', x: 50, y: 60, ammoByWeapon: { AMRAAM: 2, BOMB_IRON: 2, ROCKET_HYDRA: 4, TOMAHAWK: 1 } }
     ] },
     BOMBER: { name: 'B-52 Stratos', type: 'air', role: 'Bomber', cost: 1200, hp: 400, speed: 1.5, turn: 0.02, fuel: 3000, ammo: 1, icon: '💣', hardpoints: [
         { name: 'Bay 1', types: ['BOMB', 'CRUISE', 'TBM'], equipped: 'BOMB_IRON', x: -25, y: -20, ammoByWeapon: { BOMB_IRON: 4, BOMB_GUIDED: 2, BOMB_CLUSTER: 2, BOMB_SDB: 4, TOMAHAWK: 2, PILE_DRIVER: 2 } },
