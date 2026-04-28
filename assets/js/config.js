@@ -202,7 +202,7 @@ const UNIT_TYPES = {
 // Example: FIGHTER: 'fighter.png'
 const UNIT_ICON_ASSETS = {
     basePath: 'assets/images/units',
-    units: {FIGHTER: 'fighter.png'}
+    units: {tank: 'tank.png', tomahawk: 'missile.png', sf: 'sf.png', soldier_squad: 'infantry.png', carrier: 'carrier.png', aaa_battery: 'aaa.png', convoy: 'combined.png', sam_site: 'airdefmissile.png', ac130: 'bigair.png', landing_ship: 'landing.png', fighter: 'airsmall.png', sead_fighter: 'airrwr.png', airport: 'airbase.png', ifv: 'ifv.png', apc: 'apc.png', sam_site: 'radarsam.png', ssbn: 'submarine.png' }
 };
 
 const BUILDINGS = {
