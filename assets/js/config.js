@@ -197,6 +197,14 @@ const UNIT_TYPES = {
     PILE_DRIVER_TBM_UNIT: { name: 'Pile-Driver TBM', type: 'cruise', role: 'Strategic', cost: 0, hp: 24, speed: 4.8, turn: 0.02, fuel: 650, ammo: 0, icon: '🧱🚀', hardpoints: [] }
 };
 
+// Optional unit portrait/icon assets for UI panels.
+// Drop files in assets/images/units and map each unit key to a filename here.
+// Example: FIGHTER: 'fighter.png'
+const UNIT_ICON_ASSETS = {
+    basePath: 'assets/images/units',
+    units: {}
+};
+
 const BUILDINGS = {
     AIRPORT: { hp: 2000, range: 100, name: 'Airbase' },
     SAM_SITE: { hp: 500, range: 400, damage: 50, reload: 120, name: 'SAM Site' }, 
