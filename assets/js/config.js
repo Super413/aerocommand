@@ -228,7 +228,20 @@ const UNIT_ICON_ASSETS = {
         HUNTER_FRIGATE: 'seasurface.png',
         ATTACK_HELI: 'attackheli.png',
         TRANSPORT: 'transport.png',
-        SSBN: 'submarine.png'
+        SSBN: 'submarine.png',
+
+        DEPLOY_SPAA: 'aaa.png',
+        SF_DEPLOY: 'sf.png',
+        DEPLOY_MANPADS: 'airdefmissile.png',
+        DEPLOY_IR_APC: 'airdefmissile.png', 
+        DEPLOY_AAA_BATTERY: 'aaa.png',
+        DEPLOY_SOLDIER_SQUAD: 'infantry.png',
+        CONVOY_SLOT_AAA: 'aaa.png',
+        CONVOY_SLOT_TANK: 'tank.png',
+        CONVOY_SLOT_IFV: 'ifv.png',
+        CONVOY_SLOT_APC: 'apc.png',
+        CONVOY_SLOT_SOLDIERS: 'infantry.png',
+        JAMMER_POD: 'radarsam.png'
     }
 };
 
