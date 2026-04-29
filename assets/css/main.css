@@ -126,8 +126,35 @@ p { margin: 2px 0; color: #ccc; }
 .btn-build:active { background: #222; }
 .btn-build.edit-mode { border-color: #d4a017; border-style: dashed; }
 
-.btn-icon { font-size: 20px; margin-bottom: 2px; }
+.btn-icon { font-size: 20px; margin-bottom: 2px; display: flex; align-items: center; justify-content: center; }
 .cost { color: #ffd700; font-weight: bold; }
+
+.icon-wrapper {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.4em;
+    height: 1.4em;
+    line-height: 1;
+}
+.icon-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+.icon-fallback {
+    display: none;
+    line-height: 1;
+}
+.icon-image + .icon-fallback {
+    display: none;
+}
+.icon-wrapper .icon-fallback:first-child {
+    display: inline;
+}
+.icon-medium { width: 1.3em; height: 1.3em; }
+.icon-large { width: 1.5em; height: 1.5em; margin-right: 4px; vertical-align: middle; }
 
 /* Modal Styles */
 .modal {

@@ -49,6 +49,43 @@ function rectContains(rect, point) {
     return point.x >= rX && point.x <= rX + rW && point.y >= rY && point.y <= rY + rH;
 }
 
+function getUnitIconAssetPath(unitKey) {
+    if (!unitKey || !UNIT_ICON_ASSETS || !UNIT_ICON_ASSETS.units) return null;
+    const fileName = UNIT_ICON_ASSETS.units[unitKey];
+    if (!fileName) return null;
+    const base = (UNIT_ICON_ASSETS.basePath || 'assets/images/units').replace(/\/$/, '');
+    return `${base}/${fileName}`;
+}
+
+function createIconElement({ emoji, assetPath, alt, className = '' }) {
+    const wrapper = document.createElement('span');
+    wrapper.className = `icon-wrapper ${className}`.trim();
+
+    const fallback = document.createElement('span');
+    fallback.className = 'icon-fallback';
+    fallback.textContent = emoji || '🧩';
+
+    if (!assetPath) {
+        wrapper.appendChild(fallback);
+        return wrapper;
+    }
+
+    const img = document.createElement('img');
+    img.className = 'icon-image';
+    img.alt = alt || 'Icon';
+    img.src = assetPath;
+    img.loading = 'lazy';
+
+    img.onerror = () => {
+        if (!wrapper.contains(fallback)) wrapper.appendChild(fallback);
+        img.remove();
+    };
+
+    wrapper.appendChild(img);
+    wrapper.appendChild(fallback);
+    return wrapper;
+}
+
 function getDefaultWeaponAmmo(unit, slot, weaponKey) {
     const def = WEAPONS[weaponKey];
     if (!def) return 0;
@@ -1664,6 +1701,7 @@ function getEncyclopediaData() {
         stats.Hardpoints = `${def.hardpoints?.length || 0}`;
         categories[category].push({
             key,
+            unitKey: key,
             icon: def.icon || '🧩',
             name: def.name || key,
             subtitle: `${category.toUpperCase()} UNIT`,
@@ -1734,7 +1772,17 @@ function renderEncyclopedia() {
     encyclopediaState.index = (encyclopediaState.index + activeList.length) % activeList.length;
     const entry = activeList[encyclopediaState.index];
 
-    document.getElementById('encyclopedia-entry-title').innerText = `${entry.icon} ${entry.name}`;
+    const title = document.getElementById('encyclopedia-entry-title');
+    title.innerHTML = '';
+    title.appendChild(createIconElement({
+        emoji: entry.icon,
+        assetPath: entry.unitKey ? getUnitIconAssetPath(entry.unitKey) : null,
+        alt: `${entry.name} icon`,
+        className: 'icon-large'
+    }));
+    const titleText = document.createElement('span');
+    titleText.innerText = ` ${entry.name}`;
+    title.appendChild(titleText);
     document.getElementById('encyclopedia-entry-subtitle').innerText = entry.subtitle;
     const categoryDescription = ENCYCLOPEDIA_DESCRIPTIONS?.categories?.[encyclopediaState.category] || '';
     document.getElementById('encyclopedia-entry-description').innerText = `${entry.description}\n\n${categoryDescription}`;
@@ -2202,7 +2250,19 @@ function createUI() {
 
         const btn = document.createElement('div');
         btn.className = 'btn-build';
-        btn.innerHTML = `<div class="btn-icon">${data.icon}</div><div class="cost">$${data.cost}</div>`;
+        const iconDiv = document.createElement('div');
+        iconDiv.className = 'btn-icon';
+        iconDiv.appendChild(createIconElement({
+            emoji: data.icon,
+            assetPath: getUnitIconAssetPath(key),
+            alt: `${data.name} icon`,
+            className: 'icon-medium'
+        }));
+        const costDiv = document.createElement('div');
+        costDiv.className = 'cost';
+        costDiv.innerText = `$${data.cost}`;
+        btn.appendChild(iconDiv);
+        btn.appendChild(costDiv);
         btn.onmouseenter = (e) => {
             let wInfo = data.hardpoints.map(h => WEAPONS[h.equipped].name).filter(n => n!=='Empty').join(', ');
             if(!wInfo) wInfo = "None";
