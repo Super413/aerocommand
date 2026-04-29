@@ -205,6 +205,7 @@ const UNIT_ICON_ASSETS = {
     units: {
         TANK: 'tank.png',
         CRUISE_MISSILE_UNIT: 'missile.png',
+        TOMAHAWK: 'missile.png',
         SF: 'sf.png',
         SOLDIER_SQUAD: 'infantry.png',
         CARRIER: 'carrier.png',
@@ -218,6 +219,15 @@ const UNIT_ICON_ASSETS = {
         IFV: 'ifv.png',
         APC: 'apc.png',
         SAM_SITE: 'radarsam.png',
+        IR_APC: 'airdefmissile.png',
+        AWACS: 'awacs.png',
+        STRIKE: 'strike.png',
+        BOMBER: 'bomber.png',
+        DESTROYER: 'seasurface.png',
+        ARSENAL_CRUISER: 'seasurface.png',
+        HUNTER_FRIGATE: 'seasurface.png',
+        ATTACK_HELI: 'attackheli.png',
+        TRANSPORT: 'transport.png',
         SSBN: 'submarine.png'
     }
 };

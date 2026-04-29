@@ -28,4 +28,4 @@ A browser strategy/action prototype with aerial, naval, and ground combat.
 
 ## Running
 
-Open `index.html` in a browser.
+Open `index.html` in a browser, or [visit it on github](https://super413.github.io/aerocommand/)
