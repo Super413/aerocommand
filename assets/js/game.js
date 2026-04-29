@@ -649,13 +649,17 @@ function openConstructionMenu(yard) {
         if (afford) {
             btn.onclick = () => {
                 constructionContext.selectedBuildType = opt.type;
-                document.querySelectorAll('.construction-option').forEach(n => n.classList.remove('selected'));
-                btn.classList.add('selected');
+                closeConstructionMenu(false);
             };
         }
         container.appendChild(btn);
     });
     openModal('construction-modal');
+}
+
+function closeConstructionMenu(clearSelection = true) {
+    if (clearSelection) constructionContext.selectedBuildType = null;
+    document.getElementById('construction-modal').style.display = 'none';
 }
 
 function openConstructionMenuById(yardId) {
@@ -2163,13 +2167,12 @@ function toggleEditMode() {
 }
 
 function openModal(id) { 
-    if (multiplayerMode === 'OFF') gamePaused = true;
+    if (multiplayerMode === 'OFF' && id !== 'construction-modal') gamePaused = true;
     document.getElementById(id).style.display = 'flex'; 
 }
 function closeModal(id) { 
-    if (multiplayerMode === 'OFF') gamePaused = false;
+    if (multiplayerMode === 'OFF' && id !== 'construction-modal') gamePaused = false;
     document.getElementById(id).style.display = 'none'; 
-    if (id === 'construction-modal') constructionContext.selectedBuildType = null;
     editingUnitKey = null; 
     selectedSlotIndex = null;
 }
