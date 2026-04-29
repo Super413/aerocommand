@@ -9,6 +9,11 @@ const COLORS = {
     [TEAM_AI]: '#FF4444'
 };
 
+// Optional unit sprite override map.
+// Keys should match UNIT_TYPES keys (e.g. "TANK", "IFV", "FIGHTER").
+// Values are image URLs/paths (e.g. "assets/img/units/tank.png").
+const UNIT_ICON_PATHS = {};
+
 // --- DATA ---
 const WEAPONS = {
     EMPTY: { name: 'Empty', type: 'none', icon: '🚫' },

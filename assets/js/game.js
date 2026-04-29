@@ -24,6 +24,7 @@ let multiplayerSessionCode = '';
 let encyclopediaState = { category: 'ground', index: 0, entries: null };
 let encyclopediaDescriptions = { units: {}, structures: {}, munitions: {} };
 let encyclopediaDescriptionsLoaded = false;
+const UNIT_ICON_IMAGE_EXT = /\.(png|jpe?g|webp|gif|svg)$/i;
 
 const entities = [];
 const particles = [];
@@ -77,6 +78,30 @@ function cloneUnitLoadout(unitDef) {
         equipped: slot.equipped,
         customAmmoByWeapon: slot.customAmmoByWeapon ? { ...slot.customAmmoByWeapon } : null
     }));
+}
+
+function getUnitIconPath(unitKey, unitDef = UNIT_TYPES[unitKey]) {
+    if (!unitKey && !unitDef) return null;
+    const map = (typeof UNIT_ICON_PATHS !== 'undefined' && UNIT_ICON_PATHS) ? UNIT_ICON_PATHS : {};
+    const normalized = String(unitKey || '').toUpperCase();
+    const candidates = [
+        normalized,
+        normalized.replace(/-/g, '_'),
+        normalized.replace(/_/g, '-'),
+        String(unitDef?.name || '').toUpperCase().replace(/[^A-Z0-9]+/g, '_')
+    ].filter(Boolean);
+    for (const key of candidates) {
+        if (map[key]) return map[key];
+    }
+    const inlineIcon = unitDef?.icon;
+    if (typeof inlineIcon === 'string' && UNIT_ICON_IMAGE_EXT.test(inlineIcon)) return inlineIcon;
+    return null;
+}
+
+function formatUnitIconHtml(unitKey, unitDef = UNIT_TYPES[unitKey], fallbackIcon = '🧩') {
+    const spritePath = getUnitIconPath(unitKey, unitDef);
+    if (spritePath) return `<img class="btn-icon-image" src="${spritePath}" alt="${unitDef?.name || unitKey || 'unit'}">`;
+    return unitDef?.icon || fallbackIcon;
 }
 
 function getRoadNodeWorldPos(node) {
@@ -2202,7 +2227,7 @@ function createUI() {
 
         const btn = document.createElement('div');
         btn.className = 'btn-build';
-        btn.innerHTML = `<div class="btn-icon">${data.icon}</div><div class="cost">$${data.cost}</div>`;
+        btn.innerHTML = `<div class="btn-icon">${formatUnitIconHtml(key, data)}</div><div class="cost">$${data.cost}</div>`;
         btn.onmouseenter = (e) => {
             let wInfo = data.hardpoints.map(h => WEAPONS[h.equipped].name).filter(n => n!=='Empty').join(', ');
             if(!wInfo) wInfo = "None";

@@ -127,6 +127,7 @@ p { margin: 2px 0; color: #ccc; }
 .btn-build.edit-mode { border-color: #d4a017; border-style: dashed; }
 
 .btn-icon { font-size: 20px; margin-bottom: 2px; }
+.btn-icon-image { width: 24px; height: 24px; object-fit: contain; display: block; }
 .cost { color: #ffd700; font-weight: bold; }
 
 /* Modal Styles */
