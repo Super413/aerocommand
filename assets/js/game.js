@@ -66,6 +66,48 @@ function getUnitIconAssetPath(unitKey) {
     return `${base}/${fileName}`;
 }
 
+function getWeaponIconAssetPath(weaponKey) {
+    if (!weaponKey || !WEAPON_ICON_ASSETS || !WEAPON_ICON_ASSETS.weapons) return null;
+
+    const normalizedKey = String(weaponKey).trim();
+    const weaponAssetMap = WEAPON_ICON_ASSETS.weapons;
+
+    let fileName = weaponAssetMap[normalizedKey];
+    if (!fileName) {
+        const caseInsensitiveKey = Object.keys(weaponAssetMap).find(key => key.toUpperCase() === normalizedKey.toUpperCase());
+        if (caseInsensitiveKey) fileName = weaponAssetMap[caseInsensitiveKey];
+    }
+    if (!fileName) return null;
+
+    const base = (WEAPON_ICON_ASSETS.basePath || 'assets/images/units').replace(/\/$/, '');
+    return `${base}/${fileName}`;
+}
+
+const preloadedIconCache = new Map();
+function preloadIcons() {
+    const iconPaths = new Set();
+    if (UNIT_ICON_ASSETS?.units) {
+        Object.keys(UNIT_ICON_ASSETS.units).forEach(unitKey => {
+            const path = getUnitIconAssetPath(unitKey);
+            if (path) iconPaths.add(path);
+        });
+    }
+    if (WEAPON_ICON_ASSETS?.weapons) {
+        Object.keys(WEAPON_ICON_ASSETS.weapons).forEach(weaponKey => {
+            const path = getWeaponIconAssetPath(weaponKey);
+            if (path) iconPaths.add(path);
+        });
+    }
+
+    iconPaths.forEach(path => {
+        if (preloadedIconCache.has(path)) return;
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = path;
+        preloadedIconCache.set(path, img);
+    });
+}
+
 function createIconElement({ emoji, assetPath, alt, className = '' }) {
     const wrapper = document.createElement('span');
     wrapper.className = `icon-wrapper ${className}`.trim();
@@ -83,7 +125,7 @@ function createIconElement({ emoji, assetPath, alt, className = '' }) {
     img.className = 'icon-image';
     img.alt = alt || 'Icon';
     img.src = assetPath;
-    img.loading = 'lazy';
+    img.loading = 'eager';
 
     img.onerror = () => {
         if (!wrapper.contains(fallback)) wrapper.appendChild(fallback);
@@ -1834,6 +1876,7 @@ function initGame() {
     height = canvas.height = window.innerHeight; 
     TEAMS[TEAM_PLAYER].tech = new Set([...DEFAULT_UNLOCKS]);
     TEAMS[TEAM_AI].tech = new Set([...DEFAULT_UNLOCKS]);
+    preloadIcons();
     requestAnimationFrame(loop);
 }
 
@@ -2110,13 +2153,20 @@ function selectSlot(index, domElement) {
             if (slotDef.equipped === wKey) opt.classList.add('selected');
             if (!isUnlocked(TEAM_PLAYER, wKey)) opt.classList.add('locked');
             
-            let html = `<div style="font-size:24px">${w.icon}</div><div>${w.name}</div>`;
+            const iconWrap = createIconElement({
+                emoji: w.icon,
+                assetPath: getWeaponIconAssetPath(wKey),
+                alt: `${w.name} icon`
+            });
+            iconWrap.style.fontSize = '24px';
+            opt.appendChild(iconWrap);
+            let html = `<div>${w.name}</div>`;
             if (wKey !== 'EMPTY') {
                 html += `<div class="weapon-cap">Cap: ${getConfiguredSlotAmmo(editingUnitKey, index, wKey)}</div>`;
             }
             if (!isUnlocked(TEAM_PLAYER, wKey)) html += `<div class="lock-icon">🔒</div>`;
             
-            opt.innerHTML = html;
+            opt.insertAdjacentHTML('beforeend', html);
             opt.onclick = () => { if(isUnlocked(TEAM_PLAYER, wKey)) equipWeapon(wKey); };
             selector.appendChild(opt);
         }

@@ -245,6 +245,37 @@ const UNIT_ICON_ASSETS = {
     }
 };
 
+// Optional weapon/munition icons for loadout + UI panels.
+// Uses same file folder as unit icon assets by default.
+const WEAPON_ICON_ASSETS = {
+    basePath: 'assets/images/units',
+    weapons: {
+        SF_DEPLOY: 'sf.png',
+        DEPLOY_SOLDIER_SQUAD: 'infantry.png',
+        DEPLOY_SPAA: 'aaa.png',
+        DEPLOY_MANPADS: 'airdefmissile.png',
+        DEPLOY_COASTAL: 'seasurface.png',
+        DEPLOY_ASHM: 'missile.png',
+        DEPLOY_IR_APC: 'apc.png',
+        DEPLOY_AAA_BATTERY: 'aaa.png',
+        CONVOY_SLOT_TANK: 'tank.png',
+        CONVOY_SLOT_IFV: 'ifv.png',
+        CONVOY_SLOT_APC: 'apc.png',
+        CONVOY_SLOT_AAA: 'aaa.png',
+        CONVOY_SLOT_SOLDIERS: 'infantry.png',
+        TOMAHAWK: 'missile.png',
+        HYPERSONIC_ASHM: 'missile.png',
+        PILE_DRIVER: 'missile.png',
+        SIDEWINDER: 'airsmall.png',
+        AMRAAM: 'airsmall.png',
+        LRAAM: 'airrwr.png',
+        MAVERICK: 'strike.png',
+        HELLFIRE: 'attackheli.png',
+        ARAD: 'radarsam.png',
+        JAMMER_POD: 'radarsam.png'
+    }
+};
+
 const BUILDINGS = {
     AIRPORT: { hp: 2000, range: 100, name: 'Airbase' },
     SAM_SITE: { hp: 500, range: 400, damage: 50, reload: 120, name: 'SAM Site' }, 
