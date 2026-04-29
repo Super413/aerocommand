@@ -51,8 +51,17 @@ function rectContains(rect, point) {
 
 function getUnitIconAssetPath(unitKey) {
     if (!unitKey || !UNIT_ICON_ASSETS || !UNIT_ICON_ASSETS.units) return null;
-    const fileName = UNIT_ICON_ASSETS.units[unitKey];
+
+    const normalizedKey = String(unitKey).trim();
+    const unitAssetMap = UNIT_ICON_ASSETS.units;
+
+    let fileName = unitAssetMap[normalizedKey];
+    if (!fileName) {
+        const caseInsensitiveKey = Object.keys(unitAssetMap).find(key => key.toUpperCase() === normalizedKey.toUpperCase());
+        if (caseInsensitiveKey) fileName = unitAssetMap[caseInsensitiveKey];
+    }
     if (!fileName) return null;
+
     const base = (UNIT_ICON_ASSETS.basePath || 'assets/images/units').replace(/\/$/, '');
     return `${base}/${fileName}`;
 }
