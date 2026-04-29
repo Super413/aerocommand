@@ -37,6 +37,16 @@ const mouse = { x: 0, y: 0, left: false, right: false, worldX: 0, worldY: 0 };
 let selection = [];
 let manualStrikeMode = false;
 let manualStrikePlan = null;
+const CONSTRUCTION_BUILD_OPTIONS = [
+    { type: 'AIRPORT', name: 'Airport', cost: 2200, emoji: '🛫' },
+    { type: 'SAM_SITE', name: 'SAM Site', cost: 1200, emoji: '📡' },
+    { type: 'DEPLOYED_SPAA', name: 'SPAA', cost: 700, emoji: '🔫' },
+    { type: 'PORT', name: 'Port', cost: 1400, emoji: '⚓' },
+    { type: 'BASE_FORT', name: 'Base Fort', cost: 900, emoji: '🏰' },
+    { type: 'DEPLOYED_COASTAL', name: 'Coastal Gun', cost: 900, emoji: '🛡️' },
+    { type: 'DEPLOYED_ASHM', name: 'AShM Battery', cost: 1300, emoji: '🚀' },
+    { type: 'CIWS_SITE', name: 'CIWS Site', cost: 800, emoji: '🌀' }
+];
 
 function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 function angleTo(a, b) { return Math.atan2(b.y - a.y, b.x - a.x); }
@@ -553,6 +563,8 @@ class Building extends Entity {
         ctx.save(); ctx.translate(this.x, this.y);
         if (this.hp < this.maxHp) { ctx.fillStyle = 'red'; ctx.fillRect(-10, -20, 20, 4); ctx.fillStyle = '#0f0'; ctx.fillRect(-10, -20, 20 * (this.hp/this.maxHp), 4); }
         if (this.type === 'AIRPORT') { ctx.fillStyle = '#222'; ctx.fillRect(-15, -15, 30, 30); ctx.fillStyle = COLORS[this.team]; ctx.font = '20px Arial'; ctx.fillText('H', -7, 7); } 
+        else if (this.type === 'SAM_SITE') { ctx.fillStyle = '#2f3238'; ctx.fillRect(-11, -11, 22, 22); ctx.strokeStyle = '#8ad3ff'; ctx.strokeRect(-11, -11, 22, 22); ctx.beginPath(); ctx.moveTo(-2, 8); ctx.lineTo(7, -8); ctx.stroke(); }
+        else if (this.type === 'SPAA' || this.type === 'DEPLOYED_SPAA' || this.type === 'CIWS_SITE') { ctx.fillStyle = '#3d3f42'; ctx.fillRect(-9, -9, 18, 18); ctx.strokeStyle = '#ddd'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(10, -5); ctx.moveTo(0, 0); ctx.lineTo(10, 5); ctx.stroke(); }
         else if (this.type === 'PORT') {
             const parentIsland = islands.find(i => dist(this, i) < i.radius * 1.4);
             const outAngle = this.dockAngle !== undefined ? this.dockAngle : (parentIsland ? angleTo(parentIsland, this) : 0);
@@ -601,6 +613,26 @@ class Building extends Entity {
         else { ctx.fillStyle = '#444'; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = COLORS[this.team]; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0, -10); ctx.stroke(); }
         ctx.restore();
     }
+}
+
+function buildFromConstructionYard(yard, buildType) {
+    if (!yard || yard.type !== 'CONSTRUCTION_YARD' || yard.team !== TEAM_PLAYER || yard.dead || isSpectator) return;
+    const option = CONSTRUCTION_BUILD_OPTIONS.find(o => o.type === buildType);
+    if (!option || TEAMS[TEAM_PLAYER].money < option.cost) return;
+    const island = islands.find(i => i.owner === TEAM_PLAYER && dist(i, yard) <= i.radius * 1.3);
+    if (!island || island.buildings.length >= 10) return;
+
+    const angle = Math.random() * Math.PI * 2;
+    const r = island.radius * (0.38 + Math.random() * 0.4);
+    const x = island.x + Math.cos(angle) * r;
+    const y = island.y + Math.sin(angle) * r;
+    if (island.buildings.some(b => Math.hypot(b.x - x, b.y - y) < 22)) return;
+
+    TEAMS[TEAM_PLAYER].money -= option.cost;
+    const newBuilding = buildType === 'PORT' ? createPortBuilding(island, TEAM_PLAYER) : new Building(x, y, TEAM_PLAYER, buildType);
+    island.buildings.push(newBuilding);
+    addParticle(newBuilding.x, newBuilding.y, 'text', `BUILT ${option.name.toUpperCase()}`);
+    document.getElementById('money-display').innerText = '$' + Math.floor(TEAMS[TEAM_PLAYER].money);
 }
 
 class Unit extends Entity {
@@ -2678,9 +2710,24 @@ function updateSelectionUI() {
             if(ammoStr === '') ammoStr = '<div>GUNS</div>';
             info.innerHTML = `<p><b>${u.data.name}</b></p><p>HP: ${Math.floor(u.hp)}/${u.maxHp}</p><p>Fuel: ${Math.floor(u.fuel)}</p>${ammoStr}<p>State: ${u.state}</p>`;
         } else if (u instanceof Building) {
-            info.innerHTML = `<p><b>${u.stats.name}</b></p><p>HP: ${Math.floor(u.hp)}/${u.maxHp}</p>`;
+            let html = `<p><b>${u.stats.name}</b></p><p>HP: ${Math.floor(u.hp)}/${u.maxHp}</p>`;
+            if (u.type === 'CONSTRUCTION_YARD' && u.team === TEAM_PLAYER && !isSpectator) {
+                const menu = CONSTRUCTION_BUILD_OPTIONS.map(opt => {
+                    const afford = TEAMS[TEAM_PLAYER].money >= opt.cost;
+                    const icon = createIconElement({ emoji: opt.emoji, assetPath: getUnitIconAssetPath(opt.type), alt: opt.name, className: 'icon-small' }).outerHTML;
+                    return `<button ${afford ? '' : 'disabled'} onclick="buildFromConstructionYardById(${u.id}, '${opt.type}')">${icon} ${opt.name} ($${opt.cost})</button>`;
+                }).join('<br/>');
+                html += `<div style="margin-top:6px;"><b>Construction Yard Menu</b><br/>${menu}</div>`;
+            }
+            info.innerHTML = html;
         }
     }
+}
+
+function buildFromConstructionYardById(yardId, buildType) {
+    const yard = islands.flatMap(i => i.buildings).find(b => b.id === yardId);
+    buildFromConstructionYard(yard, buildType);
+    updateSelectionUI();
 }
 
 function cleanupSelection() {
