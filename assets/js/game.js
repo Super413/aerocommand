@@ -37,6 +37,7 @@ const mouse = { x: 0, y: 0, left: false, right: false, worldX: 0, worldY: 0 };
 let selection = [];
 let manualStrikeMode = false;
 let manualStrikePlan = null;
+let constructionContext = { yardId: null, selectedBuildType: null };
 const CONSTRUCTION_BUILD_OPTIONS = [
     { type: 'AIRPORT', name: 'Airport', cost: 2200, emoji: '🛫' },
     { type: 'SAM_SITE', name: 'SAM Site', cost: 1200, emoji: '📡' },
@@ -633,6 +634,51 @@ function buildFromConstructionYard(yard, buildType) {
     island.buildings.push(newBuilding);
     addParticle(newBuilding.x, newBuilding.y, 'text', `BUILT ${option.name.toUpperCase()}`);
     document.getElementById('money-display').innerText = '$' + Math.floor(TEAMS[TEAM_PLAYER].money);
+}
+
+function openConstructionMenu(yard) {
+    if (!yard || yard.type !== 'CONSTRUCTION_YARD' || yard.team !== TEAM_PLAYER || yard.dead || isSpectator) return;
+    constructionContext = { yardId: yard.id, selectedBuildType: null };
+    const container = document.getElementById('construction-menu');
+    container.innerHTML = '';
+    CONSTRUCTION_BUILD_OPTIONS.forEach(opt => {
+        const afford = TEAMS[TEAM_PLAYER].money >= opt.cost;
+        const btn = document.createElement('div');
+        btn.className = `construction-option ${afford ? '' : 'disabled'}`;
+        btn.innerHTML = `<div class="left">${createIconElement({ emoji: opt.emoji, assetPath: getUnitIconAssetPath(opt.type), alt: opt.name, className: 'icon-medium' }).outerHTML}<div>${opt.name}</div></div><div style="color:#ffd700;">$${opt.cost}</div>`;
+        if (afford) {
+            btn.onclick = () => {
+                constructionContext.selectedBuildType = opt.type;
+                document.querySelectorAll('.construction-option').forEach(n => n.classList.remove('selected'));
+                btn.classList.add('selected');
+            };
+        }
+        container.appendChild(btn);
+    });
+    openModal('construction-modal');
+}
+
+function openConstructionMenuById(yardId) {
+    const yard = islands.flatMap(i => i.buildings).find(b => b.id === yardId);
+    openConstructionMenu(yard);
+}
+
+function tryPlaceSelectedConstructionAt(worldX, worldY) {
+    if (!constructionContext.selectedBuildType || !constructionContext.yardId) return false;
+    const yard = islands.flatMap(i => i.buildings).find(b => b.id === constructionContext.yardId && !b.dead);
+    const option = CONSTRUCTION_BUILD_OPTIONS.find(o => o.type === constructionContext.selectedBuildType);
+    if (!yard || !option || TEAMS[TEAM_PLAYER].money < option.cost) return false;
+    const island = islands.find(i => i.owner === TEAM_PLAYER && Math.hypot(i.x - worldX, i.y - worldY) <= i.radius);
+    if (!island || island.buildings.length >= 10 || island.buildings.some(b => Math.hypot(b.x - worldX, b.y - worldY) < 22)) return false;
+
+    TEAMS[TEAM_PLAYER].money -= option.cost;
+    const newBuilding = option.type === 'PORT'
+        ? createPortBuilding(island, TEAM_PLAYER, angleTo(island, { x: worldX, y: worldY }))
+        : new Building(worldX, worldY, TEAM_PLAYER, option.type);
+    island.buildings.push(newBuilding);
+    document.getElementById('money-display').innerText = '$' + Math.floor(TEAMS[TEAM_PLAYER].money);
+    addParticle(worldX, worldY, 'text', `BUILT ${option.name.toUpperCase()}`);
+    return true;
 }
 
 class Unit extends Entity {
@@ -2123,6 +2169,7 @@ function openModal(id) {
 function closeModal(id) { 
     if (multiplayerMode === 'OFF') gamePaused = false;
     document.getElementById(id).style.display = 'none'; 
+    if (id === 'construction-modal') constructionContext.selectedBuildType = null;
     editingUnitKey = null; 
     selectedSlotIndex = null;
 }
@@ -2588,6 +2635,7 @@ canvas.addEventListener('mousedown', e => {
     mouse.worldX = mouse.x + camera.x; mouse.worldY = mouse.y + camera.y;
 
     if (e.button === 0) {
+        if (tryPlaceSelectedConstructionAt(mouse.worldX, mouse.worldY)) return;
         if (zoneEditMode && currentZoneType) {
             zoneDragStart = { x: mouse.worldX, y: mouse.worldY };
         } else {
@@ -2712,12 +2760,7 @@ function updateSelectionUI() {
         } else if (u instanceof Building) {
             let html = `<p><b>${u.stats.name}</b></p><p>HP: ${Math.floor(u.hp)}/${u.maxHp}</p>`;
             if (u.type === 'CONSTRUCTION_YARD' && u.team === TEAM_PLAYER && !isSpectator) {
-                const menu = CONSTRUCTION_BUILD_OPTIONS.map(opt => {
-                    const afford = TEAMS[TEAM_PLAYER].money >= opt.cost;
-                    const icon = createIconElement({ emoji: opt.emoji, assetPath: getUnitIconAssetPath(opt.type), alt: opt.name, className: 'icon-small' }).outerHTML;
-                    return `<button ${afford ? '' : 'disabled'} onclick="buildFromConstructionYardById(${u.id}, '${opt.type}')">${icon} ${opt.name} ($${opt.cost})</button>`;
-                }).join('<br/>');
-                html += `<div style="margin-top:6px;"><b>Construction Yard Menu</b><br/>${menu}</div>`;
+                html += `<div style="margin-top:8px;"><button class="btn-toggle" onclick="openConstructionMenuById(${u.id})">Open Construction Menu</button></div>`;
             }
             info.innerHTML = html;
         }
