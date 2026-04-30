@@ -238,6 +238,28 @@ p { margin: 2px 0; color: #ccc; }
 
 /* Research Styles */
 #research-modal { width: 850px; }
+#construction-modal { width: 560px; }
+#construction-menu {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+.construction-option {
+    min-height: 76px;
+    background: #1b1b1b;
+    border: 1px solid #444;
+    color: #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    cursor: pointer;
+}
+.construction-option:hover { border-color: #4faaff; background: #222a33; }
+.construction-option.selected { border-color: #ffd700; box-shadow: 0 0 8px rgba(255,215,0,0.35); }
+.construction-option .left { display:flex; align-items:center; gap:8px; }
+.construction-option.disabled { opacity: 0.5; cursor: not-allowed; }
+#construction-hint { margin-top: 12px; color: #8fb8dd; font-size: 12px; }
 .tech-category { margin-bottom: 20px; }
 .tech-category h4 { color: #888; border-bottom: 1px solid #333; margin: 0 0 10px 0; padding-bottom: 2px; }
 .tech-row { display: flex; gap: 15px; }
