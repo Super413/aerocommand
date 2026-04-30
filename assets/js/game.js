@@ -2109,6 +2109,7 @@ function initTutorial() {
         isLand: currentMapType === 'LAND',
         fighterSpawned: false,
         researchOpened: false,
+        researchCompleted: false,
         loadoutOpened: false,
         strikeOpened: false,
         slotSelected: false,
@@ -2154,8 +2155,15 @@ function updateTutorialStep() {
         if (researchBtn) highlightTutorialElement(researchBtn, 18);
         return;
     }
-    if (!tutorialState.loadoutOpened) {
+    if (!tutorialState.researchCompleted) {
         tutorialState.step = 2;
+        setTutorialMessage('Purchase one research upgrade.');
+        const availableNode = document.querySelector('#research-tree .tech-node.available');
+        if (availableNode) highlightTutorialElement(availableNode, 12);
+        return;
+    }
+    if (!tutorialState.loadoutOpened) {
+        tutorialState.step = 3;
         setTutorialMessage('Click Loadout.');
         if (loadoutBtn) highlightTutorialElement(loadoutBtn, 18);
         return;
@@ -2271,6 +2279,8 @@ function toggleEditMode() {
     btn.innerText = editMode ? "Select Unit" : "Loadout";
     const btns = document.querySelectorAll('.btn-build');
     btns.forEach(b => { if(editMode) b.classList.add('edit-mode'); else b.classList.remove('edit-mode'); });
+    if (tutorialMode && tutorialState && editMode) tutorialState.loadoutOpened = true;
+    if (tutorialMode && tutorialState) updateTutorialStep();
 }
 
 function openModal(id) { 
@@ -2318,6 +2328,7 @@ function openLoadoutMenu(unitKey) {
         container.appendChild(div);
     });
     selectSlot(null, null); 
+    if (tutorialMode && tutorialState) updateTutorialStep();
 }
 
 function selectSlot(index, domElement) {
@@ -2363,6 +2374,7 @@ function selectSlot(index, domElement) {
         }
     });
     renderSlotAmmoConfig();
+    if (tutorialMode && tutorialState) updateTutorialStep();
 }
 
 function equipWeapon(weaponKey) {
@@ -2371,6 +2383,7 @@ function equipWeapon(weaponKey) {
         UNIT_TYPES[editingUnitKey].hardpoints[selectedSlotIndex].equipped = weaponKey;
         openLoadoutMenu(editingUnitKey);
         const slots = document.querySelectorAll('.slot'); selectSlot(selectedSlotIndex, slots[selectedSlotIndex]);
+        if (tutorialMode && tutorialState) updateTutorialStep();
     }
 }
 
@@ -2464,6 +2477,7 @@ function openResearch() {
         container.appendChild(div);
     });
     openModal('research-modal');
+    if (tutorialMode && tutorialState) updateTutorialStep();
 }
 
 function researchPlayer(techId, cost) {
@@ -2485,6 +2499,10 @@ function researchPlayer(techId, cost) {
         if (techId === 'CIWS') {
             UNIT_TYPES.CARRIER.hardpoints.forEach(hp => { if (hp.equipped === 'GUN_BASIC') hp.equipped = 'CIWS'; });
             entities.forEach(e => { if (e.team === TEAM_PLAYER && e.typeKey === 'CARRIER') e.initLoadout(); });
+        }
+        if (tutorialMode && tutorialState) {
+            tutorialState.researchCompleted = true;
+            updateTutorialStep();
         }
     }
 }
@@ -2529,7 +2547,6 @@ function createUI() {
         
         btn.onclick = () => { 
             if (tutorialMode && tutorialState && key === 'FIGHTER') tutorialState.fighterSpawned = true;
-            if (tutorialMode && tutorialState && editMode && key === 'STRIKE') tutorialState.loadoutOpened = true;
             if (editMode) {
                 openLoadoutMenu(key);
             } else if (TEAMS[TEAM_PLAYER].money >= data.cost && !isSpectator) {
@@ -2546,6 +2563,7 @@ function createUI() {
                 }
                 spawnUnit(TEAM_PLAYER, key, spawner); 
             }
+            if (tutorialMode && tutorialState) updateTutorialStep();
         };
         panel.appendChild(btn);
     });
