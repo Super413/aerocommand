@@ -147,7 +147,6 @@ function createIconElement({ emoji, assetPath, alt, className = '' }) {
     };
 
     wrapper.appendChild(img);
-    wrapper.appendChild(fallback);
     return wrapper;
 }
 
@@ -936,9 +935,17 @@ class Unit extends Entity {
             if (w.burstCount > 0) {
                 w.burstTimer -= cooldownScale;
                 if (w.burstTimer <= 0) {
-                    w.burstCount--; w.burstTimer = 5; 
-                    let p = new Missile(this.x, this.y, this.targetUnit, this.team, w.def.damage / 3);
-                    p.isRocket = true; projectiles.push(p); 
+                    w.burstCount--;
+                    if (w.def.type === 'ROCKET') {
+                        w.burstTimer = 5;
+                        let p = new Missile(this.x, this.y, this.targetUnit, this.team, w.def.damage / 3);
+                        p.isRocket = true;
+                        projectiles.push(p);
+                    } else if (w.def.type === 'GUN') {
+                        w.burstTimer = w.def.burstInterval || 1.2;
+                        const burstTarget = w.burstTarget && !w.burstTarget.dead ? w.burstTarget : null;
+                        if (burstTarget) this.spawnWeaponProjectile(w, burstTarget);
+                    }
                 }
             }
             if (w.pendingSalvo > 0) {
@@ -1063,10 +1070,15 @@ class Unit extends Entity {
             if (this.base) moveTarget = this.base;
         } else if (this.targetUnit && !this.targetUnit.dead && this.data.type !== 'ship') {
             if (this.typeKey === 'AC130') {
-                this.orbitAngle += 0.01 * this.orbitDir * SPEED_SCALE * 5;
                 const gunRanges = this.weapons.filter(w => w.def.type === 'GUN').map(w => w.def.range || 300);
                 const minRange = gunRanges.length ? Math.min(...gunRanges) : 150;
                 const orbitRadius = Math.max(90, Math.min(minRange * 0.72, 170));
+                const toTargetAngle = angleTo(this.targetUnit, this);
+                const desiredOrbitAngle = toTargetAngle + (Math.PI / 2) * this.orbitDir;
+                let orbitDiff = desiredOrbitAngle - this.orbitAngle;
+                while (orbitDiff < -Math.PI) orbitDiff += Math.PI * 2;
+                while (orbitDiff > Math.PI) orbitDiff -= Math.PI * 2;
+                this.orbitAngle += Math.max(-0.04, Math.min(0.04, orbitDiff)) * SPEED_SCALE * 4;
                 moveTarget = {
                     x: this.targetUnit.x + Math.cos(this.orbitAngle) * orbitRadius,
                     y: this.targetUnit.y + Math.sin(this.orbitAngle) * orbitRadius
@@ -1157,7 +1169,7 @@ class Unit extends Entity {
                     const omnidirectional = this.data.type === 'ship' && w.def.navalOmni;
                     let firingArcOk = omnidirectional || Math.abs(aimDiff) < tolerance;
                     if (this.typeKey === 'AC130') {
-                        const leftBearing = this.angle + Math.PI / 2;
+                        const leftBearing = this.angle - Math.PI / 2;
                         let sideDiff = angleToT - leftBearing;
                         while (sideDiff < -Math.PI) sideDiff += Math.PI * 2;
                         while (sideDiff > Math.PI) sideDiff -= Math.PI * 2;
@@ -1249,6 +1261,11 @@ class Unit extends Entity {
         if (w.type !== 'GUN' && w.type !== 'ECM') weaponInstance.ammo--;
 
         this.spawnWeaponProjectile(weaponInstance, target);
+        if (w.type === 'GUN' && w.burstShots && w.burstShots > 1) {
+            weaponInstance.burstCount = w.burstShots - 1;
+            weaponInstance.burstTimer = w.burstInterval || 1.2;
+            weaponInstance.burstTarget = target;
+        }
         if (this.data.type === 'ship' && w.navalOmni) {
             const salvoSize = Math.max(1, w.salvoCount || 1);
             weaponInstance.pendingSalvo = Math.max(0, salvoSize - 1);
@@ -1298,7 +1315,7 @@ class Unit extends Entity {
                 leadX = target.x + Math.cos(target.angle) * target.data.speed * SPEED_SCALE * timeToImpact * leadMultiplier;
                 leadY = target.y + Math.sin(target.angle) * target.data.speed * SPEED_SCALE * timeToImpact * leadMultiplier;
             }
-            projectiles.push(new Bullet(this.x, this.y, {x: leadX, y: leadY}, this.team, w.damage, w.name === 'Railcannon'));
+            projectiles.push(new Bullet(this.x, this.y, {x: leadX, y: leadY}, this.team, w.damage, w.name === 'Railcannon', w.spread || 0.02, !!w.interceptsMunitions));
         }
     }
 
@@ -1579,7 +1596,10 @@ class Missile extends Projectile {
             if (Math.abs(diff) < turn) this.angle = angleToT; else this.angle += Math.sign(diff) * turn;
             
             if (dist(this, this.target) < 10) {
-                this.target.takeDamage(this.damage); this.dead = true; addParticle(this.x, this.y, 'explosion');
+                if (this.target instanceof Projectile) this.target.dead = true;
+                else this.target.takeDamage(this.damage);
+                this.dead = true;
+                addParticle(this.x, this.y, 'explosion');
             }
         } else { this.dead = true; }
         const speed = this.baseSpeed * SPEED_SCALE;
@@ -1609,13 +1629,14 @@ class Bomb extends Projectile {
 }
 
 class Bullet extends Projectile {
-    constructor(x, y, target, team, damage, isRail = false) {
+    constructor(x, y, target, team, damage, isRail = false, spread = 0.02, interceptsMunitions = false) {
         super(x, y, target, team, damage);
         const a = Math.atan2(target.y - y, target.x - x);
-        this.vx = Math.cos(a + (Math.random()-0.5)*0.02) * 8 * SPEED_SCALE;
-        this.vy = Math.sin(a + (Math.random()-0.5)*0.02) * 8 * SPEED_SCALE;
+        this.vx = Math.cos(a + (Math.random()-0.5)*spread) * 8 * SPEED_SCALE;
+        this.vy = Math.sin(a + (Math.random()-0.5)*spread) * 8 * SPEED_SCALE;
         this.timer = 20 / SPEED_SCALE;
         this.isRail = isRail;
+        this.interceptsMunitions = interceptsMunitions;
     }
     update() {
         this.timer--; if (this.timer <= 0) this.dead = true;
@@ -1635,6 +1656,16 @@ class Bullet extends Projectile {
                 }
             });
         });
+        if (this.interceptsMunitions) {
+            projectiles.forEach(p => {
+                if (this.dead || p.dead || p.team === this.team || p === this || p instanceof Bullet) return;
+                if (dist(this, p) < 7) {
+                    p.dead = true;
+                    this.dead = true;
+                    addParticle(this.x, this.y, 'spark');
+                }
+            });
+        }
     }
     draw(ctx) {
         if (this.isRail) {
@@ -1654,6 +1685,9 @@ class Bullet extends Projectile {
 
 function isValidTarget(target, targetTypes) {
     if (!targetTypes) return false;
+    if (target instanceof Projectile) {
+        return targetTypes.includes('munition') && !(target instanceof Bullet);
+    }
     let type = target.data ? target.data.type : (target.type === 'SAM_SITE' || target.type === 'SPAA' || target.type === 'AIRPORT' ? 'structure' : (target.type ? 'structure' : 'unknown'));
     if (target.type && target.type.includes('DEPLOYED')) type = 'structure';
     if (target.type && (target.type.includes('COASTAL') || target.type.includes('ASHM'))) type = 'structure'; 
@@ -1687,6 +1721,14 @@ function findTarget(source, range, types = null) {
             if (d < minD) { if (!types || isValidTarget(e, types)) { minD = d; best = e; } }
         }
     });
+    if (!best && (!types || types.includes('munition'))) {
+        projectiles.forEach(p => {
+            if (p.team !== source.team && !p.dead && !(p instanceof Bullet)) {
+                const d = dist(source, p);
+                if (d < minD && (!types || isValidTarget(p, types))) { minD = d; best = p; }
+            }
+        });
+    }
     if (!best && types && types.includes('structure')) {
         islands.forEach(i => {
             if (i.owner !== TEAM_NEUTRAL && i.owner !== source.team) {
@@ -2467,8 +2509,14 @@ function openResearch() {
             if (!unlocked && reqMet) statusClass = 'available';
 
             if (i > 0) html += `<div class="tech-arrow">→</div>`;
+            const iconHtml = createIconElement({
+                emoji: icon,
+                assetPath: getWeaponIconAssetPath(tech.id),
+                alt: name,
+                className: 'icon-medium'
+            }).outerHTML;
             html += `<div class="tech-node ${statusClass}" onclick="researchPlayer('${tech.id}', ${tech.cost})">
-                        <div>${icon}</div><div>${name}</div>
+                        <div>${iconHtml}</div><div>${name}</div>
                         ${!unlocked ? `<div style="color:#ffd700">$${tech.cost}</div>` : ''}
                      </div>`;
         });
