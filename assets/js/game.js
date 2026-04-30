@@ -682,6 +682,8 @@ function tryPlaceSelectedConstructionAt(worldX, worldY) {
     island.buildings.push(newBuilding);
     document.getElementById('money-display').innerText = '$' + Math.floor(TEAMS[TEAM_PLAYER].money);
     addParticle(worldX, worldY, 'text', `BUILT ${option.name.toUpperCase()}`);
+    constructionContext.selectedBuildType = null;
+    constructionContext.yardId = null;
     return true;
 }
 
