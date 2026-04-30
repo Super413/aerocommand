@@ -6,15 +6,16 @@ A browser strategy/action prototype with aerial, naval, and ground combat.
 
 ```text
 .
-├── index.html           # UI markup and screen/modal structure
+├── index.html                       # UI markup and screen/modal structure
+├── encyclopedia_discriptions.txt    # Text descriptors for all units for encyclopedia
 ├── assets/
 │   ├── css/
-│   │   └── main.css     # All styling for menus, HUD, and modals
+│   │   └── main.css                 # All styling for menus, HUD, and modals
 │   ├── images/
-│   │   └── units/        # Optional per-unit UI icon images (PNG/WebP/SVG/etc.)
+│   │   └── units/                   # Optional per-unit UI icon images (PNG/WebP/SVG/etc.)
 │   └── js/
-│       ├── config.js    # Constants, weapons, units, tech tree, shared data
-│       └── game.js      # Runtime state, classes, game loop, controls, and UI behavior
+│       ├── config.js                # Constants, weapons, units, tech tree, shared data, directs image assets
+│       └── game.js                  # Runtime state, classes, game loop, controls, and UI behavior
 └── README.md
 ```
 
