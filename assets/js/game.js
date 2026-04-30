@@ -19,6 +19,9 @@ let zoneEditMode = false;
 let currentZoneType = null;
 let zoneDragStart = null;
 let currentMapType = 'ARCHIPELAGO';
+let tutorialMode = false;
+let tutorialState = null;
+let tutorialUi = { overlay: null, message: null, highlight: null };
 let multiplayerMode = 'OFF';
 let multiplayerSessionCode = '';
 let encyclopediaState = { category: 'ground', index: 0, entries: null };
@@ -1983,6 +1986,7 @@ function showSetup() {
     document.getElementById('setup-menu').style.display = 'flex';
     document.getElementById('map-size').value = "2";
     document.getElementById('island-size').value = "50";
+    document.getElementById('tutorial-mode').value = "OFF";
     generateMap(); 
     updateMultiplayerSetup();
     gameState = 'SETUP';
@@ -2047,6 +2051,7 @@ function startGame() {
     isSpectator = (mode === 'spectator');
     multiplayerMode = mode === 'multiplayer-host' ? 'HOST' : (mode === 'multiplayer-join' ? 'JOIN' : 'OFF');
     multiplayerSessionCode = '';
+    tutorialMode = document.getElementById('tutorial-mode').value === 'ON';
 
     if (multiplayerMode !== 'OFF') {
         const sessionInput = document.getElementById('session-code');
@@ -2080,12 +2085,119 @@ function startGame() {
     document.getElementById('ui-layer').style.display = 'flex';
     
     createUI();
+    initTutorial();
     gameState = 'GAME';
 
     if (multiplayerMode !== 'OFF') {
         const role = multiplayerMode === 'HOST' ? 'HOSTING' : 'JOINED';
         addParticle(camera.x + width / 2, camera.y + 60, 'text', `${role}: ${multiplayerSessionCode}`);
     }
+}
+
+function initTutorial() {
+    if (!tutorialMode) {
+        tutorialState = null;
+        if (tutorialUi.overlay) tutorialUi.overlay.style.display = 'none';
+        return;
+    }
+    tutorialUi.overlay = document.getElementById('tutorial-overlay');
+    tutorialUi.message = document.getElementById('tutorial-message');
+    tutorialUi.highlight = document.getElementById('tutorial-highlight');
+    if (tutorialUi.overlay) tutorialUi.overlay.style.display = 'block';
+    tutorialState = {
+        step: 0,
+        isLand: currentMapType === 'LAND',
+        fighterSpawned: false,
+        researchOpened: false,
+        researchCompleted: false,
+        loadoutOpened: false,
+        strikeOpened: false,
+        slotSelected: false,
+        armamentSelected: false,
+        zoneUsed: false,
+        islandCaptured: false
+    };
+    updateTutorialStep();
+}
+
+function setTutorialMessage(text) {
+    if (!tutorialMode || !tutorialUi.message) return;
+    tutorialUi.message.innerText = text;
+}
+function highlightTutorialElement(el, pad = 12) {
+    if (!tutorialMode || !tutorialUi.highlight || !el) return;
+    const r = el.getBoundingClientRect();
+    const d = Math.max(r.width, r.height) + pad * 2;
+    tutorialUi.highlight.style.width = `${d}px`;
+    tutorialUi.highlight.style.height = `${d}px`;
+    tutorialUi.highlight.style.left = `${r.left + r.width / 2 - d / 2}px`;
+    tutorialUi.highlight.style.top = `${r.top + r.height / 2 - d / 2}px`;
+}
+function updateTutorialStep() {
+    if (!tutorialMode || !tutorialState) return;
+    if (!tutorialUi.overlay) return;
+    const fighterBtn = document.querySelector('.btn-build[data-unit-key="FIGHTER"]');
+    const loadoutBtn = document.getElementById('btn-edit-loadout');
+    const strikeBtn = document.querySelector('.btn-build[data-unit-key="STRIKE"]');
+    const slotEl = document.querySelector('#plane-schematic .slot');
+    const armamentEl = document.querySelector('#weapon-selector .weapon-option:not(.locked)');
+
+    if (!tutorialState.fighterSpawned) {
+        tutorialState.step = 0;
+        setTutorialMessage('Tutorial: Spawn/control an air unit (click Fighter).');
+        if (fighterBtn) highlightTutorialElement(fighterBtn, 20);
+        return;
+    }
+    if (!tutorialState.researchOpened) {
+        tutorialState.step = 1;
+        setTutorialMessage('Open the Research menu.');
+        const researchBtn = Array.from(document.querySelectorAll('#controls-panel .btn-toggle')).find(b => b.innerText.trim() === 'Research');
+        if (researchBtn) highlightTutorialElement(researchBtn, 18);
+        return;
+    }
+    if (!tutorialState.researchCompleted) {
+        tutorialState.step = 2;
+        setTutorialMessage('Purchase one research upgrade.');
+        const availableNode = document.querySelector('#research-tree .tech-node.available');
+        if (availableNode) highlightTutorialElement(availableNode, 12);
+        return;
+    }
+    if (!tutorialState.loadoutOpened) {
+        tutorialState.step = 3;
+        setTutorialMessage('Click Loadout.');
+        if (loadoutBtn) highlightTutorialElement(loadoutBtn, 18);
+        return;
+    }
+    if (!tutorialState.strikeOpened) {
+        setTutorialMessage('Click the STRIKE aircraft.');
+        if (strikeBtn) highlightTutorialElement(strikeBtn, 20);
+        return;
+    }
+    if (!tutorialState.slotSelected) {
+        setTutorialMessage('Click a pylon / hardpoint slot.');
+        if (slotEl) highlightTutorialElement(slotEl, 18);
+        return;
+    }
+    if (!tutorialState.armamentSelected) {
+        setTutorialMessage('Select an armament.');
+        if (armamentEl) highlightTutorialElement(armamentEl, 20);
+        return;
+    }
+    if (!tutorialState.zoneUsed) {
+        setTutorialMessage('Use Zones: toggle Zones and draw one.');
+        const zonesBtn = document.getElementById('btn-zones');
+        if (zonesBtn) highlightTutorialElement(zonesBtn, 18);
+        return;
+    }
+    if (!tutorialState.islandCaptured) {
+        setTutorialMessage('Capture a neutral/enemy island with infantry.');
+        tutorialUi.highlight.style.width = '0px';
+        tutorialUi.highlight.style.height = '0px';
+        return;
+    }
+    setTutorialMessage(tutorialState.isLand ? 'Great! Now use ground units to finish the mission.' : 'Great! Now use naval units to finish the mission.');
+    tutorialUi.highlight.style.width = '0px';
+    tutorialUi.highlight.style.height = '0px';
 }
 
 // --- ZONES ---
@@ -2097,6 +2209,7 @@ function toggleZones() {
     panel.style.display = zoneEditMode ? 'flex' : 'none';
     if (!zoneEditMode) currentZoneType = null;
     zoneDragStart = null;
+    if (tutorialMode && tutorialState) updateTutorialStep();
 }
 
 function setZoneMode(type) {
@@ -2166,6 +2279,8 @@ function toggleEditMode() {
     btn.innerText = editMode ? "Select Unit" : "Loadout";
     const btns = document.querySelectorAll('.btn-build');
     btns.forEach(b => { if(editMode) b.classList.add('edit-mode'); else b.classList.remove('edit-mode'); });
+    if (tutorialMode && tutorialState && editMode) tutorialState.loadoutOpened = true;
+    if (tutorialMode && tutorialState) updateTutorialStep();
 }
 
 function openModal(id) { 
@@ -2180,6 +2295,7 @@ function closeModal(id) {
 }
 
 function openLoadoutMenu(unitKey) {
+    if (tutorialMode && tutorialState && unitKey === 'STRIKE') tutorialState.strikeOpened = true;
     editingUnitKey = unitKey;
     const data = UNIT_TYPES[unitKey];
     document.getElementById('loadout-title').innerText = data.name;
@@ -2212,6 +2328,7 @@ function openLoadoutMenu(unitKey) {
         container.appendChild(div);
     });
     selectSlot(null, null); 
+    if (tutorialMode && tutorialState) updateTutorialStep();
 }
 
 function selectSlot(index, domElement) {
@@ -2224,6 +2341,7 @@ function selectSlot(index, domElement) {
         renderSlotAmmoConfig();
         return;
     }
+    if (tutorialMode && tutorialState && index !== null) tutorialState.slotSelected = true;
     if (domElement) domElement.style.borderColor = '#ffd700';
 
     const slotDef = UNIT_TYPES[editingUnitKey].hardpoints[index];
@@ -2256,13 +2374,16 @@ function selectSlot(index, domElement) {
         }
     });
     renderSlotAmmoConfig();
+    if (tutorialMode && tutorialState) updateTutorialStep();
 }
 
 function equipWeapon(weaponKey) {
     if (editingUnitKey && selectedSlotIndex !== null) {
+        if (tutorialMode && tutorialState) tutorialState.armamentSelected = true;
         UNIT_TYPES[editingUnitKey].hardpoints[selectedSlotIndex].equipped = weaponKey;
         openLoadoutMenu(editingUnitKey);
         const slots = document.querySelectorAll('.slot'); selectSlot(selectedSlotIndex, slots[selectedSlotIndex]);
+        if (tutorialMode && tutorialState) updateTutorialStep();
     }
 }
 
@@ -2323,6 +2444,7 @@ function renderSlotAmmoConfig() {
 }
 
 function openResearch() {
+    if (tutorialMode && tutorialState) tutorialState.researchOpened = true;
     const container = document.getElementById('research-tree');
     container.innerHTML = '';
     
@@ -2355,6 +2477,7 @@ function openResearch() {
         container.appendChild(div);
     });
     openModal('research-modal');
+    if (tutorialMode && tutorialState) updateTutorialStep();
 }
 
 function researchPlayer(techId, cost) {
@@ -2377,6 +2500,10 @@ function researchPlayer(techId, cost) {
             UNIT_TYPES.CARRIER.hardpoints.forEach(hp => { if (hp.equipped === 'GUN_BASIC') hp.equipped = 'CIWS'; });
             entities.forEach(e => { if (e.team === TEAM_PLAYER && e.typeKey === 'CARRIER') e.initLoadout(); });
         }
+        if (tutorialMode && tutorialState) {
+            tutorialState.researchCompleted = true;
+            updateTutorialStep();
+        }
     }
 }
 
@@ -2390,9 +2517,12 @@ function createUI() {
         
         // Hide naval units on Land maps
         if (currentMapType === 'LAND' && (data.type === 'ship' || key === 'DESTROYER' || key === 'CARRIER')) return;
+        // Hide land-heavy units on Sea maps
+        if (currentMapType !== 'LAND' && ['APC', 'IFV', 'TANK', 'CONVOY'].includes(key)) return;
 
         const btn = document.createElement('div');
         btn.className = 'btn-build';
+        btn.dataset.unitKey = key;
         const iconDiv = document.createElement('div');
         iconDiv.className = 'btn-icon';
         iconDiv.appendChild(createIconElement({
@@ -2416,6 +2546,7 @@ function createUI() {
         btn.onmouseleave = () => tooltip.style.display = 'none';
         
         btn.onclick = () => { 
+            if (tutorialMode && tutorialState && key === 'FIGHTER') tutorialState.fighterSpawned = true;
             if (editMode) {
                 openLoadoutMenu(key);
             } else if (TEAMS[TEAM_PLAYER].money >= data.cost && !isSpectator) {
@@ -2432,6 +2563,7 @@ function createUI() {
                 }
                 spawnUnit(TEAM_PLAYER, key, spawner); 
             }
+            if (tutorialMode && tutorialState) updateTutorialStep();
         };
         panel.appendChild(btn);
     });
@@ -2496,7 +2628,11 @@ function spawnUnit(team, typeKey, specificSpawner = null) {
 let aiTimer = 0;
 
 function updateTeamAI(team) {
-    if (TEAMS[team].money > 3000 && Math.random() < 0.05) {
+    const isTutorialEnemy = tutorialMode && tutorialState && team === TEAM_AI && !isSpectator;
+    const aiBuildChance = isTutorialEnemy ? 0.3 : 1;
+    const aiAttackChance = isTutorialEnemy ? 0.2 : 1;
+    const aiResearchChance = isTutorialEnemy ? 0.15 : 1;
+    if (TEAMS[team].money > 3000 && Math.random() < 0.05 * aiResearchChance) {
         let available = [];
         Object.values(TECH_TREE).flat().forEach(t => {
             if (!isUnlocked(team, t.id)) {
@@ -2545,7 +2681,7 @@ function updateTeamAI(team) {
     else if (offensiveCount < 3) toBuild = currentMapType === 'LAND' ? 'CONVOY' : 'STRIKE';
     else if (Math.random() > 0.78 && offensiveCount >= 4) toBuild = 'ATTACK_HELI';
 
-    if (toBuild && (!UNIT_TYPES[toBuild].type.includes('ship') || currentMapType !== 'LAND')) {
+    if (Math.random() < aiBuildChance && toBuild && (!UNIT_TYPES[toBuild].type.includes('ship') || currentMapType !== 'LAND')) {
          spawnUnit(team, toBuild);
     }
 
@@ -2586,7 +2722,7 @@ function updateTeamAI(team) {
                     u.hasCommand = true;
                     u.state = 'MOVE';
                 }
-            } else if (u.data.role === 'AA' || u.data.role === 'Multi') {
+            } else if ((u.data.role === 'AA' || u.data.role === 'Multi') && Math.random() < aiAttackChance) {
                  const preferred = chooseBestAiTarget(u, team);
                  if (preferred) u.targetUnit = preferred;
             } else if (u.typeKey === 'IR_APC' || u.typeKey === 'AAA_BATTERY') {
@@ -2598,7 +2734,7 @@ function updateTeamAI(team) {
                     u.targetPos = { x: defendIsland.x + dx, y: defendIsland.y + dy };
                     u.hasCommand = true;
                 }
-            } else if (u.typeKey === 'HUNTER_FRIGATE' || u.typeKey === 'ARSENAL_CRUISER' || u.typeKey === 'BOMBER' || u.typeKey === 'STRIKE') {
+            } else if ((u.typeKey === 'HUNTER_FRIGATE' || u.typeKey === 'ARSENAL_CRUISER' || u.typeKey === 'BOMBER' || u.typeKey === 'STRIKE') && Math.random() < aiAttackChance) {
                 const suppressionTarget = chooseBestAiTarget(u, team);
                 if (suppressionTarget) {
                     u.targetUnit = suppressionTarget;
@@ -2824,6 +2960,9 @@ function loop() {
             if (isSpectator) updateTeamAI(TEAM_PLAYER); // Blue AI (Spectator Mode)
             aiTimer = 0;
         }
+        if (tutorialMode && tutorialState && gameTime % 120 === 0) {
+            updateTutorialStep();
+        }
 
         entities.forEach(e => { if (e instanceof Unit) { e.turnBoost = 1; e.cooldownBoost = 1; } });
         entities.forEach(source => {
@@ -2844,6 +2983,11 @@ function loop() {
         for (let i = entities.length - 1; i >= 0; i--) { if (entities[i].dead) entities.splice(i, 1); }
         for (let i = projectiles.length - 1; i >= 0; i--) { if (projectiles[i].dead) projectiles.splice(i, 1); }
         islands.forEach(i => { for (let b = i.buildings.length - 1; b >= 0; b--) { if (i.buildings[b].dead) i.buildings.splice(b, 1); } });
+        if (tutorialMode && tutorialState) {
+            tutorialState.zoneUsed = tutorialState.zoneUsed || TEAMS[TEAM_PLAYER].zones.length > 0;
+            tutorialState.islandCaptured = islands.some(i => !i.isMainBase && i.owner === TEAM_PLAYER);
+            updateTutorialStep();
+        }
         cleanupSelection();
         
         const playerBase = islands.find(i => i.isMainBase && i.owner === TEAM_PLAYER);
@@ -2939,4 +3083,8 @@ function draw() {
 
 window.onresize = () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; };
 document.getElementById('mode-select').addEventListener('change', updateMultiplayerSetup);
+['map-size', 'map-type', 'island-size'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', randomizeMap);
+});
 initGame();
