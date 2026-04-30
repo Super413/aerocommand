@@ -19,6 +19,8 @@ let zoneEditMode = false;
 let currentZoneType = null;
 let zoneDragStart = null;
 let currentMapType = 'ARCHIPELAGO';
+let tutorialMode = false;
+let tutorialState = null;
 let multiplayerMode = 'OFF';
 let multiplayerSessionCode = '';
 let encyclopediaState = { category: 'ground', index: 0, entries: null };
@@ -1983,6 +1985,7 @@ function showSetup() {
     document.getElementById('setup-menu').style.display = 'flex';
     document.getElementById('map-size').value = "2";
     document.getElementById('island-size').value = "50";
+    document.getElementById('tutorial-mode').value = "OFF";
     generateMap(); 
     updateMultiplayerSetup();
     gameState = 'SETUP';
@@ -2047,6 +2050,7 @@ function startGame() {
     isSpectator = (mode === 'spectator');
     multiplayerMode = mode === 'multiplayer-host' ? 'HOST' : (mode === 'multiplayer-join' ? 'JOIN' : 'OFF');
     multiplayerSessionCode = '';
+    tutorialMode = document.getElementById('tutorial-mode').value === 'ON';
 
     if (multiplayerMode !== 'OFF') {
         const sessionInput = document.getElementById('session-code');
@@ -2080,12 +2084,39 @@ function startGame() {
     document.getElementById('ui-layer').style.display = 'flex';
     
     createUI();
+    initTutorial();
     gameState = 'GAME';
 
     if (multiplayerMode !== 'OFF') {
         const role = multiplayerMode === 'HOST' ? 'HOSTING' : 'JOINED';
         addParticle(camera.x + width / 2, camera.y + 60, 'text', `${role}: ${multiplayerSessionCode}`);
     }
+}
+
+function initTutorial() {
+    if (!tutorialMode) {
+        tutorialState = null;
+        return;
+    }
+    tutorialState = {
+        step: 0,
+        lastTick: -1,
+        messages: (currentMapType === 'LAND') ? [
+            'Tutorial (Land): Spawn and control an air unit.',
+            'Open the Research menu and purchase one upgrade.',
+            'Open Loadout and change at least one slot.',
+            'Toggle Zones and draw one mission zone.',
+            'Capture a neutral/enemy island with infantry.',
+            'Now deploy and command ground units to finish the battle.'
+        ] : [
+            'Tutorial (Sea): Spawn and control an air unit.',
+            'Open the Research menu and purchase one upgrade.',
+            'Open Loadout and change at least one slot.',
+            'Toggle Zones and draw one mission zone.',
+            'Capture a neutral/enemy island with infantry.',
+            'Now deploy and command naval units to finish the battle.'
+        ]
+    };
 }
 
 // --- ZONES ---
@@ -2390,6 +2421,8 @@ function createUI() {
         
         // Hide naval units on Land maps
         if (currentMapType === 'LAND' && (data.type === 'ship' || key === 'DESTROYER' || key === 'CARRIER')) return;
+        // Hide land-heavy units on Sea maps
+        if (currentMapType !== 'LAND' && ['APC', 'IFV', 'TANK', 'CONVOY'].includes(key)) return;
 
         const btn = document.createElement('div');
         btn.className = 'btn-build';
@@ -2496,7 +2529,11 @@ function spawnUnit(team, typeKey, specificSpawner = null) {
 let aiTimer = 0;
 
 function updateTeamAI(team) {
-    if (TEAMS[team].money > 3000 && Math.random() < 0.05) {
+    const isTutorialEnemy = tutorialMode && tutorialState && team === TEAM_AI && !isSpectator;
+    const aiBuildChance = isTutorialEnemy ? 0.3 : 1;
+    const aiAttackChance = isTutorialEnemy ? 0.2 : 1;
+    const aiResearchChance = isTutorialEnemy ? 0.15 : 1;
+    if (TEAMS[team].money > 3000 && Math.random() < 0.05 * aiResearchChance) {
         let available = [];
         Object.values(TECH_TREE).flat().forEach(t => {
             if (!isUnlocked(team, t.id)) {
@@ -2545,7 +2582,7 @@ function updateTeamAI(team) {
     else if (offensiveCount < 3) toBuild = currentMapType === 'LAND' ? 'CONVOY' : 'STRIKE';
     else if (Math.random() > 0.78 && offensiveCount >= 4) toBuild = 'ATTACK_HELI';
 
-    if (toBuild && (!UNIT_TYPES[toBuild].type.includes('ship') || currentMapType !== 'LAND')) {
+    if (Math.random() < aiBuildChance && toBuild && (!UNIT_TYPES[toBuild].type.includes('ship') || currentMapType !== 'LAND')) {
          spawnUnit(team, toBuild);
     }
 
@@ -2586,7 +2623,7 @@ function updateTeamAI(team) {
                     u.hasCommand = true;
                     u.state = 'MOVE';
                 }
-            } else if (u.data.role === 'AA' || u.data.role === 'Multi') {
+            } else if ((u.data.role === 'AA' || u.data.role === 'Multi') && Math.random() < aiAttackChance) {
                  const preferred = chooseBestAiTarget(u, team);
                  if (preferred) u.targetUnit = preferred;
             } else if (u.typeKey === 'IR_APC' || u.typeKey === 'AAA_BATTERY') {
@@ -2598,7 +2635,7 @@ function updateTeamAI(team) {
                     u.targetPos = { x: defendIsland.x + dx, y: defendIsland.y + dy };
                     u.hasCommand = true;
                 }
-            } else if (u.typeKey === 'HUNTER_FRIGATE' || u.typeKey === 'ARSENAL_CRUISER' || u.typeKey === 'BOMBER' || u.typeKey === 'STRIKE') {
+            } else if ((u.typeKey === 'HUNTER_FRIGATE' || u.typeKey === 'ARSENAL_CRUISER' || u.typeKey === 'BOMBER' || u.typeKey === 'STRIKE') && Math.random() < aiAttackChance) {
                 const suppressionTarget = chooseBestAiTarget(u, team);
                 if (suppressionTarget) {
                     u.targetUnit = suppressionTarget;
@@ -2824,6 +2861,12 @@ function loop() {
             if (isSpectator) updateTeamAI(TEAM_PLAYER); // Blue AI (Spectator Mode)
             aiTimer = 0;
         }
+        if (tutorialMode && tutorialState && gameTime % 120 === 0) {
+            if (tutorialState.step < tutorialState.messages.length) {
+                addParticle(camera.x + width / 2, camera.y + 100, 'text', tutorialState.messages[tutorialState.step]);
+                tutorialState.step++;
+            }
+        }
 
         entities.forEach(e => { if (e instanceof Unit) { e.turnBoost = 1; e.cooldownBoost = 1; } });
         entities.forEach(source => {
@@ -2939,4 +2982,8 @@ function draw() {
 
 window.onresize = () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; };
 document.getElementById('mode-select').addEventListener('change', updateMultiplayerSetup);
+['map-size', 'map-type', 'island-size'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', randomizeMap);
+});
 initGame();
