@@ -376,6 +376,33 @@ select, input[type=range], input[type=text] { background: #333; color: white; pa
     padding: 5px 10px; pointer-events: none; display: none; z-index: 200; font-size: 12px; white-space: pre-line;
 }
 
+#tutorial-overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 200;
+}
+#tutorial-message {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #fff;
+    font-size: 34px;
+    font-weight: 900;
+    text-shadow: 0 0 10px #000, 0 0 18px #000;
+    background: rgba(0,0,0,0.45);
+    border: 2px solid #ff5555;
+    border-radius: 12px;
+    padding: 10px 16px;
+}
+#tutorial-highlight {
+    position: fixed;
+    border: 4px solid #ff2222;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.4), 0 0 18px rgba(255,0,0,0.8);
+}
+
 /* Camera Help */
 #cam-help {
     position: absolute; top: 10px; right: 10px; color: #666; font-size: 12px;
