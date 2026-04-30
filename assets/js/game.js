@@ -1064,7 +1064,7 @@ class Unit extends Entity {
         } else if (this.targetUnit && !this.targetUnit.dead && this.data.type !== 'ship') {
             if (this.typeKey === 'AC130') {
                 this.orbitAngle += 0.01 * this.orbitDir * SPEED_SCALE * 5;
-                const gunRanges = this.weapons.filter(w => w.def.type === 'GUN').map(w => w.def.range || 150);
+                const gunRanges = this.weapons.filter(w => w.def.type === 'GUN').map(w => w.def.range || 300);
                 const minRange = gunRanges.length ? Math.min(...gunRanges) : 150;
                 const orbitRadius = Math.max(90, Math.min(minRange * 0.72, 170));
                 moveTarget = {

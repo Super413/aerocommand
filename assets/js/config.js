@@ -59,7 +59,7 @@ const TECH_TREE = {
     "Rockets": [ { id: "ROCKET_DAGR", cost: 600, req: null }, { id: "ROCKET_DU", cost: 1500, req: "ROCKET_DAGR" } ],
     "Air Missiles": [ { id: "SIDEWINDER", cost: 1000, req: null }, { id: "AMRAAM", cost: 1500, req: "SIDEWINDER" }, { id: "LRAAM", cost: 2200, req: "AMRAAM" } ],
     "Strike Missiles": [ { id: "MAVERICK", cost: 800, req: null }, { id: "HELLFIRE", cost: 1200, req: "MAVERICK" } ],
-    "Naval Strike": [ { id: "TOMAHAWK", cost: 2500, req: "HELLFIRE" }, { id: "HYPERSONIC_ASHM", cost: 3500, req: "TOMAHAWK" } ],
+    "Naval Strike": [ { id: "TOMAHAWK", cost: 2500, req: "HELLFIRE" }, { id: "HYPERSONIC_ASHM", cost: 3500, req: "TOMAHAWK" }, {id: "PILE_DRIVER", cost: 4000, req: "TOMAHAWK" } ],
     "Electronics": [ { id: "JAMMER_POD", cost: 1000, req: null }, { id: "ARAD", cost: 2000, req: "JAMMER_POD" }, { id: "FLARES", cost: 500, req: null, type: 'passive' }, { id: "CHAFF", cost: 1000, req: "FLARES", type: 'passive' }, { id: "DEF_JAMMER", cost: 2000, req: "CHAFF", type: 'passive' } ]
 };
 
@@ -216,8 +216,8 @@ const UNIT_ICON_ASSETS = {
         FIGHTER: 'airsmall.png',
         SEAD_FIGHTER: 'airrwr.png',
         AIRPORT: 'airbase.png',
-        PORT: 'fixed_friendly.png',
-        BASE_FORT: 'fixed_friendly.png',
+        PORT: 'port.png',
+        BASE_FORT: 'buildingbox.png',
         DEPLOYED_COASTAL: 'fixed_friendly.png',
         DEPLOYED_ASHM: 'airdefmissile.png',
         DEPLOYED_SPAA: 'aaa.png',
@@ -270,16 +270,24 @@ const WEAPON_ICON_ASSETS = {
         CONVOY_SLOT_APC: 'apc.png',
         CONVOY_SLOT_AAA: 'aaa.png',
         CONVOY_SLOT_SOLDIERS: 'infantry.png',
-        TOMAHAWK: 'missile.png',
+        TOMAHAWK: 'torp_friendly.png',
         HYPERSONIC_ASHM: 'missile.png',
-        PILE_DRIVER: 'missile.png',
+        PILE_DRIVER: 'airfast.png',
         SIDEWINDER: 'airsmall.png',
-        AMRAAM: 'airsmall.png',
+        AMRAAM: 'strike.png',
         LRAAM: 'airrwr.png',
-        MAVERICK: 'strike.png',
+        MAVERICK: 'missile.png',
         HELLFIRE: 'attackheli.png',
         ARAD: 'radarsam.png',
-        JAMMER_POD: 'radarsam.png'
+        JAMMER_POD: 'radarsam.png',
+        RIFLE: 'infantry.png',
+        BOMB_SDB: 'bomber.png',
+        BOMB_IRON: 'bomb.png',
+        BOMB_GUIDED: 'bomb.png',
+        BOMB_CLUSTER: 'bomb.png',
+        ROCKET_HYDRA: 'rocket.png',
+        ROCKET_DARG: 'rocket.png',
+        ROCKET_DU: 'rocket.png'
     }
 };
 
