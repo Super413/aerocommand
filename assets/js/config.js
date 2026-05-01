@@ -322,8 +322,8 @@ const UNIT_PROFILE_ASSETS = {
         SAM_SITE: 'samsiteprofile.webp',
         PORT: 'portprofile.webp',
         CONSTRUCTION_YARD: 'constructionyardprofile.webp',
-        BASE_FORT: 'basefortprofile.webp'
-        TOMAHAWK
+        BASE_FORT: 'basefortprofile.webp',
+        TOMAHAWK: 'tomahawkprofile.jpg'
     }
 };
 
@@ -334,7 +334,7 @@ const BUILDINGS = {
     DEPLOYED_SPAA: { hp: 200, range: 120, damage: 4, reload: 15, name: 'Light AA' },
     DEPLOYED_COASTAL: { hp: 400, range: 250, damage: 80, reload: 180, name: 'Coast Gun' }, 
     DEPLOYED_MANPADS: { hp: 150, range: 180, damage: 35, reload: 100, name: 'MANPADS' },
-    DEPLOYED_ASHM: { hp: 300, range: 400, damage: 150, reload: 400, name: 'AShM Bat' },
+    DEPLOYED_ASHM: { hp: 300, range: 1500, damage: 150, reload: 400, name: 'AShM Bat' },
     CIWS_SITE: { hp: 260, range: 130, damage: 8, reload: 6, name: 'CIWS Site' },
     PORT: { hp: 1400, range: 60, name: 'Port' },
     CONSTRUCTION_YARD: { hp: 700, range: 85, damage: 0, reload: 45, name: 'Construction Yard' },
