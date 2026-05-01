@@ -2,6 +2,10 @@
 
 A browser strategy/action prototype with aerial, naval, and ground combat.
 
+## Running
+
+Open `index.html` in a browser, or [**visit it on github**](https://super413.github.io/aerocommand/)
+
 ## Project layout
 
 ```text
@@ -26,7 +30,3 @@ A browser strategy/action prototype with aerial, naval, and ground combat.
 - `assets/js/game.js` contains simulation and rendering logic. Keep new systems in dedicated sections/functions to avoid coupling.
 - `assets/css/main.css` centralizes visuals and component styles to make future UI/asset passes easier.
 - Unit icons for UI can now be overridden with image assets by filling `UNIT_ICON_ASSETS.units` in `assets/js/config.js` (keyed by unit key, e.g. `FIGHTER: 'fighter.png'`). Images are loaded from `assets/images/units/` and automatically fall back to emoji if missing.
-
-## Running
-
-Open `index.html` in a browser, or [visit it on github](https://super413.github.io/aerocommand/)
