@@ -24,6 +24,7 @@ let tutorialState = null;
 let tutorialUi = { overlay: null, message: null, highlight: null };
 let multiplayerMode = 'OFF';
 let multiplayerSessionCode = '';
+let selectionSidebarCollapsed = false;
 let encyclopediaState = { category: 'ground', index: 0, entries: null };
 let encyclopediaDescriptions = { units: {}, structures: {}, munitions: {} };
 let encyclopediaDescriptionsLoaded = false;
@@ -94,6 +95,23 @@ function getWeaponIconAssetPath(weaponKey) {
     if (!fileName) return null;
 
     const base = (WEAPON_ICON_ASSETS.basePath || 'assets/images/units').replace(/\/$/, '');
+    return `${base}/${fileName}`;
+}
+
+function getUnitProfileAssetPath(unitKey) {
+    if (!unitKey || !UNIT_PROFILE_ASSETS || !UNIT_PROFILE_ASSETS.units) return null;
+
+    const normalizedKey = String(unitKey).trim();
+    const unitAssetMap = UNIT_PROFILE_ASSETS.units;
+
+    let fileName = unitAssetMap[normalizedKey];
+    if (!fileName) {
+        const caseInsensitiveKey = Object.keys(unitAssetMap).find(key => key.toUpperCase() === normalizedKey.toUpperCase());
+        if (caseInsensitiveKey) fileName = unitAssetMap[caseInsensitiveKey];
+    }
+    if (!fileName) return null;
+
+    const base = (UNIT_PROFILE_ASSETS.basePath || 'assets/images/units').replace(/\/$/, '');
     return `${base}/${fileName}`;
 }
 
@@ -2937,8 +2955,16 @@ canvas.addEventListener('contextmenu', e => e.preventDefault());
 
 function updateSelectionUI() {
     const info = document.getElementById('selection-info');
-    if (selection.length === 0) info.innerHTML = '<p>Nothing Selected</p>';
+    const sidebar = document.getElementById('selection-sidebar');
+    const sidebarInfo = document.getElementById('selection-sidebar-info');
+    if (selection.length === 0) {
+        info.innerHTML = '<p>Nothing Selected</p>';
+        sidebarInfo.innerHTML = '<p>Nothing Selected</p>';
+        sidebar.style.display = 'none';
+        updateSelectionImage(null);
+    }
     else {
+        sidebar.style.display = 'block';
         const u = selection[0];
         if (u instanceof Unit) {
             let ammoStr = ''; let types = {};
@@ -2946,14 +2972,54 @@ function updateSelectionUI() {
             Object.keys(types).forEach(k => { ammoStr += `<div>${k}: ${types[k]}</div>`; });
             if(ammoStr === '') ammoStr = '<div>GUNS</div>';
             info.innerHTML = `<p><b>${u.data.name}</b></p><p>HP: ${Math.floor(u.hp)}/${u.maxHp}</p><p>Fuel: ${Math.floor(u.fuel)}</p>${ammoStr}<p>State: ${u.state}</p>`;
+            const detailedLoadout = u.weapons.map(w => `<div class="line"><span>${w.def.name}</span><b>${w.ammo}</b></div>`).join('');
+            sidebarInfo.innerHTML = `
+                <h4>${u.data.name}</h4>
+                <div class="line"><span>Type</span><b>${u.data.type.toUpperCase()}</b></div>
+                <div class="line"><span>Role</span><b>${u.data.role}</b></div>
+                <div class="line"><span>Health</span><b>${Math.floor(u.hp)} / ${u.maxHp}</b></div>
+                <div class="line"><span>Fuel</span><b>${Math.floor(u.fuel)}</b></div>
+                <div class="line"><span>State</span><b>${u.state}</b></div>
+                <h4>Detailed Loadout</h4>
+                ${detailedLoadout}
+            `;
+            updateSelectionImage(u.typeKey);
         } else if (u instanceof Building) {
             let html = `<p><b>${u.stats.name}</b></p><p>HP: ${Math.floor(u.hp)}/${u.maxHp}</p>`;
             if (u.type === 'CONSTRUCTION_YARD' && u.team === TEAM_PLAYER && !isSpectator) {
                 html += `<div style="margin-top:8px;"><button class="btn-toggle" onclick="openConstructionMenuById(${u.id})">Open Construction Menu</button></div>`;
             }
             info.innerHTML = html;
+            sidebarInfo.innerHTML = `
+                <h4>${u.stats.name}</h4>
+                <div class="line"><span>Health</span><b>${Math.floor(u.hp)} / ${u.maxHp}</b></div>
+                <div class="line"><span>Team</span><b>${u.team === TEAM_PLAYER ? 'Player' : 'Other'}</b></div>
+            `;
+            updateSelectionImage(null);
         }
     }
+}
+
+function updateSelectionImage(unitTypeKey) {
+    const preview = document.getElementById('selection-image-preview');
+    const empty = document.getElementById('selection-image-empty');
+    const src = unitTypeKey ? getUnitProfileAssetPath(unitTypeKey) : null;
+    if (src) {
+        preview.src = src;
+        preview.style.display = 'block';
+        empty.style.display = 'none';
+    } else {
+        preview.src = '';
+        preview.style.display = 'none';
+        empty.style.display = 'flex';
+    }
+}
+
+function toggleSelectionSidebar() {
+    const sidebar = document.getElementById('selection-sidebar');
+    selectionSidebarCollapsed = !selectionSidebarCollapsed;
+    sidebar.classList.toggle('collapsed', selectionSidebarCollapsed);
+    document.getElementById('selection-sidebar-toggle').innerText = selectionSidebarCollapsed ? '▶' : '◀';
 }
 
 function buildFromConstructionYardById(yardId, buildType) {

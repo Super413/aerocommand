@@ -291,6 +291,42 @@ const WEAPON_ICON_ASSETS = {
     }
 };
 
+// Optional larger profile images for the right-side selection sidebar.
+// Uses same folder as icon assets by default.
+const UNIT_PROFILE_ASSETS = {
+    basePath: 'assets/images/units',
+    units: {
+        FIGHTER: 'fighterprofile.webp',
+        STRIKE: 'strikeprofile.webp',
+        BOMBER: 'bomberprofile.webp',
+        AWACS: 'awacsprofile.webp',
+        AC130: 'c130profile.webp', //Don't have AC130 in my DB for some reason???
+        SEAD_FIGHTER: 'seadfighterprofile.webp',
+        ATTACK_HELI: 'attackheliprofile.webp',
+        TRANSPORT: 'transportprofile.webp',
+        SF: 'sfprofile.webp',
+        SOLDIER_SQUAD: 'soldiersquadprofile.webp',
+        CARRIER: 'carrierprofile.webp',
+        DESTROYER: 'destroyerprofile.jpg',
+        ARSENAL_CRUISER: 'arsenalcruiserprofile.webp',
+        LANDING_SHIP: 'landingshipprofile.webp',
+        HUNTER_FRIGATE: 'hunterfrigateprofile.webp',
+        SSBN: 'ssbnprofile.webp',
+        TANK: 'tankprofile.png',
+        IR_APC: 'irapcprofile.webp',
+        IFV: 'ifvprofile.png',
+        APC: 'apcprofile.png',
+        CONVOY: '',
+        AAA_BATTERY: 'aaabatteryprofile.webp',
+        AIRPORT: 'airportprofile.webp',
+        SAM_SITE: 'samsiteprofile.webp',
+        PORT: 'portprofile.webp',
+        CONSTRUCTION_YARD: 'constructionyardprofile.webp',
+        BASE_FORT: 'basefortprofile.webp'
+        TOMAHAWK
+    }
+};
+
 const BUILDINGS = {
     AIRPORT: { hp: 2000, range: 100, name: 'Airbase' },
     SAM_SITE: { hp: 500, range: 400, damage: 50, reload: 120, name: 'SAM Site' }, 
