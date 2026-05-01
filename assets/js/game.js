@@ -2995,7 +2995,7 @@ function updateSelectionUI() {
                 <div class="line"><span>Health</span><b>${Math.floor(u.hp)} / ${u.maxHp}</b></div>
                 <div class="line"><span>Team</span><b>${u.team === TEAM_PLAYER ? 'Player' : 'Other'}</b></div>
             `;
-            updateSelectionImage(null);
+            updateSelectionImage(u.type);
         }
     }
 }
