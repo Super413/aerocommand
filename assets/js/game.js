@@ -25,7 +25,6 @@ let tutorialUi = { overlay: null, message: null, highlight: null };
 let multiplayerMode = 'OFF';
 let multiplayerSessionCode = '';
 let selectionSidebarCollapsed = false;
-const unitProfileImages = {};
 let encyclopediaState = { category: 'ground', index: 0, entries: null };
 let encyclopediaDescriptions = { units: {}, structures: {}, munitions: {} };
 let encyclopediaDescriptionsLoaded = false;
@@ -96,6 +95,23 @@ function getWeaponIconAssetPath(weaponKey) {
     if (!fileName) return null;
 
     const base = (WEAPON_ICON_ASSETS.basePath || 'assets/images/units').replace(/\/$/, '');
+    return `${base}/${fileName}`;
+}
+
+function getUnitProfileAssetPath(unitKey) {
+    if (!unitKey || !UNIT_PROFILE_ASSETS || !UNIT_PROFILE_ASSETS.units) return null;
+
+    const normalizedKey = String(unitKey).trim();
+    const unitAssetMap = UNIT_PROFILE_ASSETS.units;
+
+    let fileName = unitAssetMap[normalizedKey];
+    if (!fileName) {
+        const caseInsensitiveKey = Object.keys(unitAssetMap).find(key => key.toUpperCase() === normalizedKey.toUpperCase());
+        if (caseInsensitiveKey) fileName = unitAssetMap[caseInsensitiveKey];
+    }
+    if (!fileName) return null;
+
+    const base = (UNIT_PROFILE_ASSETS.basePath || 'assets/images/units').replace(/\/$/, '');
     return `${base}/${fileName}`;
 }
 
@@ -2987,7 +3003,7 @@ function updateSelectionUI() {
 function updateSelectionImage(unitTypeKey) {
     const preview = document.getElementById('selection-image-preview');
     const empty = document.getElementById('selection-image-empty');
-    const src = unitTypeKey ? unitProfileImages[unitTypeKey] : null;
+    const src = unitTypeKey ? getUnitProfileAssetPath(unitTypeKey) : null;
     if (src) {
         preview.src = src;
         preview.style.display = 'block';
@@ -3005,19 +3021,6 @@ function toggleSelectionSidebar() {
     sidebar.classList.toggle('collapsed', selectionSidebarCollapsed);
     document.getElementById('selection-sidebar-toggle').innerText = selectionSidebarCollapsed ? '▶' : '◀';
 }
-
-document.getElementById('selection-image-upload').addEventListener('change', (event) => {
-    if (!selection.length || !(selection[0] instanceof Unit)) return;
-    const file = event.target.files && event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-        unitProfileImages[selection[0].typeKey] = reader.result;
-        updateSelectionImage(selection[0].typeKey);
-    };
-    reader.readAsDataURL(file);
-    event.target.value = '';
-});
 
 function buildFromConstructionYardById(yardId, buildType) {
     const yard = islands.flatMap(i => i.buildings).find(b => b.id === yardId);

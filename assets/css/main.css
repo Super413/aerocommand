@@ -117,8 +117,6 @@ canvas {
     font-size: 12px;
     border: 1px dashed #47637c;
 }
-#selection-image-upload { display: none; }
-.selection-upload-btn { margin-top: 8px; display: block; }
 #selection-sidebar-info { font-size: 12px; color: #d6e7f8; }
 #selection-sidebar-info h4 { margin: 8px 0 4px; color: #79bfff; font-size: 12px; text-transform: uppercase; }
 #selection-sidebar-info .line { display: flex; justify-content: space-between; gap: 8px; margin: 3px 0; }

@@ -291,6 +291,31 @@ const WEAPON_ICON_ASSETS = {
     }
 };
 
+// Optional larger profile images for the right-side selection sidebar.
+// Uses same folder as icon assets by default.
+const UNIT_PROFILE_ASSETS = {
+    basePath: 'assets/images/units',
+    units: {
+        FIGHTER: 'airsmall.png',
+        STRIKE: 'strike.png',
+        BOMBER: 'bomber.png',
+        AWACS: 'awacs.png',
+        SEAD_FIGHTER: 'airrwr.png',
+        ATTACK_HELI: 'attackheli.png',
+        TRANSPORT: 'transport.png',
+        CARRIER: 'carrier.png',
+        DESTROYER: 'seasurface.png',
+        LANDING_SHIP: 'landing.png',
+        HUNTER_FRIGATE: 'seasurface.png',
+        SSBN: 'submarine.png',
+        TANK: 'tank.png',
+        IFV: 'ifv.png',
+        APC: 'apc.png',
+        CONVOY: 'combined.png',
+        AAA_BATTERY: 'aaa.png'
+    }
+};
+
 const BUILDINGS = {
     AIRPORT: { hp: 2000, range: 100, name: 'Airbase' },
     SAM_SITE: { hp: 500, range: 400, damage: 50, reload: 120, name: 'SAM Site' }, 
