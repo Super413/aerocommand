@@ -163,6 +163,18 @@
         </div>
         <div class="panel" id="build-panel"></div>
     </div>
+    <div id="selection-sidebar" class="collapsed">
+        <button id="selection-sidebar-toggle" onclick="toggleSelectionSidebar()">◀</button>
+        <div id="selection-sidebar-content">
+            <div class="selection-image-block">
+                <img id="selection-image-preview" alt="Selected unit profile image">
+                <div id="selection-image-empty">No image set</div>
+                <label for="selection-image-upload" class="btn-toggle selection-upload-btn">Upload Image</label>
+                <input type="file" id="selection-image-upload" accept="image/*">
+            </div>
+            <div id="selection-sidebar-info"><p>Nothing Selected</p></div>
+        </div>
+    </div>
     <div id="tooltip"></div>
     <div id="tutorial-overlay" style="display:none;">
         <div id="tutorial-message"></div>
