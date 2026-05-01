@@ -312,10 +312,10 @@ const UNIT_PROFILE_ASSETS = {
         LANDING_SHIP: 'landingshipprofile.webp',
         HUNTER_FRIGATE: 'hunterfrigateprofile.webp',
         SSBN: 'ssbnprofile.webp',
-        TANK: '',
+        TANK: 'tankprofile.png',
         IR_APC: 'irapcprofile.webp',
-        IFV: '',
-        APC: '',
+        IFV: 'ifvprofile.png',
+        APC: 'apcprofile.png',
         CONVOY: '',
         AAA_BATTERY: 'aaabatteryprofile.webp',
         AIRPORT: 'airportprofile.webp',
@@ -323,6 +323,7 @@ const UNIT_PROFILE_ASSETS = {
         PORT: 'portprofile.webp',
         CONSTRUCTION_YARD: 'constructionyardprofile.webp',
         BASE_FORT: 'basefortprofile.webp'
+        TOMAHAWK
     }
 };
 
