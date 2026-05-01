@@ -9,7 +9,7 @@ AWACS|E-3 Sentry: An electronic warfare support craft, for jamming radars and mi
 AC130|AC-130 Spectre: A close air support gunship specializing in destroying convoys.
 SEAD_FIGHTER|F-35G Shrike: A stealthy SEAD fighter, with jammers and ARAD missiles to take down the longest range threats.
 ATTACK_HELI|AH-64 Apache: An attack helicopter for air-ground strikes, with limited self-defence options against enemy air threats.
-TRANSPORT|CH-47 Chinook: A transport helicopter for transporting and deploying spec ops teams to capture outposts, or deploying infantry to protect an area.
+TRANSPORT|MH-60 Black Hawk: A transport helicopter for transporting and deploying spec ops teams to capture outposts, or deploying infantry to protect an area.
 SF|SF Team: Lightly armed and armored soldiers that capture outposts.
 SOLDIER_SQUAD|Soldier, Squad Leader: The commanding officer of an infantry squad. Gives orders and directions.
 SQUAD_AT|AT Specialist: Infantry carrying with an anti-tank missile.
