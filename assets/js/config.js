@@ -83,7 +83,7 @@ const UNIT_TYPES = {
     ] },
     STRIKE: { name: 'F/A-18 Hornet', type: 'air', role: 'Multi', cost: 600, hp: 140, speed: 2.8, turn: 0.06, fuel: 1800, ammo: 1, icon: '⚔️', hardpoints: [
         { name: 'Gun', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -90, allowedWeapons: ['GUN_BASIC', 'VULCAN'] },
-        { name: 'Center', types: ['ECM', 'BOMB', 'AGM'], equipped: 'EMPTY', x: 0, y: 10, ammoByWeapon: { BOMB_IRON: 3, BOMB_SDB: 4, MAVERICK: 2 } },
+        { name: 'Center', types: ['BOMB', 'AGM'], equipped: 'EMPTY', x: 0, y: 10, ammoByWeapon: { BOMB_IRON: 3, BOMB_SDB: 4, MAVERICK: 2 } },
         { name: 'L Outer', types: ['AGM', 'BOMB', 'ROCKET', ], equipped: 'ROCKET_HYDRA', x: -100, y: 40, ammoByWeapon: { ROCKET_HYDRA: 6, HELLFIRE: 4 } },
         { name: 'R Outer', types: ['AGM', 'BOMB', 'ROCKET', ], equipped: 'ROCKET_HYDRA', x: 100, y: 40, ammoByWeapon: { ROCKET_HYDRA: 6, HELLFIRE: 4 } },
         { name: 'L Inner', types: ['AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET', 'CRUISE'], equipped: 'BOMB_IRON', x: -50, y: 60, ammoByWeapon: { AMRAAM: 2, BOMB_IRON: 2, ROCKET_HYDRA: 4, TOMAHAWK: 1 } },
@@ -92,8 +92,8 @@ const UNIT_TYPES = {
     BOMBER: { name: 'B-52 Stratos', type: 'air', role: 'Bomber', cost: 1200, hp: 400, speed: 1.5, turn: 0.02, fuel: 3000, ammo: 1, icon: '💣', hardpoints: [
         { name: 'Bay 1', types: ['BOMB', 'CRUISE', 'TBM'], equipped: 'BOMB_IRON', x: -25, y: -20, ammoByWeapon: { BOMB_IRON: 4, BOMB_GUIDED: 2, BOMB_CLUSTER: 2, BOMB_SDB: 4, TOMAHAWK: 2, PILE_DRIVER: 2 } },
         { name: 'Bay 2', types: ['BOMB', 'CRUISE', 'TBM'], equipped: 'BOMB_IRON', x: 25, y: -20, ammoByWeapon: { BOMB_IRON: 4, BOMB_GUIDED: 2, BOMB_CLUSTER: 2, BOMB_SDB: 4, TOMAHAWK: 2, PILE_DRIVER: 2 } },
-        { name: 'L Pylon', types: ['AGM', 'CRUISE', 'ECM'], equipped: 'EMPTY', x: -90, y: 20, ammoByWeapon: { MAVERICK: 2, HELLFIRE: 2, TOMAHAWK: 1 } },
-        { name: 'R Pylon', types: ['AGM', 'CRUISE', 'ECM'], equipped: 'EMPTY', x: 90, y: 20, ammoByWeapon: { MAVERICK: 2, HELLFIRE: 2, TOMAHAWK: 1 } }
+        { name: 'L Pylon', types: ['BOMB', 'AGM', 'CRUISE'], equipped: 'EMPTY', x: -90, y: 20, ammoByWeapon: { BOMB_IRON: 4, BOMB_GUIDED: 2, BOMB_CLUSTER: 2, BOMB_SDB: 2, MAVERICK: 2, HELLFIRE: 2, TOMAHAWK: 1 } },
+        { name: 'R Pylon', types: ['BOMB', 'AGM', 'CRUISE', 'ECM'], equipped: 'EMPTY', x: 90, y: 20, ammoByWeapon: { BOMB_IRON: 4, BOMB_GUIDED: 2, BOMB_CLUSTER: 2, BOMB_SDB: 2, MAVERICK: 2, HELLFIRE: 2, TOMAHAWK: 1 } }
     ] },
     AWACS: { name: 'E-3 Sentry', type: 'air', role: 'Support', cost: 1000, hp: 300, speed: 2.0, turn: 0.03, fuel: 2500, ammo: 1, icon: '📡', hardpoints: [
         { name: 'Rotodome 1', types: ['ECM'], equipped: 'EMPTY', x: -20, y: -10 },
@@ -118,8 +118,8 @@ const UNIT_TYPES = {
         { name: 'Chain Gun', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -100 },
         { name: 'L Stub', types: ['AGM', 'ROCKET'], equipped: 'ROCKET_HYDRA', x: -50, y: -20, ammoByWeapon: { ROCKET_HYDRA: 8, HELLFIRE: 4, MAVERICK: 2 } },
         { name: 'R Stub', types: ['AGM', 'ROCKET'], equipped: 'ROCKET_HYDRA', x: 50, y: -20, ammoByWeapon: { ROCKET_HYDRA: 8, HELLFIRE: 4, MAVERICK: 2 } },
-        { name: 'L Tip', types: ['AAM_LIGHT', 'ECM'], equipped: 'EMPTY', x: -70, y: -20, ammoByWeapon: { SIDEWINDER: 2 } },
-        { name: 'R Tip', types: ['AAM_LIGHT', 'ECM'], equipped: 'EMPTY', x: 70, y: -20, ammoByWeapon: { SIDEWINDER: 2 } }
+        { name: 'L Tip', types: ['AAM_LIGHT'], equipped: 'EMPTY', x: -70, y: -20, ammoByWeapon: { SIDEWINDER: 2 } },
+        { name: 'R Tip', types: ['AAM_LIGHT'], equipped: 'EMPTY', x: 70, y: -20, ammoByWeapon: { SIDEWINDER: 2 } }
     ] },
     TRANSPORT: { name: 'MH-60 Black Hawk', type: 'heli', role: 'Transport', cost: 300, hp: 200, speed: 1.6, turn: 0.05, fuel: 2500, ammo: 0, capacity: 4, icon: '📦', hardpoints: [ { name: 'Cargo Bay', types: ['DEPLOY'], equipped: 'SF_DEPLOY', x: 0, y: 0, ammoByWeapon: { SF_DEPLOY: 2, DEPLOY_SOLDIER_SQUAD: 2, DEPLOY_SPAA: 1, DEPLOY_COASTAL: 1, DEPLOY_MANPADS: 2, DEPLOY_ASHM: 1 } } ] },
     SF: { name: 'SF Team', type: 'ground', role: 'Capture', cost: 100, hp: 50, speed: 0.5, turn: 1, fuel: 0, ammo: 999, icon: '🔫', hardpoints: [{ name: 'Gun', types: ['GUN'], equipped: 'RIFLE', x:0, y:0 }] },

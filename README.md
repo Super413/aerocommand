@@ -34,3 +34,4 @@ Open `index.html` in a browser, or [**visit it on github**](https://super413.git
 ## Developer docs
 
 - Custom content (units + munitions): `docs/custom-units-and-munitions.md`
+- Multiplayer is in theory coded in via firebase, but has not been set up by me and so is non functional.
