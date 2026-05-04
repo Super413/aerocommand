@@ -75,7 +75,6 @@ const TEAMS = {
 const UNIT_TYPES = {
     FIGHTER: { name: 'F-16 Viper', type: 'air', role: 'AA', cost: 400, hp: 100, speed: 3.5, turn: 0.08, fuel: 1500, ammo: 1, icon: '✈️', hardpoints: [
         { name: 'Gun', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -80, allowedWeapons: ['GUN_BASIC', 'VULCAN'] },
-        { name: 'Center', types: ['ECM'], equipped: 'EMPTY', x: 0, y: 10, allowedWeapons: ['EMPTY', 'JAMMER_POD'] },
         { name: 'L Wing', types: ['AAM_LIGHT', 'AAM_HEAVY'], equipped: 'EMPTY', x: -70, y: 30, ammoByWeapon: { SIDEWINDER: 1, AMRAAM: 1} },
         { name: 'R Wing', types: ['AAM_LIGHT', 'AAM_HEAVY'], equipped: 'EMPTY', x: 70, y: 30, ammoByWeapon: { SIDEWINDER: 1, AMRAAM: 1} },
         { name: 'L Tip', types: ['AAM_LIGHT', 'AAM_HEAVY'], equipped: 'EMPTY', x: -130, y: 10, ammoByWeapon: { SIDEWINDER: 2, AMRAAM: 1 } },
@@ -122,7 +121,7 @@ const UNIT_TYPES = {
         { name: 'R Tip', types: ['AAM_LIGHT'], equipped: 'EMPTY', x: 70, y: -20, ammoByWeapon: { SIDEWINDER: 2 } }
     ] },
     TRANSPORT: { name: 'MH-60 Black Hawk', type: 'heli', role: 'Transport', cost: 300, hp: 200, speed: 1.6, turn: 0.05, fuel: 2500, ammo: 0, capacity: 4, icon: '📦', hardpoints: [ { name: 'Cargo Bay', types: ['DEPLOY'], equipped: 'SF_DEPLOY', x: 0, y: 0, ammoByWeapon: { SF_DEPLOY: 2, DEPLOY_SOLDIER_SQUAD: 2, DEPLOY_SPAA: 1, DEPLOY_COASTAL: 1, DEPLOY_MANPADS: 2, DEPLOY_ASHM: 1 } } ] },
-    SF: { name: 'SF Team', type: 'ground', role: 'Capture', cost: 100, hp: 50, speed: 0.5, turn: 1, fuel: 0, ammo: 999, icon: '🔫', hardpoints: [{ name: 'Gun', types: ['GUN'], equipped: 'RIFLE', x:0, y:0 }] },
+    SF: { name: 'SF Team', type: 'ground', role: 'Capture', cost: 100, hp: 50, speed: 0.5, turn: 1, fuel: 0, ammo: 999, icon: '🔫', hardpoints: [{ name: 'Gun', types: ['SARMS'], equipped: 'RIFLE', x:0, y:0 }] },
     SOLDIER_SQUAD: { name: 'Soldier Squad', type: 'ground', role: 'Capture', cost: 240, hp: 110, speed: 0.55, turn: 0.28, fuel: 9999, ammo: 120, icon: '👥', hardpoints: [{ name: 'Gun', types: ['SARMS'], equipped: 'RIFLE', x:0, y:0 }] },
     SQUAD_AT: { name: 'AT Specialist', type: 'ground', role: 'AT', cost: 0, hp: 58, speed: 0.54, turn: 0.28, fuel: 9999, ammo: 120, icon: '🎯', hardpoints: [
         { name: 'Rifle', types: ['SARMS'], equipped: 'RIFLE', x: 0, y: 0 },
