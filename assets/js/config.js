@@ -17,7 +17,7 @@ const WEAPONS = {
     CANNON_127MM: { name: '127mm Cannon', type: 'GUN', damage: 40, cooldown: 60, speed: 10, range: 200, targets: ['ground', 'ship'], icon: '💣', navalOmni: true, salvoCount: 3, salvoDelay: 4 },
     RAILGUN: { name: 'Railcannon', type: 'GUN', damage: 260, cooldown: 36, speed: 100, range: 420, targets: ['air','heli','ground','ship','structure'], icon: '⚡' },
     CIWS: { name: 'Phalanx CIWS', type: 'GUN', damage: 7, cooldown: 42, speed: 13, range: 145, targets: ['air','heli', 'cruise', 'munition'], icon: '🛡️', navalOmni: true, salvoCount: 4, salvoDelay: 1, leadMultiplier: 1.35, burstShots: 12, burstInterval: 1.2, spread: 0.045, interceptsMunitions: true },
-    RIFLE: { name: 'Assault Rifle', type: 'GUN', damage: 0.5, cooldown: 30, speed: 8, range: 100, targets: ['ground'], icon: '🔫', salvoCount: 4, salvoDelay:3, leadMultiplier: 1, burstShots: 4, burstInterval: 1.5, spread: 0.07, interceptsMunitions: false },
+    RIFLE: { name: 'Assault Rifle', type: 'SARMS', damage: 0.5, cooldown: 30, speed: 8, range: 100, targets: ['ground'], icon: '🔫', salvoCount: 4, salvoDelay:3, leadMultiplier: 1, burstShots: 4, burstInterval: 1.5, spread: 0.07, interceptsMunitions: false },
     ROCKET_HYDRA: { name: 'Hydra 70', type: 'ROCKET', damage: 15, cooldown: 5, speed: 6, range: 160, targets: ['ground', 'ship', 'structure'], burst: 3, ammo: 3, icon: '🎇' },
     ROCKET_DAGR: { name: 'DAGR', type: 'ROCKET', damage: 25, cooldown: 5, speed: 7, range: 200, targets: ['ground', 'ship', 'structure'], burst: 1, guided: true, ammo: 2, icon: '🎯' },
     ROCKET_DU: { name: 'DU Rocket', type: 'ROCKET', damage: 60, cooldown: 5, speed: 8, range: 220, targets: ['ground', 'ship', 'structure'], burst: 2, guided: true, ammo: 2, icon: '☢️' },
@@ -123,17 +123,17 @@ const UNIT_TYPES = {
     ] },
     TRANSPORT: { name: 'MH-60 Black Hawk', type: 'heli', role: 'Transport', cost: 300, hp: 200, speed: 1.6, turn: 0.05, fuel: 2500, ammo: 0, capacity: 4, icon: '📦', hardpoints: [ { name: 'Cargo Bay', types: ['DEPLOY'], equipped: 'SF_DEPLOY', x: 0, y: 0, ammoByWeapon: { SF_DEPLOY: 2, DEPLOY_SOLDIER_SQUAD: 2, DEPLOY_SPAA: 1, DEPLOY_COASTAL: 1, DEPLOY_MANPADS: 2, DEPLOY_ASHM: 1 } } ] },
     SF: { name: 'SF Team', type: 'ground', role: 'Capture', cost: 100, hp: 50, speed: 0.5, turn: 1, fuel: 0, ammo: 999, icon: '🔫', hardpoints: [{ name: 'Gun', types: ['GUN'], equipped: 'RIFLE', x:0, y:0 }] },
-    SOLDIER_SQUAD: { name: 'Soldier Squad', type: 'ground', role: 'Capture', cost: 240, hp: 110, speed: 0.55, turn: 0.28, fuel: 9999, ammo: 1, icon: '👥', hardpoints: [{ name: 'Lead Rifle', types: ['GUN'], equipped: 'RIFLE', x:0, y:0 }] },
+    SOLDIER_SQUAD: { name: 'Soldier Squad', type: 'ground', role: 'Capture', cost: 240, hp: 110, speed: 0.55, turn: 0.28, fuel: 9999, ammo: 1, icon: '👥', hardpoints: [{ name: 'Gun', types: ['SARMS'], equipped: 'RIFLE', x:0, y:0 }] },
     SQUAD_AT: { name: 'AT Specialist', type: 'ground', role: 'AT', cost: 0, hp: 58, speed: 0.54, turn: 0.28, fuel: 9999, ammo: 1, icon: '🎯', hardpoints: [
-        { name: 'Rifle', types: ['GUN'], equipped: 'RIFLE', x: 0, y: 0 },
+        { name: 'Rifle', types: ['SARMS'], equipped: 'RIFLE', x: 0, y: 0 },
         { name: 'Rocket', types: ['ROCKET'], equipped: 'ROCKET_HYDRA', x: 0, y: -6, ammoByWeapon: { ROCKET_HYDRA: 1 } },
         { name: 'Heavy', types: ['AGM'], equipped: 'HELLFIRE', x: 0, y: 6, ammoByWeapon: { HELLFIRE: 1 } }
     ] },
     SQUAD_AA: { name: 'AA Specialist', type: 'ground', role: 'AA', cost: 0, hp: 58, speed: 0.54, turn: 0.28, fuel: 9999, ammo: 1, icon: '🛰️', hardpoints: [
-        { name: 'Rifle', types: ['GUN'], equipped: 'RIFLE', x: 0, y: 0 },
+        { name: 'Rifle', types: ['SARMS'], equipped: 'RIFLE', x: 0, y: 0 },
         { name: 'IR Missile', types: ['AAM_LIGHT'], equipped: 'SIDEWINDER', x: 0, y: -6, ammoByWeapon: { SIDEWINDER: 1 } }
     ] },
-    SQUAD_ASSISTANT: { name: 'AT Assistant', type: 'ground', role: 'Support', cost: 0, hp: 62, speed: 0.54, turn: 0.28, fuel: 9999, ammo: 1, icon: '🧰', hardpoints: [{ name: 'Rifle', types: ['GUN'], equipped: 'RIFLE', x:0, y:0 }] },
+    SQUAD_ASSISTANT: { name: 'AT Assistant', type: 'ground', role: 'Support', cost: 0, hp: 62, speed: 0.54, turn: 0.28, fuel: 9999, ammo: 1, icon: '🧰', hardpoints: [{ name: 'Rifle', types: ['SARMS'], equipped: 'RIFLE', x:0, y:0 }] },
     APC: { name: 'Assault APC', type: 'ground', role: 'Transport', cost: 520, hp: 320, speed: 0.62, turn: 0.11, fuel: 9999, ammo: 1, icon: '🚛', hardpoints: [
         { name: 'MG', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -5 },
         { name: 'Troop Bay', types: ['DEPLOY'], equipped: 'DEPLOY_SOLDIER_SQUAD', x: 0, y: 6, ammoByWeapon: { DEPLOY_SOLDIER_SQUAD: 2, SF_DEPLOY: 2 } }
