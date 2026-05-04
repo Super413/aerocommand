@@ -15,7 +15,7 @@ const WEAPONS = {
     GUN_BASIC: { name: '.50 Cal MG', type: 'GUN', damage: 2, cooldown: 2, speed: 12, range: 100, targets: ['air','heli','ground'], icon: '🔫', navalOmni: true, salvoCount: 2, salvoDelay: 2 }, 
     VULCAN: { name: '20mm Vulcan', type: 'GUN', damage: 8, cooldown: 2, speed: 12, range: 150, targets: ['air','heli','ground'], icon: '🌭' },
     CANNON_127MM: { name: '127mm Cannon', type: 'GUN', damage: 40, cooldown: 60, speed: 10, range: 200, targets: ['ground', 'ship'], icon: '💣', navalOmni: true, salvoCount: 3, salvoDelay: 4 },
-    RAILGUN: { name: 'Railcannon', type: 'GUN', damage: 260, cooldown: 36, speed: 100, range: 420, targets: ['air','heli','ground','ship','structure'], icon: '⚡' },
+    RAILGUN: { name: 'Railcannon', type: 'GUN', damage: 260, cooldown: 36, speed: 100, range: 420, targets: ['ground','ship','structure'], icon: '⚡' },
     CIWS: { name: 'Phalanx CIWS', type: 'GUN', damage: 7, cooldown: 42, speed: 13, range: 145, targets: ['air','heli', 'cruise', 'munition'], icon: '🛡️', navalOmni: true, salvoCount: 4, salvoDelay: 1, leadMultiplier: 1.35, burstShots: 12, burstInterval: 1.2, spread: 0.045, interceptsMunitions: true },
     RIFLE: { name: 'Assault Rifle', type: 'SARMS', damage: 0.5, cooldown: 30, speed: 8, range: 100, targets: ['ground'], icon: '🔫', salvoCount: 4, salvoDelay:3, leadMultiplier: 1, burstShots: 4, burstInterval: 1.5, spread: 0.07, interceptsMunitions: false },
     ROCKET_HYDRA: { name: 'Hydra 70', type: 'ROCKET', damage: 15, cooldown: 5, speed: 6, range: 160, targets: ['ground', 'ship', 'structure'], burst: 3, ammo: 3, icon: '🎇' },
@@ -123,17 +123,17 @@ const UNIT_TYPES = {
     ] },
     TRANSPORT: { name: 'MH-60 Black Hawk', type: 'heli', role: 'Transport', cost: 300, hp: 200, speed: 1.6, turn: 0.05, fuel: 2500, ammo: 0, capacity: 4, icon: '📦', hardpoints: [ { name: 'Cargo Bay', types: ['DEPLOY'], equipped: 'SF_DEPLOY', x: 0, y: 0, ammoByWeapon: { SF_DEPLOY: 2, DEPLOY_SOLDIER_SQUAD: 2, DEPLOY_SPAA: 1, DEPLOY_COASTAL: 1, DEPLOY_MANPADS: 2, DEPLOY_ASHM: 1 } } ] },
     SF: { name: 'SF Team', type: 'ground', role: 'Capture', cost: 100, hp: 50, speed: 0.5, turn: 1, fuel: 0, ammo: 999, icon: '🔫', hardpoints: [{ name: 'Gun', types: ['GUN'], equipped: 'RIFLE', x:0, y:0 }] },
-    SOLDIER_SQUAD: { name: 'Soldier Squad', type: 'ground', role: 'Capture', cost: 240, hp: 110, speed: 0.55, turn: 0.28, fuel: 9999, ammo: 1, icon: '👥', hardpoints: [{ name: 'Gun', types: ['SARMS'], equipped: 'RIFLE', x:0, y:0 }] },
-    SQUAD_AT: { name: 'AT Specialist', type: 'ground', role: 'AT', cost: 0, hp: 58, speed: 0.54, turn: 0.28, fuel: 9999, ammo: 1, icon: '🎯', hardpoints: [
+    SOLDIER_SQUAD: { name: 'Soldier Squad', type: 'ground', role: 'Capture', cost: 240, hp: 110, speed: 0.55, turn: 0.28, fuel: 9999, ammo: 120, icon: '👥', hardpoints: [{ name: 'Gun', types: ['SARMS'], equipped: 'RIFLE', x:0, y:0 }] },
+    SQUAD_AT: { name: 'AT Specialist', type: 'ground', role: 'AT', cost: 0, hp: 58, speed: 0.54, turn: 0.28, fuel: 9999, ammo: 120, icon: '🎯', hardpoints: [
         { name: 'Rifle', types: ['SARMS'], equipped: 'RIFLE', x: 0, y: 0 },
         { name: 'Rocket', types: ['ROCKET'], equipped: 'ROCKET_HYDRA', x: 0, y: -6, ammoByWeapon: { ROCKET_HYDRA: 1 } },
         { name: 'Heavy', types: ['AGM'], equipped: 'HELLFIRE', x: 0, y: 6, ammoByWeapon: { HELLFIRE: 1 } }
     ] },
-    SQUAD_AA: { name: 'AA Specialist', type: 'ground', role: 'AA', cost: 0, hp: 58, speed: 0.54, turn: 0.28, fuel: 9999, ammo: 1, icon: '🛰️', hardpoints: [
+    SQUAD_AA: { name: 'AA Specialist', type: 'ground', role: 'AA', cost: 0, hp: 58, speed: 0.54, turn: 0.28, fuel: 9999, ammo: 120, icon: '🛰️', hardpoints: [
         { name: 'Rifle', types: ['SARMS'], equipped: 'RIFLE', x: 0, y: 0 },
         { name: 'IR Missile', types: ['AAM_LIGHT'], equipped: 'SIDEWINDER', x: 0, y: -6, ammoByWeapon: { SIDEWINDER: 1 } }
     ] },
-    SQUAD_ASSISTANT: { name: 'AT Assistant', type: 'ground', role: 'Support', cost: 0, hp: 62, speed: 0.54, turn: 0.28, fuel: 9999, ammo: 1, icon: '🧰', hardpoints: [{ name: 'Rifle', types: ['SARMS'], equipped: 'RIFLE', x:0, y:0 }] },
+    SQUAD_ASSISTANT: { name: 'AT Assistant', type: 'ground', role: 'Support', cost: 0, hp: 62, speed: 0.54, turn: 0.28, fuel: 9999, ammo: 120, icon: '🧰', hardpoints: [{ name: 'Rifle', types: ['SARMS'], equipped: 'RIFLE', x:0, y:0 }] },
     APC: { name: 'Assault APC', type: 'ground', role: 'Transport', cost: 520, hp: 320, speed: 0.62, turn: 0.11, fuel: 9999, ammo: 1, icon: '🚛', hardpoints: [
         { name: 'MG', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -5 },
         { name: 'Troop Bay', types: ['DEPLOY'], equipped: 'DEPLOY_SOLDIER_SQUAD', x: 0, y: 6, ammoByWeapon: { DEPLOY_SOLDIER_SQUAD: 2, SF_DEPLOY: 2 } }
@@ -165,8 +165,8 @@ const UNIT_TYPES = {
     ] },
     DESTROYER: { name: 'Destroyer', type: 'ship', role: 'Escort', cost: 1500, hp: 1200, speed: 0.8, turn: 0.05, fuel: 9999, ammo: 1, icon: '🛳️', hardpoints: [
         { name: 'Main Gun', types: ['GUN'], equipped: 'CANNON_127MM', x: 0, y: -40, allowedWeapons: ['CANNON_127MM', 'RAILGUN'] },
-        { name: 'VLS 1', types: ['AAM_HEAVY', 'CRUISE', 'AGM', 'HYPERSONIC'], equipped: 'EMPTY', x: 0, y: -10, ammoByWeapon: { AMRAAM: 16, TOMAHAWK: 8, MAVERICK: 16, HELLFIRE: 16, ARAD: 6, HYPERSONIC_ASHM: 2 } },
-        { name: 'VLS 2', types: ['AAM_HEAVY', 'CRUISE', 'AGM', 'HYPERSONIC'], equipped: 'EMPTY', x: 0, y: 10, ammoByWeapon: { AMRAAM: 16, TOMAHAWK: 8, MAVERICK: 16, HELLFIRE: 16, ARAD: 6, HYPERSONIC_ASHM: 2 } },
+        { name: 'VLS 1', types: ['AAM_HEAVY', 'CRUISE', 'AGM', 'HYPERSONIC'], equipped: 'EMPTY', x: 0, y: -10, ammoByWeapon: { AMRAAM: 16, LRAAM: 12, TOMAHAWK: 8, MAVERICK: 16, HELLFIRE: 16, ARAD: 6, HYPERSONIC_ASHM: 2 } },
+        { name: 'VLS 2', types: ['AAM_HEAVY', 'CRUISE', 'AGM', 'HYPERSONIC'], equipped: 'EMPTY', x: 0, y: 10, ammoByWeapon: { AMRAAM: 16, LRAAM: 12, TOMAHAWK: 8, MAVERICK: 16, HELLFIRE: 16, ARAD: 6, HYPERSONIC_ASHM: 2 } },
         { name: 'Aft AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: 50, allowedWeapons: ['GUN_BASIC', 'CIWS'] }
     ] },
     ARSENAL_CRUISER: { name: 'Arsenal Cruiser', type: 'ship', role: 'Missile Command', cost: 3200, hp: 1700, speed: 0.65, turn: 0.04, fuel: 9999, ammo: 1, icon: '🚢🚀', hardpoints: [
