@@ -32,7 +32,7 @@ HYPERSONIC_ASHM_UNIT|Hypersonic AShM: A faster cruise missile designed for getti
 PILE_DRIVER_TBM_UNIT|Pile-Driver TBM: A tactical ballistic missile carried by the SSBN, it arcs up high in the sky before speeding down on a target, leaving little reaction time, and making it unable to be intercepted except by long range air defenses.
 
 [structures]
-AIRPORT|Airbase: Where planes spawn from.
+AIRPORT|Airbase: Where planes spawn from. Select this to spawn units specifically from it, otherwise rotates between all ones.
 SAM_SITE|SAM Site: Launches long range radar guided missiles to defend the main island.
 SPAA|SPAA: I don't remember what this unit does.
 DEPLOYED_SPAA|Light AA: I forgot about this one too
@@ -40,33 +40,33 @@ DEPLOYED_COASTAL|Coast Gun: Big gun that shoots at ships.
 DEPLOYED_MANPADS|MANPADS: Defensive anti air unit.
 DEPLOYED_ASHM|AShM Bat: I don't remember if this even works
 PORT|Port: Rearms and repairs friendly ships that are nearby.
-CONSTRUCTION_YARD|Construction Yard: No function (yet)
+CONSTRUCTION_YARD|Construction Yard: Builds structures on owned islands.
 BASE_FORT|Base Fortification: It's just a gun platform basically.
 
 [munitions]
-EMPTY|Empty: delete this entry later
+EMPTY|Empty: You have NOTHING
 GUN_BASIC|.50 Cal MG: basic gun, low damage, RoF and range.
-VULCAN|TODO: Add description for 20mm Vulcan: Aircraft autocannon, high RoF and damage.
-CANNON_127MM|TODO: Add description for 127mm Cannon: Slow firing main cannon for warships.
-RAILGUN|TODO: Add description for Railcannon: Elecromagnetically propelled projectiles replacing the 127mm cannon.
-CIWS|TODO: Add description for Phalanx CIWS: Self defense protection against enemy planes and munitions.
-RIFLE|TODO: Add description for Assault Rifle
-ROCKET_HYDRA|TODO: Add description for Hydra 70.
+VULCAN|20mm Vulcan: Aircraft autocannon, high RoF and damage.
+CANNON_127MM|Slow firing main cannon for warships.
+RAILGUN|Elecromagnetically propelled projectiles replacing the 127mm cannon.
+CIWS|CIWS: Self defense protection against enemy planes and munitions. Mounted on ships.
+RIFLE|Rifle: Basic small arms for infantry.
+ROCKET_HYDRA|Hydra 70: Small, high capacity rocket pods.
 ROCKET_DAGR|TODO: Add description for DAGR.
 ROCKET_DU|TODO: Add description for DU Rocket.
-BOMB_IRON|TODO: Add description for Mk82.
-BOMB_GUIDED|TODO: Add description for GBU-12.
-BOMB_CLUSTER|TODO: Add description for CBU-87.
-BOMB_SDB|TODO: Add description for SDB Glide.
-SIDEWINDER|TODO: Add description for AIM-9X: Short range IR AAM.
-AMRAAM|TODO: Add description for AIM-120: Longer range radar AAM.
-LRAAM|TODO: Add description for AIM-174B: Longest range radar AAM.
-MAVERICK|TODO: Add description for AGM-65.
-HELLFIRE|TODO: Add description for AGM-114.
-HYPERSONIC_ASHM|TODO: Add description for Hypersonic AShM.
+BOMB_IRON|Mk82: Basic unguided bomb.
+BOMB_GUIDED|GBU-12: Basic guided bomb.
+BOMB_CLUSTER|CBU-87: Cluster bomb designed for lighter armed ground units.
+BOMB_SDB|SDB Glide: Long range stand-off bomb.
+SIDEWINDER|AIM-9X: Short range IR AAM. Can be carried by a variety of units.
+AMRAAM|AIM-120: Longer range radar AAM. Typically carried by SAMs and fighters.
+LRAAM|AIM-174B: Longest range radar AAM. Low capacity, best for fleet defense.
+MAVERICK|AGM-65: Low tier AGM
+HELLFIRE|AGM-114: Smaller AGM, with much greater capacity.
+HYPERSONIC_ASHM|Hypersonic AShM: A faster cruise missile designed for getting past ship defenses, however its larger size reduces how many can be carried. 
 TOMAHAWK|TODO: Add description for Tomahawk.
 PILE_DRIVER|TODO: Add description for Pile-Driver TBM.
-ARAD|TODO: Add description for HARM.
+ARAD|HARM: Designed for SEAD.
 SF_DEPLOY|TODO: Add description for SF Team.
 DEPLOY_SPAA|TODO: Add description for Light AA.
 DEPLOY_COASTAL|TODO: Add description for Coast Gun.
@@ -79,4 +79,4 @@ CONVOY_SLOT_TANK|TODO: Add description for Tank Element.
 CONVOY_SLOT_IFV|TODO: Add description for IFV Element.
 CONVOY_SLOT_APC|TODO: Add description for APC Element.
 CONVOY_SLOT_AAA|TODO: Add description for AAA Element.
-JAMMER_POD|I jam stuff
+JAMMER_POD|I jam stuff and am too op, plz nerf me
