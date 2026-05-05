@@ -20,21 +20,21 @@ const WEAPONS = {
     RIFLE: { name: 'Assault Rifle', type: 'SARMS', damage: 0.5, cooldown: 30, speed: 8, range: 100, targets: ['ground'], icon: '🔫', salvoCount: 4, salvoDelay:3, leadMultiplier: 1, burstShots: 4, burstInterval: 1.5, spread: 0.07, interceptsMunitions: false },
     ROCKET_HYDRA: { name: 'Hydra 70', type: 'ROCKET', damage: 15, cooldown: 5, speed: 6, range: 160, targets: ['ground', 'ship', 'structure'], burst: 3, ammo: 3, icon: '🎇' },
     ROCKET_DAGR: { name: 'DAGR', type: 'ROCKET', damage: 25, cooldown: 5, speed: 7, range: 200, targets: ['ground', 'ship', 'structure'], burst: 1, guided: true, ammo: 2, icon: '🎯' },
-    ROCKET_DU: { name: 'DU Rocket', type: 'ROCKET', damage: 60, cooldown: 5, speed: 8, range: 220, targets: ['ground', 'ship', 'structure'], burst: 2, guided: true, ammo: 2, icon: '☢️' },
+    ROCKET_DU: { name: 'DU Rocket', type: 'ROCKET', damage: 60, cooldown: 5, speed: 58, range: 200, targets: ['ground', 'ship', 'structure'], burst: 2, guided: true, ammo: 2, icon: '☢️' },
     BOMB_IRON: { name: 'Mk82', type: 'BOMB', damage: 150, cooldown: 40, range: 20, targets: ['structure', 'ship', 'ground'], ammo: 1, icon: '💣' },
     BOMB_GUIDED: { name: 'GBU-12', type: 'BOMB', damage: 200, cooldown: 30, range: 30, targets: ['structure', 'ship', 'ground'], speed: 3, guided: true, ammo: 1, icon: '🎯💣' },
     BOMB_CLUSTER: { name: 'CBU-87', type: 'BOMB', damage: 80, cooldown: 20, range: 50, targets: ['structure', 'ground', 'ship'], area: 80, ammo: 1, icon: '✨' },
     BOMB_SDB: { name: 'SDB Glide', type: 'BOMB', damage: 120, cooldown: 20, range: 400, targets: ['structure', 'ship', 'ground'], speed: 4, guided: true, ammo: 2, icon: '🦅' },
     SIDEWINDER: { name: 'AIM-9X', type: 'AAM_LIGHT', damage: 30, cooldown: 60, speed: 6, range: 250, turn: 0.12, targets: ['air', 'heli', 'cruise'], guidance: 'heat', ammo: 1, icon: '🚀' },
     AMRAAM: { name: 'AIM-120', type: 'AAM_HEAVY', damage: 45, cooldown: 90, speed: 5, range: 350, turn: 0.09, targets: ['air', 'heli', 'cruise', 'munition'], guidance: 'radar', ammo: 1, icon: '🚀+', navalOmni: true, salvoCount: 2, salvoDelay: 6, interceptsMunitions: true },
-    LRAAM: { name: 'AIM-174B', type: 'AAM_HEAVY', damage: 65, cooldown: 130, speed: 6, range: 520, turn: 0.08, targets: ['air', 'heli', 'cruise', 'munition'], guidance: 'radar', ammo: 1, icon: '🛰️🚀', navalOmni: true, salvoCount: 2, salvoDelay: 8, interceptsMunitions: true },
+    LRAAM: { name: 'AIM-174B', type: 'AAM_HEAVY', damage: 65, cooldown: 130, speed: 10, range: 700, turn: 0.08, targets: ['air', 'heli', 'cruise', 'munition'], guidance: 'radar', ammo: 1, icon: '🛰️🚀', navalOmni: true, salvoCount: 2, salvoDelay: 8, interceptsMunitions: true },
     MAVERICK: { name: 'AGM-65', type: 'AGM', damage: 50, cooldown: 80, speed: 4, range: 220, turn: 0.08, targets: ['ground', 'ship', 'structure'], ammo: 1, icon: '🧨', navalOmni: true, salvoCount: 2, salvoDelay: 8 },
     HELLFIRE: { name: 'AGM-114', type: 'AGM', damage: 50, cooldown: 45, speed: 5, range: 180, turn: 0.1, targets: ['ground', 'ship', 'structure'], ammo: 2, icon: '🔥', navalOmni: true, salvoCount: 2, salvoDelay: 5 },
     HYPERSONIC_ASHM: { name: 'Hypersonic AShM', type: 'HYPERSONIC', damage: 260, cooldown: 220, speed: 11, range: 900, turn: 0.07, targets: ['ship', 'structure', 'ground'], ammo: 1, icon: '🚀🌊', navalOmni: true, salvoCount: 2, salvoDelay: 10 },
     TOMAHAWK: { name: 'Tomahawk', type: 'CRUISE', damage: 300, cooldown: 400, speed: 10, range: 800, turn: 0.05, targets: ['structure', 'ship', 'ground'], ammo: 1, icon: '🐢', navalOmni: true, salvoCount: 2, salvoDelay: 12 },
     PILE_DRIVER: { name: 'Pile-Driver TBM', type: 'TBM', damage: 420, cooldown: 340, speed: 5.5, range: 5000, targets: ['structure', 'ship', 'ground'], ammo: 1, icon: '🧱🚀', navalOmni: true, salvoCount: 1 },
     ARAD: { name: 'HARM', type: 'AGM', damage: 100, cooldown: 100, speed: 15, range: 800, turn: 0.15, targets: ['structure'], priorityTag: 'SAM_SITE', ammo: 1, icon: '📡💥', navalOmni: true, salvoCount: 2, salvoDelay: 7 },
-    SF_DEPLOY: { name: 'SF Team', type: 'DEPLOY', damage: 0, cooldown: 120, range: 20, targets: [], capacity: 1, icon: '🪖', deployType: 'UNIT', unitType: 'SF' },
+    SF_DEPLOY: { name: 'SF Team', type: 'DEPLOY', damage: 0, cooldown: 120, range: 20, targets: [], capacity: 2, icon: '🪖', deployType: 'UNIT', unitType: 'SF' },
     DEPLOY_SPAA: { name: 'Light AA', type: 'DEPLOY', damage: 0, cooldown: 200, range: 20, targets: [], capacity: 1, icon: '🔫', deployType: 'BUILDING', buildType: 'DEPLOYED_SPAA' },
     DEPLOY_COASTAL: { name: 'Coast Gun', type: 'DEPLOY', damage: 0, cooldown: 200, range: 20, targets: [], capacity: 1, icon: '🏰', deployType: 'BUILDING', buildType: 'DEPLOYED_COASTAL' },
     DEPLOY_MANPADS: { name: 'MANPADS', type: 'DEPLOY', damage: 0, cooldown: 200, range: 20, targets: [], capacity: 1, icon: '🚀', deployType: 'BUILDING', buildType: 'DEPLOYED_MANPADS' },
@@ -121,7 +121,7 @@ const UNIT_TYPES = {
         { name: 'R Tip', types: ['AAM_LIGHT'], equipped: 'EMPTY', x: 70, y: -20, ammoByWeapon: { SIDEWINDER: 2 } }
     ] },
     TRANSPORT: { name: 'MH-60 Black Hawk', type: 'heli', role: 'Transport', cost: 300, hp: 200, speed: 1.6, turn: 0.05, fuel: 2500, ammo: 0, capacity: 4, icon: '📦', hardpoints: [ 
-        { name: 'Cargo Bay', types: ['DEPLOY'], equipped: 'SF_DEPLOY', x: 0, y: 0,  ammoByWeapon: {SF_DEPLOY: 2, DEPLOY_SOLDIER_SQUAD: 1 } } 
+        { name: 'Cargo Bay', types: ['DEPLOY'], equipped: 'SF_DEPLOY', x: 0, y: 0, } 
 
 ] },
     SF: { name: 'SF Team', type: 'ground', role: 'Capture', cost: 100, hp: 50, speed: 0.5, turn: 1, fuel: 0, ammo: 999, icon: '🔫', hardpoints: [{ name: 'Gun', types: ['SARMS'], equipped: 'RIFLE', x:0, y:0 }] },
