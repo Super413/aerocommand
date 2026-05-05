@@ -34,14 +34,14 @@ const WEAPONS = {
     TOMAHAWK: { name: 'Tomahawk', type: 'CRUISE', damage: 300, cooldown: 400, speed: 10, range: 800, turn: 0.05, targets: ['structure', 'ship', 'ground'], ammo: 1, icon: '🐢', navalOmni: true, salvoCount: 2, salvoDelay: 12 },
     PILE_DRIVER: { name: 'Pile-Driver TBM', type: 'TBM', damage: 420, cooldown: 340, speed: 5.5, range: 5000, targets: ['structure', 'ship', 'ground'], ammo: 1, icon: '🧱🚀', navalOmni: true, salvoCount: 1 },
     ARAD: { name: 'HARM', type: 'AGM', damage: 100, cooldown: 100, speed: 15, range: 800, turn: 0.15, targets: ['structure'], priorityTag: 'SAM_SITE', ammo: 1, icon: '📡💥', navalOmni: true, salvoCount: 2, salvoDelay: 7 },
-    SF_DEPLOY: { name: 'SF Team', type: 'DEPLOY_H', damage: 0, cooldown: 120, range: 20, targets: [], capacity: 1, icon: '🪖', deployType: 'UNIT', unitType: 'SF' },
+    SF_DEPLOY: { name: 'SF Team', type: 'DEPLOY', damage: 0, cooldown: 120, range: 20, targets: [], capacity: 1, icon: '🪖', deployType: 'UNIT', unitType: 'SF' },
     DEPLOY_SPAA: { name: 'Light AA', type: 'DEPLOY', damage: 0, cooldown: 200, range: 20, targets: [], capacity: 1, icon: '🔫', deployType: 'BUILDING', buildType: 'DEPLOYED_SPAA' },
     DEPLOY_COASTAL: { name: 'Coast Gun', type: 'DEPLOY', damage: 0, cooldown: 200, range: 20, targets: [], capacity: 1, icon: '🏰', deployType: 'BUILDING', buildType: 'DEPLOYED_COASTAL' },
     DEPLOY_MANPADS: { name: 'MANPADS', type: 'DEPLOY', damage: 0, cooldown: 200, range: 20, targets: [], capacity: 1, icon: '🚀', deployType: 'BUILDING', buildType: 'DEPLOYED_MANPADS' },
     DEPLOY_ASHM: { name: 'AShM Bat', type: 'DEPLOY', damage: 0, cooldown: 300, range: 20, targets: [], capacity: 1, icon: '🚢💥', deployType: 'BUILDING', buildType: 'DEPLOYED_ASHM' },
     DEPLOY_IR_APC: { name: 'Unload IR APC', type: 'DEPLOY', damage: 0, cooldown: 150, range: 25, targets: [], capacity: 2, icon: '🚛', deployType: 'UNIT', unitType: 'IR_APC' },
     DEPLOY_AAA_BATTERY: { name: 'Unload AAA', type: 'DEPLOY', damage: 0, cooldown: 180, range: 25, targets: [], capacity: 2, icon: '🛡️', deployType: 'UNIT', unitType: 'AAA_BATTERY' },
-    DEPLOY_SOLDIER_SQUAD: { name: 'Deploy Soldiers', type: 'DEPLOY_H', damage: 0, cooldown: 140, range: 25, targets: [], capacity: 2, icon: '👥', deployType: 'UNIT', unitType: 'SOLDIER_SQUAD' },
+    DEPLOY_SOLDIER_SQUAD: { name: 'Deploy Soldiers', type: 'DEPLOY', damage: 0, cooldown: 140, range: 25, targets: [], capacity: 2, icon: '👥', deployType: 'UNIT', unitType: 'SOLDIER_SQUAD' },
     CONVOY_SLOT_TANK: { name: 'Tank Element', type: 'DEPLOY', damage: 0, cooldown: 1, range: 1, targets: [], capacity: 1, icon: '🛡️🚜', deployType: 'UNIT', unitType: 'TANK' },
     CONVOY_SLOT_IFV: { name: 'IFV Element', type: 'DEPLOY', damage: 0, cooldown: 1, range: 1, targets: [], capacity: 1, icon: '🚙🎯', deployType: 'UNIT', unitType: 'IFV' },
     CONVOY_SLOT_APC: { name: 'APC Element', type: 'DEPLOY', damage: 0, cooldown: 1, range: 1, targets: [], capacity: 1, icon: '🚛', deployType: 'UNIT', unitType: 'APC' },
@@ -120,7 +120,10 @@ const UNIT_TYPES = {
         { name: 'L Tip', types: ['AAM_LIGHT'], equipped: 'EMPTY', x: -70, y: -20, ammoByWeapon: { SIDEWINDER: 2 } },
         { name: 'R Tip', types: ['AAM_LIGHT'], equipped: 'EMPTY', x: 70, y: -20, ammoByWeapon: { SIDEWINDER: 2 } }
     ] },
-    TRANSPORT: { name: 'MH-60 Black Hawk', type: 'heli', role: 'Transport', cost: 300, hp: 200, speed: 1.6, turn: 0.05, fuel: 2500, ammo: 0, capacity: 4, icon: '📦', hardpoints: [ { name: 'Cargo Bay', types: ['DEPLOY_H'], equipped: 'SF_DEPLOY', x: 0, y: 0,  } ] },
+    TRANSPORT: { name: 'MH-60 Black Hawk', type: 'heli', role: 'Transport', cost: 300, hp: 200, speed: 1.6, turn: 0.05, fuel: 2500, ammo: 0, capacity: 4, icon: '📦', hardpoints: [ 
+        { name: 'Cargo Bay', types: ['DEPLOY'], equipped: 'SF_DEPLOY', x: 0, y: 0,  ammoByWeapon: {SF_DEPLOY: 2, DEPLOY_SOLDIER_SQUAD: 1 } } 
+
+] },
     SF: { name: 'SF Team', type: 'ground', role: 'Capture', cost: 100, hp: 50, speed: 0.5, turn: 1, fuel: 0, ammo: 999, icon: '🔫', hardpoints: [{ name: 'Gun', types: ['SARMS'], equipped: 'RIFLE', x:0, y:0 }] },
     SOLDIER_SQUAD: { name: 'Soldier Squad', type: 'ground', role: 'Capture', cost: 240, hp: 110, speed: 0.55, turn: 0.28, fuel: 9999, ammo: 120, icon: '👥', hardpoints: [{ name: 'Gun', types: ['SARMS'], equipped: 'RIFLE', x:0, y:0 }] },
     SQUAD_AT: { name: 'AT Specialist', type: 'ground', role: 'AT', cost: 0, hp: 58, speed: 0.54, turn: 0.28, fuel: 9999, ammo: 120, icon: '🎯', hardpoints: [
