@@ -1999,6 +1999,7 @@ function renderEncyclopedia() {
 async function showEncyclopedia() {
     document.getElementById('main-menu').style.display = 'none';
     document.getElementById('setup-menu').style.display = 'none';
+    document.getElementById('unit-designer-menu').style.display = 'none';
     document.getElementById('encyclopedia-menu').style.display = 'flex';
     try {
         await loadEncyclopediaDescriptions();
@@ -2031,6 +2032,7 @@ function showMainMenu() {
     document.getElementById('main-menu').style.display = 'flex';
     document.getElementById('setup-menu').style.display = 'none';
     document.getElementById('encyclopedia-menu').style.display = 'none';
+    document.getElementById('unit-designer-menu').style.display = 'none';
     document.getElementById('ui-layer').style.display = 'none';
     hideEndOverlay();
     gamePaused = false;
@@ -2044,6 +2046,7 @@ function returnToMainMenu() {
 function showSetup() {
     document.getElementById('main-menu').style.display = 'none';
     document.getElementById('setup-menu').style.display = 'flex';
+    document.getElementById('unit-designer-menu').style.display = 'none';
     document.getElementById('map-size').value = "2";
     document.getElementById('island-size').value = "50";
     document.getElementById('tutorial-mode').value = "OFF";
@@ -2054,6 +2057,16 @@ function showSetup() {
 
 function randomizeMap() {
     generateMap();
+}
+
+function showUnitDesigner() {
+    document.getElementById('main-menu').style.display = 'none';
+    document.getElementById('setup-menu').style.display = 'none';
+    document.getElementById('encyclopedia-menu').style.display = 'none';
+    document.getElementById('unit-designer-menu').style.display = 'flex';
+    document.getElementById('ui-layer').style.display = 'none';
+    if (window.UnitDesigner?.render) window.UnitDesigner.render();
+    gameState = 'UNIT_DESIGNER';
 }
 
 function generateMap() {

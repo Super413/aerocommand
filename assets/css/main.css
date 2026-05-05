@@ -343,6 +343,29 @@ p { margin: 2px 0; color: #ccc; }
     font-size: 24px; margin: 10px; cursor: pointer; transition: all 0.2s; width: 300px; text-align: center;
 }
 .menu-btn:hover { background: #4faaff; color: #000; border-color: #fff; }
+.menu-btn.tiny { width: auto; font-size: 14px; padding: 8px 12px; margin: 6px 0 0; }
+#unit-designer-open {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 40px;
+    height: 40px;
+    border: 1px solid #6ea9cf;
+    background: #1a2b3a;
+    color: #d7efff;
+    border-radius: 4px;
+    cursor: pointer;
+}
+#unit-designer-open:hover { background: #335673; }
+#unit-designer-app { width: min(1080px, 92vw); }
+.unit-designer-grid { display: grid; grid-template-columns: repeat(3, minmax(250px, 1fr)); gap: 14px; }
+.unit-designer-panel { background: #102031; border: 1px solid #31506b; padding: 12px; color: #d5e8f7; min-height: 320px; }
+.unit-designer-panel h3 { margin-top: 0; color: #8fc8ee; }
+.unit-designer-panel label { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; gap: 10px; }
+#ud-look-canvas { border: 1px solid #31506b; margin-top: 10px; width: 100%; height: auto; }
+#ud-hardpoint-canvas { position: relative; height: 240px; border: 1px dashed #547391; background: #0b1722; margin-bottom: 10px; }
+.ud-hardpoint { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #ffd166; border: 1px solid #000; cursor: move; }
+#ud-behavior-help { font-size: 13px; color: #99bad2; margin-top: 8px; }
 .setup-group { margin: 15px 0; text-align: center; width: 400px; display:flex; justify-content: space-between; align-items: center; }
 .setup-label { color: #aaa; font-size: 18px; }
 select, input[type=range], input[type=text] { background: #333; color: white; padding: 5px 10px; border: 1px solid #555; font-size: 16px; width: 200px; box-sizing: border-box; }

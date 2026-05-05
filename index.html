@@ -21,9 +21,16 @@
     
     <!-- Main Menu -->
     <div id="main-menu" class="menu-screen">
+        <button id="unit-designer-open" title="Open Unit Designer" onclick="showUnitDesigner()">🛠️</button>
         <div class="menu-title">AeroCommand</div>
         <div class="menu-btn" onclick="showSetup()">PLAY</div>
         <div class="menu-btn" onclick="showEncyclopedia()">ENCYCLOPEDIA</div>
+    </div>
+
+    <div id="unit-designer-menu" class="menu-screen" style="display:none;">
+        <div class="menu-title" style="font-size: 44px;">Unit Designer</div>
+        <div id="unit-designer-app"></div>
+        <div class="menu-btn" style="font-size: 16px; width: 150px; padding: 10px;" onclick="showMainMenu()">Back</div>
     </div>
 
     <!-- Encyclopedia Menu -->
@@ -181,6 +188,7 @@
 </div>
 
     <script src="assets/js/config.js"></script>
+    <script src="assets/js/unit-designer.js"></script>
     <script src="assets/js/game.js"></script>
 </body>
 </html>
