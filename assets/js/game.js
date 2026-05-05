@@ -42,6 +42,45 @@ let selection = [];
 let manualStrikeMode = false;
 let manualStrikePlan = null;
 let constructionContext = { yardId: null, selectedBuildType: null };
+
+const DATALINK_RANGE = 260;
+
+function getUnitRadarRange(unit) {
+    if (!(unit instanceof Unit) || unit.dead) return 0;
+    if (typeof unit.data.radarRange === 'number') return unit.data.radarRange;
+    if (unit.data.type === 'ship') return 320;
+    if (unit.typeKey === 'AWACS') return 900;
+    if (unit.data.type === 'air' || unit.data.type === 'heli') return 260;
+    return 0;
+}
+
+function getTargetRcs(target) {
+    if (target instanceof Unit) return target.data.rcs ?? 1;
+    return 1;
+}
+
+function canDetectAirTarget(source, target) {
+    if (!(source instanceof Unit) || !(target instanceof Unit)) return false;
+    if (target.team === source.team || target.dead) return false;
+    if (target.data.type !== 'air') return false;
+    const radarRange = getUnitRadarRange(source);
+    if (radarRange <= 0) return false;
+    return dist(source, target) <= radarRange * getTargetRcs(target);
+}
+
+function hasRadarTrackForAirTarget(source, target) {
+    if (!(source instanceof Unit) || !(target instanceof Unit)) return false;
+    if (!canDetectAirTarget(source, target) && source.data.type !== 'ship') return false;
+    if (canDetectAirTarget(source, target)) return true;
+    if (source.data.type !== 'ship') return false;
+    const friendlies = entities.filter(e => e instanceof Unit && e.team === source.team && !e.dead && e.data.type === 'ship');
+    const arsenalShips = friendlies.filter(s => s.typeKey === 'ARSENAL_CRUISER');
+    const nearArsenal = arsenalShips.some(a => dist(source, a) <= DATALINK_RANGE);
+    if (!nearArsenal) return false;
+    const awacsTrack = entities.some(e => e instanceof Unit && e.team === source.team && !e.dead && e.typeKey === 'AWACS' && canDetectAirTarget(e, target));
+    if (awacsTrack) return true;
+    return friendlies.some(ship => ship !== source && dist(source, ship) <= DATALINK_RANGE && (ship.typeKey === 'ARSENAL_CRUISER' || arsenalShips.some(a => dist(ship, a) <= DATALINK_RANGE)) && canDetectAirTarget(ship, target));
+}
 const CONSTRUCTION_BUILD_OPTIONS = [
     { type: 'AIRPORT', name: 'Airport', cost: 2200, emoji: '🛫' },
     { type: 'SAM_SITE', name: 'SAM Site', cost: 1200, emoji: '📡' },
@@ -1183,7 +1222,9 @@ class Unit extends Entity {
 
                     let tolerance = w.def.type === 'GUN' ? 0.3 : 0.8;
                     if (w.def.priorityTag && this.targetUnit.type !== w.def.priorityTag) return; 
-                    
+                    if ((w.def.name === 'AIM-120' || w.def.name === 'AIM-174B') && !hasRadarTrackForAirTarget(this, this.targetUnit)) return;
+
+
                     const omnidirectional = this.data.type === 'ship' && w.def.navalOmni;
                     let firingArcOk = omnidirectional || Math.abs(aimDiff) < tolerance;
                     if (this.typeKey === 'AC130') {
@@ -1475,6 +1516,18 @@ class Unit extends Entity {
                 ctx.setLineDash([]);
                 ctx.restore();
             });
+             const radarRange = getUnitRadarRange(this);
+            if (radarRange > 0) {
+                ctx.save();
+                ctx.strokeStyle = 'rgba(255, 230, 80, 0.65)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([3, 5]);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, radarRange, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
+            }
             ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
             if (this.targetPos && !this.targetUnit && this.state !== 'IDLE') {
                 ctx.restore(); ctx.save(); ctx.strokeStyle = '#0f0'; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(this.targetPos.x, this.targetPos.y); ctx.stroke(); ctx.restore(); ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);

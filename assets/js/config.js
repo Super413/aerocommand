@@ -73,14 +73,14 @@ const TEAMS = {
 };
 
 const UNIT_TYPES = {
-    FIGHTER: { name: 'F-16 Viper', type: 'air', role: 'AA', cost: 400, hp: 100, speed: 3.5, turn: 0.08, fuel: 1500, ammo: 1, icon: '✈️', hardpoints: [
+    FIGHTER: { name: 'F-16 Viper', type: 'air', role: 'AA', cost: 400, hp: 100, speed: 3.5, turn: 0.08, fuel: 1500, ammo: 1, icon: '✈️', radarRange: 280, rcs: 1, hardpoints: [
         { name: 'Gun', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -80, allowedWeapons: ['GUN_BASIC', 'VULCAN'] },
         { name: 'L Wing', types: ['AAM_LIGHT', 'AAM_HEAVY'], equipped: 'EMPTY', x: -70, y: 30, ammoByWeapon: { SIDEWINDER: 1, AMRAAM: 1} },
         { name: 'R Wing', types: ['AAM_LIGHT', 'AAM_HEAVY'], equipped: 'EMPTY', x: 70, y: 30, ammoByWeapon: { SIDEWINDER: 1, AMRAAM: 1} },
         { name: 'L Tip', types: ['AAM_LIGHT', 'AAM_HEAVY'], equipped: 'EMPTY', x: -130, y: 10, ammoByWeapon: { SIDEWINDER: 2, AMRAAM: 1 } },
         { name: 'R Tip', types: ['AAM_LIGHT', 'AAM_HEAVY'], equipped: 'EMPTY', x: 130, y: 10, ammoByWeapon: { SIDEWINDER: 2, AMRAAM: 1 } }
     ] },
-    STRIKE: { name: 'F/A-18 Hornet', type: 'air', role: 'Multi', cost: 600, hp: 140, speed: 2.8, turn: 0.06, fuel: 1800, ammo: 1, icon: '⚔️', hardpoints: [
+    STRIKE: { name: 'F/A-18 Hornet', type: 'air', role: 'Multi', cost: 600, hp: 140, speed: 2.8, turn: 0.06, fuel: 1800, ammo: 1, icon: '⚔️', radarRange: 260, rcs: 1, hardpoints: [
         { name: 'Gun', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -90, allowedWeapons: ['GUN_BASIC', 'VULCAN'] },
         { name: 'Center', types: ['BOMB', 'AGM'], equipped: 'EMPTY', x: 0, y: 10, ammoByWeapon: { BOMB_IRON: 3, BOMB_SDB: 4, MAVERICK: 2 } },
         { name: 'L Outer', types: ['AGM', 'BOMB', 'ROCKET', ], equipped: 'ROCKET_HYDRA', x: -100, y: 40, ammoByWeapon: { ROCKET_HYDRA: 6, HELLFIRE: 4 } },
@@ -88,24 +88,24 @@ const UNIT_TYPES = {
         { name: 'L Inner', types: ['AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET', 'CRUISE'], equipped: 'BOMB_IRON', x: -50, y: 60, ammoByWeapon: { AMRAAM: 2, BOMB_IRON: 2, ROCKET_HYDRA: 4, TOMAHAWK: 1 } },
         { name: 'R Inner', types: ['AAM_HEAVY', 'AGM', 'BOMB', 'ROCKET', 'CRUISE'], equipped: 'BOMB_IRON', x: 50, y: 60, ammoByWeapon: { AMRAAM: 2, BOMB_IRON: 2, ROCKET_HYDRA: 4, TOMAHAWK: 1 } }
     ] },
-    BOMBER: { name: 'B-52 Stratos', type: 'air', role: 'Bomber', cost: 1200, hp: 400, speed: 1.5, turn: 0.02, fuel: 3000, ammo: 1, icon: '💣', hardpoints: [
+    BOMBER: { name: 'B-52 Stratos', type: 'air', role: 'Bomber', cost: 1200, hp: 400, speed: 1.5, turn: 0.02, fuel: 3000, ammo: 1, icon: '💣', radarRange: 220, rcs: 1.5, hardpoints: [
         { name: 'Bay 1', types: ['BOMB', 'CRUISE', 'TBM'], equipped: 'BOMB_IRON', x: -25, y: -20, ammoByWeapon: { BOMB_IRON: 4, BOMB_GUIDED: 2, BOMB_CLUSTER: 2, BOMB_SDB: 4, TOMAHAWK: 2, PILE_DRIVER: 2 } },
         { name: 'Bay 2', types: ['BOMB', 'CRUISE', 'TBM'], equipped: 'BOMB_IRON', x: 25, y: -20, ammoByWeapon: { BOMB_IRON: 4, BOMB_GUIDED: 2, BOMB_CLUSTER: 2, BOMB_SDB: 4, TOMAHAWK: 2, PILE_DRIVER: 2 } },
         { name: 'L Pylon', types: ['BOMB', 'AGM', 'CRUISE'], equipped: 'EMPTY', x: -90, y: 20, ammoByWeapon: { BOMB_IRON: 4, BOMB_GUIDED: 2, BOMB_CLUSTER: 2, BOMB_SDB: 2, MAVERICK: 2, HELLFIRE: 2, TOMAHAWK: 1 } },
         { name: 'R Pylon', types: ['BOMB', 'AGM', 'CRUISE', 'ECM'], equipped: 'EMPTY', x: 90, y: 20, ammoByWeapon: { BOMB_IRON: 4, BOMB_GUIDED: 2, BOMB_CLUSTER: 2, BOMB_SDB: 2, MAVERICK: 2, HELLFIRE: 2, TOMAHAWK: 1 } }
     ] },
-    AWACS: { name: 'E-3 Sentry', type: 'air', role: 'Support', cost: 1000, hp: 300, speed: 2.0, turn: 0.03, fuel: 2500, ammo: 1, icon: '📡', hardpoints: [
+    AWACS: { name: 'E-3 Sentry', type: 'air', role: 'Support', cost: 1000, hp: 300, speed: 2.0, turn: 0.03, fuel: 2500, ammo: 1, icon: '📡', radarRange: 900, rcs: 1.35, hardpoints: [
         { name: 'Rotodome 1', types: ['ECM'], equipped: 'EMPTY', x: -20, y: -10 },
         { name: 'Rotodome 2', types: ['ECM'], equipped: 'EMPTY', x: 20, y: -10 },
         { name: 'L Wing', types: ['ECM', 'AAM_LIGHT'], equipped: 'EMPTY', x: -80, y: 20, ammoByWeapon: { SIDEWINDER: 2 } },
         { name: 'R Wing', types: ['ECM', 'AAM_LIGHT'], equipped: 'EMPTY', x: 80, y: 20, ammoByWeapon: { SIDEWINDER: 2 } }
     ] },
-    AC130: { name: 'AC-130 Spectre', type: 'air', role: 'Gunship', cost: 2200, hp: 520, speed: 1.35, turn: 0.03, fuel: 3200, ammo: 1, icon: '🛩️🔫', hardpoints: [
+    AC130: { name: 'AC-130 Spectre', type: 'air', role: 'Gunship', cost: 2200, hp: 520, speed: 1.35, turn: 0.03, fuel: 3200, ammo: 1, icon: '🛩️🔫', radarRange: 240, rcs: 1.8, hardpoints: [
         { name: 'Howitzer', types: ['GUN'], equipped: 'CANNON_127MM', x: -12, y: 0, allowedWeapons: ['CANNON_127MM', 'RAILGUN'] },
         { name: '40MM Slot', types: ['GUN'], equipped: 'GUN_BASIC', x: -30, y: -10, allowedWeapons: ['GUN_BASIC', 'VULCAN'] },
         { name: 'Small Arms Slot', types: ['GUN'], equipped: 'GUN_BASIC', x: -30, y: 10, allowedWeapons: ['GUN_BASIC'] }
     ] },
-    SEAD_FIGHTER: { name: 'F-35G Shrike', type: 'air', role: 'SEAD', cost: 1400, hp: 220, speed: 2.7, turn: 0.055, fuel: 2200, ammo: 1, icon: '🦅📡', hardpoints: [
+    SEAD_FIGHTER: { name: 'F-35G Shrike', type: 'air', role: 'SEAD', cost: 1400, hp: 220, speed: 2.7, turn: 0.055, fuel: 2200, ammo: 1, icon: '🦅📡', radarRange: 300, rcs: 0.65, hardpoints: [
         { name: 'Gun', types: ['GUN'], equipped: 'VULCAN', x: 0, y: -85, allowedWeapons: ['GUN_BASIC', 'VULCAN'] },
         { name: 'EW Bay', types: ['ECM'], equipped: 'JAMMER_POD', x: 0, y: 0 },
         { name: 'L Inner', types: ['AGM', 'AAM_HEAVY'], equipped: 'ARAD', x: -52, y: 35, ammoByWeapon: { ARAD: 2, AMRAAM: 2, LRAAM: 1, MAVERICK: 2 } },
