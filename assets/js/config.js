@@ -41,7 +41,7 @@ const WEAPONS = {
     DEPLOY_ASHM: { name: 'AShM Bat', type: 'DEPLOY', damage: 0, cooldown: 300, range: 20, targets: [], capacity: 1, icon: '🚢💥', deployType: 'BUILDING', buildType: 'DEPLOYED_ASHM' },
     DEPLOY_IR_APC: { name: 'Unload IR APC', type: 'DEPLOY', damage: 0, cooldown: 150, range: 25, targets: [], capacity: 2, icon: '🚛', deployType: 'UNIT', unitType: 'IR_APC' },
     DEPLOY_AAA_BATTERY: { name: 'Unload AAA', type: 'DEPLOY', damage: 0, cooldown: 180, range: 25, targets: [], capacity: 2, icon: '🛡️', deployType: 'UNIT', unitType: 'AAA_BATTERY' },
-    DEPLOY_SOLDIER_SQUAD: { name: 'Deploy Soldiers', type: 'DEPLOY', damage: 0, cooldown: 140, range: 25, targets: [], capacity: 2, icon: '👥', deployType: 'UNIT', unitType: 'SOLDIER_SQUAD' },
+    DEPLOY_SOLDIER_SQUAD: { name: 'Deploy Soldiers', type: 'DEPLOY_H', damage: 0, cooldown: 140, range: 25, targets: [], capacity: 2, icon: '👥', deployType: 'UNIT', unitType: 'SOLDIER_SQUAD' },
     CONVOY_SLOT_TANK: { name: 'Tank Element', type: 'DEPLOY', damage: 0, cooldown: 1, range: 1, targets: [], capacity: 1, icon: '🛡️🚜', deployType: 'UNIT', unitType: 'TANK' },
     CONVOY_SLOT_IFV: { name: 'IFV Element', type: 'DEPLOY', damage: 0, cooldown: 1, range: 1, targets: [], capacity: 1, icon: '🚙🎯', deployType: 'UNIT', unitType: 'IFV' },
     CONVOY_SLOT_APC: { name: 'APC Element', type: 'DEPLOY', damage: 0, cooldown: 1, range: 1, targets: [], capacity: 1, icon: '🚛', deployType: 'UNIT', unitType: 'APC' },
