@@ -44,6 +44,9 @@ let manualStrikePlan = null;
 let constructionContext = { yardId: null, selectedBuildType: null };
 
 const DATALINK_RANGE = 260;
+const RADAR_PING_INTERVAL_FRAMES = 120;
+let radarDetectionBlips = [];
+let lastRadarPingFrame = -1;
 
 function getUnitRadarRange(unit) {
     if (!(unit instanceof Unit) || unit.dead) return 0;
@@ -92,15 +95,10 @@ function canRadarDetectTarget(source, target) {
     return dist(source, target) <= effectiveRange;
 }
 
-function drawRadarDetectionWedges(ctx) {
-    const pingCycleFrames = 120;
-    const pingVisibleFrames = 20;
-    const pingPhase = gameTime % pingCycleFrames;
-    if (pingPhase >= pingVisibleFrames) return;
-
+function refreshRadarDetectionBlips() {
+    radarDetectionBlips = [];
     const radarUnits = entities.filter(e => e instanceof Unit && !e.dead && e.team === TEAM_PLAYER && getUnitRadarRange(e) > 0);
     const hostileUnits = entities.filter(e => e instanceof Unit && !e.dead && e.team !== TEAM_PLAYER && e.visible);
-    ctx.save();
     radarUnits.forEach(source => {
         hostileUnits.forEach(target => {
             if (!canRadarDetectTarget(source, target)) return;
@@ -109,27 +107,40 @@ function drawRadarDetectionWedges(ctx) {
             const distanceFactor = Math.max(0, 1 - (distanceToTarget / Math.max(1, radarRange)));
             const alpha = 0.12 + distanceFactor * 0.38;
             const heading = angleTo(source, target);
-            const width = Math.max(4, Math.min(14, dist(source, target) * 0.045));
+            const halfFlatEdge = Math.max(10, Math.min(34, distanceToTarget * 0.09));
             const tipX = source.x + Math.cos(heading) * (source.radius + 3);
             const tipY = source.y + Math.sin(heading) * (source.radius + 3);
-            const leftX = target.x + Math.cos(heading + Math.PI * 0.5) * width;
-            const leftY = target.y + Math.sin(heading + Math.PI * 0.5) * width;
-            const rightX = target.x + Math.cos(heading - Math.PI * 0.5) * width;
-            const rightY = target.y + Math.sin(heading - Math.PI * 0.5) * width;
-            const gradient = ctx.createLinearGradient(tipX, tipY, target.x, target.y);
-            gradient.addColorStop(0, `rgba(255, 230, 80, ${alpha * 0.2})`);
-            gradient.addColorStop(1, `rgba(255, 230, 80, ${alpha})`);
-            ctx.strokeStyle = `rgba(255, 230, 80, ${Math.min(0.55, alpha + 0.1)})`;
-            ctx.fillStyle = gradient;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(tipX, tipY);
-            ctx.lineTo(leftX, leftY);
-            ctx.lineTo(rightX, rightY);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
+            const leftX = target.x + Math.cos(heading + Math.PI * 0.5) * halfFlatEdge;
+            const leftY = target.y + Math.sin(heading + Math.PI * 0.5) * halfFlatEdge;
+            const rightX = target.x + Math.cos(heading - Math.PI * 0.5) * halfFlatEdge;
+            const rightY = target.y + Math.sin(heading - Math.PI * 0.5) * halfFlatEdge;
+            radarDetectionBlips.push({ tipX, tipY, leftX, leftY, rightX, rightY, targetX: target.x, targetY: target.y, alpha });
         });
+    });
+}
+
+function drawRadarDetectionWedges(ctx) {
+    if (lastRadarPingFrame < 0 || gameTime - lastRadarPingFrame >= RADAR_PING_INTERVAL_FRAMES) {
+        refreshRadarDetectionBlips();
+        lastRadarPingFrame = gameTime;
+    }
+    if (radarDetectionBlips.length === 0) return;
+
+    ctx.save();
+    radarDetectionBlips.forEach(blip => {
+        const gradient = ctx.createLinearGradient(blip.tipX, blip.tipY, blip.targetX, blip.targetY);
+        gradient.addColorStop(0, `rgba(255, 230, 80, ${blip.alpha * 0.2})`);
+        gradient.addColorStop(1, `rgba(255, 230, 80, ${blip.alpha})`);
+        ctx.strokeStyle = `rgba(255, 230, 80, ${Math.min(0.55, blip.alpha + 0.1)})`;
+        ctx.fillStyle = gradient;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(blip.tipX, blip.tipY);
+        ctx.lineTo(blip.leftX, blip.leftY);
+        ctx.lineTo(blip.rightX, blip.rightY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
     });
     ctx.restore();
 }
@@ -2199,7 +2210,7 @@ function returnToMainMenu() {
 function showSetup() {
     document.getElementById('main-menu').style.display = 'none';
     document.getElementById('setup-menu').style.display = 'flex';
-    document.getElementById('map-size').value = "2";
+    document.getElementById('map-size').value = "1";
     document.getElementById('island-size').value = "50";
     document.getElementById('tutorial-mode').value = "OFF";
     generateMap(); 
@@ -2216,10 +2227,12 @@ function generateMap() {
     entities.length = 0; 
     landRoads.length = 0;
     roadNodes.length = 0;
+    radarDetectionBlips = [];
+    lastRadarPingFrame = -1;
     TEAMS[TEAM_PLAYER].zones = [];
     TEAMS[TEAM_AI].zones = [];
     
-    const sizeMult = parseInt(document.getElementById('map-size').value) || 2;
+    const sizeMult = parseInt(document.getElementById('map-size').value) || 1;
     const islSize = parseInt(document.getElementById('island-size').value) || 50;
     currentMapType = document.getElementById('map-type').value;
 
@@ -2285,6 +2298,8 @@ function startGame() {
     TEAMS[TEAM_PLAYER].zones = [];
     TEAMS[TEAM_AI].zones = [];
     gameTime = 0;
+    radarDetectionBlips = [];
+    lastRadarPingFrame = -1;
     gameOver = false;
     hideEndOverlay();
     gamePaused = false;
