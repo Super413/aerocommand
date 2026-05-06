@@ -90,54 +90,34 @@ function canRadarDetectTarget(source, target) {
     if (source.dead || target.dead || source.team === target.team) return false;
     const radarRange = getUnitRadarRange(source);
     if (radarRange <= 0) return false;
-    if (target.data.type !== 'air' && target.data.type !== 'heli') return false;
-    const effectiveRange = radarRange * getTargetRcs(target);
+    const effectiveRange = target.data.type === 'air' ? radarRange * getTargetRcs(target) : radarRange;
     return dist(source, target) <= effectiveRange;
 }
 
-function refreshRadarDetectionBlips() {
-    radarDetectionBlips = [];
+function drawRadarDetectionWedges(ctx) {
     const radarUnits = entities.filter(e => e instanceof Unit && !e.dead && e.team === TEAM_PLAYER && getUnitRadarRange(e) > 0);
     const hostileUnits = entities.filter(e => e instanceof Unit && !e.dead && e.team !== TEAM_PLAYER && e.visible);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 230, 80, 0.95)';
+    ctx.lineWidth = 1.25;
     radarUnits.forEach(source => {
         hostileUnits.forEach(target => {
             if (!canRadarDetectTarget(source, target)) return;
-            const radarRange = getUnitRadarRange(source) * getTargetRcs(target);
-            const distanceToTarget = dist(source, target);
-            const distanceFactor = Math.max(0, 1 - (distanceToTarget / Math.max(1, radarRange)));
-            const alpha = 0.12 + distanceFactor * 0.38;
             const heading = angleTo(source, target);
-            const halfFlatEdge = Math.max(10, Math.min(34, distanceToTarget * 0.09));
-            const tipX = source.x + Math.cos(heading) * (source.radius + 3);
-            const tipY = source.y + Math.sin(heading) * (source.radius + 3);
-            const leftX = target.x + Math.cos(heading + Math.PI * 0.5) * halfFlatEdge;
-            const leftY = target.y + Math.sin(heading + Math.PI * 0.5) * halfFlatEdge;
-            const rightX = target.x + Math.cos(heading - Math.PI * 0.5) * halfFlatEdge;
-            const rightY = target.y + Math.sin(heading - Math.PI * 0.5) * halfFlatEdge;
-            radarDetectionBlips.push({ tipX, tipY, leftX, leftY, rightX, rightY, targetX: target.x, targetY: target.y, alpha });
+            const width = Math.max(4, Math.min(14, dist(source, target) * 0.045));
+            const baseX = source.x + Math.cos(heading) * (source.radius + 3);
+            const baseY = source.y + Math.sin(heading) * (source.radius + 3);
+            const leftX = baseX + Math.cos(heading + Math.PI * 0.5) * width;
+            const leftY = baseY + Math.sin(heading + Math.PI * 0.5) * width;
+            const rightX = baseX + Math.cos(heading - Math.PI * 0.5) * width;
+            const rightY = baseY + Math.sin(heading - Math.PI * 0.5) * width;
+            ctx.beginPath();
+            ctx.moveTo(leftX, leftY);
+            ctx.lineTo(target.x, target.y);
+            ctx.lineTo(rightX, rightY);
+            ctx.closePath();
+            ctx.stroke();
         });
-    });
-}
-
-function drawRadarDetectionWedges(ctx) {
-    if (lastRadarPingFrame < 0 || gameTime - lastRadarPingFrame >= RADAR_PING_INTERVAL_FRAMES) {
-        refreshRadarDetectionBlips();
-        lastRadarPingFrame = gameTime;
-    }
-    if (radarDetectionBlips.length === 0) return;
-
-    ctx.save();
-    radarDetectionBlips.forEach(blip => {
-        const gradient = ctx.createLinearGradient(blip.tipX, blip.tipY, blip.targetX, blip.targetY);
-        gradient.addColorStop(0, `rgba(255, 230, 80, ${blip.alpha * 0.2})`);
-        gradient.addColorStop(1, `rgba(255, 230, 80, ${blip.alpha})`);
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.moveTo(blip.tipX, blip.tipY);
-        ctx.lineTo(blip.leftX, blip.leftY);
-        ctx.lineTo(blip.rightX, blip.rightY);
-        ctx.closePath();
-        ctx.fill();
     });
     ctx.restore();
 }
@@ -1629,8 +1609,9 @@ class Unit extends Entity {
              const radarRange = getUnitRadarRange(this);
             if (radarRange > 0) {
                 ctx.save();
-                ctx.strokeStyle = 'rgba(255, 230, 80, 0.75)';
-                ctx.lineWidth = 0.5;
+                ctx.strokeStyle = 'rgba(255, 230, 80, 0.95)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([3, 5]);
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, radarRange, 0, Math.PI * 2);
                 ctx.stroke();
@@ -3352,6 +3333,8 @@ function draw() {
             ctx.stroke();
         });
     }
+     drawArsenalDatalinkOverlay(ctx);
+
 
     drawArsenalDatalinkOverlay(ctx);
 
@@ -3360,6 +3343,7 @@ function draw() {
     entities.filter(e => e.data.type === 'ground').forEach(e => e.draw(ctx));
     entities.filter(e => e.data.type !== 'ship' && e.data.type !== 'ground').forEach(e => e.draw(ctx));
     drawRadarDetectionWedges(ctx);
+
     projectiles.forEach(p => p.draw(ctx));
     drawParticles(ctx);
     
