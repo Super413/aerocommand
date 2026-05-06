@@ -81,6 +81,94 @@ function hasRadarTrackForAirTarget(source, target) {
     if (awacsTrack) return true;
     return friendlies.some(ship => ship !== source && dist(source, ship) <= DATALINK_RANGE && (ship.typeKey === 'ARSENAL_CRUISER' || arsenalShips.some(a => dist(ship, a) <= DATALINK_RANGE)) && canDetectAirTarget(ship, target));
 }
+
+function canRadarDetectTarget(source, target) {
+    if (!(source instanceof Unit) || !(target instanceof Unit)) return false;
+    if (source.dead || target.dead || source.team === target.team) return false;
+    const radarRange = getUnitRadarRange(source);
+    if (radarRange <= 0) return false;
+    if (target.data.type !== 'air') return false;
+    const effectiveRange = radarRange * getTargetRcs(target);
+    return dist(source, target) <= effectiveRange;
+}
+
+function drawRadarDetectionWedges(ctx) {
+    const radarUnits = entities.filter(e => e instanceof Unit && !e.dead && e.team === TEAM_PLAYER && getUnitRadarRange(e) > 0);
+    const hostileUnits = entities.filter(e => e instanceof Unit && !e.dead && e.team !== TEAM_PLAYER && e.visible);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 230, 80, 0.45)';
+    ctx.lineWidth = 1.25;
+    radarUnits.forEach(source => {
+        hostileUnits.forEach(target => {
+            if (!canRadarDetectTarget(source, target)) return;
+            const heading = angleTo(source, target);
+            const width = Math.max(4, Math.min(14, dist(source, target) * 0.045));
+            const tipX = source.x + Math.cos(heading) * (source.radius + 3);
+            const tipY = source.y + Math.sin(heading) * (source.radius + 3);
+            const leftX = target.x + Math.cos(heading + Math.PI * 0.5) * width;
+            const leftY = target.y + Math.sin(heading + Math.PI * 0.5) * width;
+            const rightX = target.x + Math.cos(heading - Math.PI * 0.5) * width;
+            const rightY = target.y + Math.sin(heading - Math.PI * 0.5) * width;
+            ctx.beginPath();
+            ctx.moveTo(tipX, tipY);
+            ctx.lineTo(leftX, leftY);
+            ctx.lineTo(rightX, rightY);
+            ctx.closePath();
+            ctx.stroke();
+        });
+    });
+    ctx.restore();
+}
+
+function getArsenalDatalinkGroup(anchor) {
+    const friendlyShips = entities.filter(e => e instanceof Unit && !e.dead && e.team === anchor.team && e.data.type === 'ship');
+    const visited = new Set([anchor]);
+    const stack = [anchor];
+    while (stack.length > 0) {
+        const current = stack.pop();
+        friendlyShips.forEach(ship => {
+            if (visited.has(ship)) return;
+            if (dist(current, ship) <= DATALINK_RANGE) {
+                visited.add(ship);
+                stack.push(ship);
+            }
+        });
+    }
+    return Array.from(visited);
+}
+
+function drawArsenalDatalinkOverlay(ctx) {
+    const selectedArsenal = selection.find(u => u instanceof Unit && u.typeKey === 'ARSENAL_CRUISER' && !u.dead);
+    if (!selectedArsenal) return;
+    const linkedUnits = getArsenalDatalinkGroup(selectedArsenal);
+    if (linkedUnits.length < 1) return;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(70, 150, 255, 0.13)';
+    linkedUnits.forEach(unit => {
+        const radarRange = getUnitRadarRange(unit);
+        if (radarRange <= 0) return;
+        ctx.beginPath();
+        ctx.arc(unit.x, unit.y, radarRange, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    ctx.restore();
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(80, 170, 255, 0.9)';
+    ctx.lineWidth = 1;
+    linkedUnits.forEach((unit, i) => {
+        for (let j = i + 1; j < linkedUnits.length; j++) {
+            const other = linkedUnits[j];
+            if (dist(unit, other) > DATALINK_RANGE) continue;
+            ctx.beginPath();
+            ctx.moveTo(unit.x, unit.y);
+            ctx.lineTo(other.x, other.y);
+            ctx.stroke();
+        }
+    });
+    ctx.restore();
+}
 const CONSTRUCTION_BUILD_OPTIONS = [
     { type: 'AIRPORT', name: 'Airport', cost: 2200, emoji: '🛫' },
     { type: 'SAM_SITE', name: 'SAM Site', cost: 1200, emoji: '📡' },
@@ -3238,10 +3326,13 @@ function draw() {
         });
     }
 
+    drawArsenalDatalinkOverlay(ctx);
+
     islands.forEach(i => { i.draw(ctx); i.buildings.forEach(b => b.draw(ctx)); });
     entities.filter(e => e.data.type === 'ship').forEach(e => e.draw(ctx));
     entities.filter(e => e.data.type === 'ground').forEach(e => e.draw(ctx));
     entities.filter(e => e.data.type !== 'ship' && e.data.type !== 'ground').forEach(e => e.draw(ctx));
+    drawRadarDetectionWedges(ctx);
     projectiles.forEach(p => p.draw(ctx));
     drawParticles(ctx);
     
