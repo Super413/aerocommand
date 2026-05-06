@@ -87,20 +87,27 @@ function canRadarDetectTarget(source, target) {
     if (source.dead || target.dead || source.team === target.team) return false;
     const radarRange = getUnitRadarRange(source);
     if (radarRange <= 0) return false;
-    if (target.data.type !== 'air') return false;
+    if (target.data.type !== 'air' && target.data.type !== 'heli') return false;
     const effectiveRange = radarRange * getTargetRcs(target);
     return dist(source, target) <= effectiveRange;
 }
 
 function drawRadarDetectionWedges(ctx) {
+    const pingCycleFrames = 120;
+    const pingVisibleFrames = 20;
+    const pingPhase = gameTime % pingCycleFrames;
+    if (pingPhase >= pingVisibleFrames) return;
+
     const radarUnits = entities.filter(e => e instanceof Unit && !e.dead && e.team === TEAM_PLAYER && getUnitRadarRange(e) > 0);
     const hostileUnits = entities.filter(e => e instanceof Unit && !e.dead && e.team !== TEAM_PLAYER && e.visible);
     ctx.save();
-    ctx.strokeStyle = 'rgba(255, 230, 80, 0.45)';
-    ctx.lineWidth = 1.25;
     radarUnits.forEach(source => {
         hostileUnits.forEach(target => {
             if (!canRadarDetectTarget(source, target)) return;
+            const radarRange = getUnitRadarRange(source) * getTargetRcs(target);
+            const distanceToTarget = dist(source, target);
+            const distanceFactor = Math.max(0, 1 - (distanceToTarget / Math.max(1, radarRange)));
+            const alpha = 0.12 + distanceFactor * 0.38;
             const heading = angleTo(source, target);
             const width = Math.max(4, Math.min(14, dist(source, target) * 0.045));
             const tipX = source.x + Math.cos(heading) * (source.radius + 3);
@@ -109,11 +116,18 @@ function drawRadarDetectionWedges(ctx) {
             const leftY = target.y + Math.sin(heading + Math.PI * 0.5) * width;
             const rightX = target.x + Math.cos(heading - Math.PI * 0.5) * width;
             const rightY = target.y + Math.sin(heading - Math.PI * 0.5) * width;
+            const gradient = ctx.createLinearGradient(tipX, tipY, target.x, target.y);
+            gradient.addColorStop(0, `rgba(255, 230, 80, ${alpha * 0.2})`);
+            gradient.addColorStop(1, `rgba(255, 230, 80, ${alpha})`);
+            ctx.strokeStyle = `rgba(255, 230, 80, ${Math.min(0.55, alpha + 0.1)})`;
+            ctx.fillStyle = gradient;
+            ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(tipX, tipY);
             ctx.lineTo(leftX, leftY);
             ctx.lineTo(rightX, rightY);
             ctx.closePath();
+            ctx.fill();
             ctx.stroke();
         });
     });
