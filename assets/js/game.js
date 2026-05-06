@@ -131,16 +131,13 @@ function drawRadarDetectionWedges(ctx) {
         const gradient = ctx.createLinearGradient(blip.tipX, blip.tipY, blip.targetX, blip.targetY);
         gradient.addColorStop(0, `rgba(255, 230, 80, ${blip.alpha * 0.2})`);
         gradient.addColorStop(1, `rgba(255, 230, 80, ${blip.alpha})`);
-        ctx.strokeStyle = `rgba(255, 230, 80, ${Math.min(0.55, blip.alpha + 0.1)})`;
         ctx.fillStyle = gradient;
-        ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(blip.tipX, blip.tipY);
         ctx.lineTo(blip.leftX, blip.leftY);
         ctx.lineTo(blip.rightX, blip.rightY);
         ctx.closePath();
         ctx.fill();
-        ctx.stroke();
     });
     ctx.restore();
 }
@@ -1487,7 +1484,7 @@ class Unit extends Entity {
                 leadX = target.x + Math.cos(target.angle) * target.data.speed * SPEED_SCALE * timeToImpact * leadMultiplier;
                 leadY = target.y + Math.sin(target.angle) * target.data.speed * SPEED_SCALE * timeToImpact * leadMultiplier;
             }
-            projectiles.push(new Bullet(this.x, this.y, {x: leadX, y: leadY}, this.team, w.damage, w.name === 'Railcannon', w.spread || 0.02, !!w.interceptsMunitions));
+            projectiles.push(new Bullet(this.x, this.y, {x: leadX, y: leadY}, this.team, w.damage, w.name === 'Railcannon', w.spread || 0.02, !!w.interceptsMunitions, w.speed || 8, w.range || 160));
         }
     }
 
@@ -1632,13 +1629,11 @@ class Unit extends Entity {
              const radarRange = getUnitRadarRange(this);
             if (radarRange > 0) {
                 ctx.save();
-                ctx.strokeStyle = 'rgba(255, 230, 80, 0.65)';
-                ctx.lineWidth = 1;
-                ctx.setLineDash([3, 5]);
+                ctx.strokeStyle = 'rgba(255, 230, 80, 0.75)';
+                ctx.lineWidth = 0.5;
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, radarRange, 0, Math.PI * 2);
                 ctx.stroke();
-                ctx.setLineDash([]);
                 ctx.restore();
             }
             ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
@@ -1813,27 +1808,29 @@ class Bomb extends Projectile {
 }
 
 class Bullet extends Projectile {
-    constructor(x, y, target, team, damage, isRail = false, spread = 0.02, interceptsMunitions = false) {
+    constructor(x, y, target, team, damage, isRail = false, spread = 0.02, interceptsMunitions = false, projectileSpeed = 8, maxRange = 160) {
         super(x, y, target, team, damage);
         const a = Math.atan2(target.y - y, target.x - x);
-        this.vx = Math.cos(a + (Math.random()-0.5)*spread) * 8 * SPEED_SCALE;
-        this.vy = Math.sin(a + (Math.random()-0.5)*spread) * 8 * SPEED_SCALE;
-        this.timer = 20 / SPEED_SCALE;
+        const speed = Math.max(1, projectileSpeed || 8);
+        this.vx = Math.cos(a + (Math.random()-0.5)*spread) * speed * SPEED_SCALE;
+        this.vy = Math.sin(a + (Math.random()-0.5)*spread) * speed * SPEED_SCALE;
+        this.timer = Math.ceil((Math.max(1, maxRange || 160) / speed) / SPEED_SCALE);
         this.isRail = isRail;
         this.interceptsMunitions = interceptsMunitions;
     }
     update() {
-        this.timer--; if (this.timer <= 0) this.dead = true;
+        const prev = { x: this.x, y: this.y };
         this.x += this.vx; this.y += this.vy;
         entities.forEach(e => {
-            if (e.team !== this.team && !e.dead && dist(this, e) < e.radius) {
+            if (this.dead || e.team === this.team || e.dead) return;
+            if (distPointToSegment(e, prev, this) < e.radius) {
                 e.takeDamage(this.damage); this.dead = true; addParticle(this.x, this.y, 'spark');
             }
         });
         islands.forEach(i => {
             i.buildings.forEach(b => {
                 if (this.dead || b.team === this.team || b.dead) return;
-                if (dist(this, b) < 10) {
+                if (distPointToSegment(b, prev, this) < 10) {
                     b.takeDamage(this.damage);
                     this.dead = true;
                     addParticle(this.x, this.y, 'spark');
@@ -1843,13 +1840,14 @@ class Bullet extends Projectile {
         if (this.interceptsMunitions) {
             projectiles.forEach(p => {
                 if (this.dead || p.dead || p.team === this.team || p === this || p instanceof Bullet) return;
-                if (dist(this, p) < 7) {
+                if (distPointToSegment(p, prev, this) < 7) {
                     p.dead = true;
                     this.dead = true;
                     addParticle(this.x, this.y, 'spark');
                 }
             });
         }
+        this.timer--; if (this.timer <= 0) this.dead = true;
     }
     draw(ctx) {
         if (this.isRail) {
