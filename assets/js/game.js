@@ -44,6 +44,9 @@ let manualStrikePlan = null;
 let constructionContext = { yardId: null, selectedBuildType: null };
 
 const DATALINK_RANGE = 260;
+const RADAR_PING_INTERVAL_FRAMES = 120;
+let radarDetectionBlips = [];
+let lastRadarPingFrame = -1;
 
 function getUnitRadarRange(unit) {
     if (!(unit instanceof Unit) || unit.dead) return 0;
@@ -1461,7 +1464,7 @@ class Unit extends Entity {
                 leadX = target.x + Math.cos(target.angle) * target.data.speed * SPEED_SCALE * timeToImpact * leadMultiplier;
                 leadY = target.y + Math.sin(target.angle) * target.data.speed * SPEED_SCALE * timeToImpact * leadMultiplier;
             }
-            projectiles.push(new Bullet(this.x, this.y, {x: leadX, y: leadY}, this.team, w.damage, w.name === 'Railcannon', w.spread || 0.02, !!w.interceptsMunitions));
+            projectiles.push(new Bullet(this.x, this.y, {x: leadX, y: leadY}, this.team, w.damage, w.name === 'Railcannon', w.spread || 0.02, !!w.interceptsMunitions, w.speed || 8, w.range || 160));
         }
     }
 
@@ -1612,7 +1615,6 @@ class Unit extends Entity {
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, radarRange, 0, Math.PI * 2);
                 ctx.stroke();
-                ctx.setLineDash([]);
                 ctx.restore();
             }
             ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
@@ -1787,27 +1789,29 @@ class Bomb extends Projectile {
 }
 
 class Bullet extends Projectile {
-    constructor(x, y, target, team, damage, isRail = false, spread = 0.02, interceptsMunitions = false) {
+    constructor(x, y, target, team, damage, isRail = false, spread = 0.02, interceptsMunitions = false, projectileSpeed = 8, maxRange = 160) {
         super(x, y, target, team, damage);
         const a = Math.atan2(target.y - y, target.x - x);
-        this.vx = Math.cos(a + (Math.random()-0.5)*spread) * 8 * SPEED_SCALE;
-        this.vy = Math.sin(a + (Math.random()-0.5)*spread) * 8 * SPEED_SCALE;
-        this.timer = 20 / SPEED_SCALE;
+        const speed = Math.max(1, projectileSpeed || 8);
+        this.vx = Math.cos(a + (Math.random()-0.5)*spread) * speed * SPEED_SCALE;
+        this.vy = Math.sin(a + (Math.random()-0.5)*spread) * speed * SPEED_SCALE;
+        this.timer = Math.ceil((Math.max(1, maxRange || 160) / speed) / SPEED_SCALE);
         this.isRail = isRail;
         this.interceptsMunitions = interceptsMunitions;
     }
     update() {
-        this.timer--; if (this.timer <= 0) this.dead = true;
+        const prev = { x: this.x, y: this.y };
         this.x += this.vx; this.y += this.vy;
         entities.forEach(e => {
-            if (e.team !== this.team && !e.dead && dist(this, e) < e.radius) {
+            if (this.dead || e.team === this.team || e.dead) return;
+            if (distPointToSegment(e, prev, this) < e.radius) {
                 e.takeDamage(this.damage); this.dead = true; addParticle(this.x, this.y, 'spark');
             }
         });
         islands.forEach(i => {
             i.buildings.forEach(b => {
                 if (this.dead || b.team === this.team || b.dead) return;
-                if (dist(this, b) < 10) {
+                if (distPointToSegment(b, prev, this) < 10) {
                     b.takeDamage(this.damage);
                     this.dead = true;
                     addParticle(this.x, this.y, 'spark');
@@ -1817,13 +1821,14 @@ class Bullet extends Projectile {
         if (this.interceptsMunitions) {
             projectiles.forEach(p => {
                 if (this.dead || p.dead || p.team === this.team || p === this || p instanceof Bullet) return;
-                if (dist(this, p) < 7) {
+                if (distPointToSegment(p, prev, this) < 7) {
                     p.dead = true;
                     this.dead = true;
                     addParticle(this.x, this.y, 'spark');
                 }
             });
         }
+        this.timer--; if (this.timer <= 0) this.dead = true;
     }
     draw(ctx) {
         if (this.isRail) {
@@ -2184,7 +2189,7 @@ function returnToMainMenu() {
 function showSetup() {
     document.getElementById('main-menu').style.display = 'none';
     document.getElementById('setup-menu').style.display = 'flex';
-    document.getElementById('map-size').value = "2";
+    document.getElementById('map-size').value = "1";
     document.getElementById('island-size').value = "50";
     document.getElementById('tutorial-mode').value = "OFF";
     generateMap(); 
@@ -2201,10 +2206,12 @@ function generateMap() {
     entities.length = 0; 
     landRoads.length = 0;
     roadNodes.length = 0;
+    radarDetectionBlips = [];
+    lastRadarPingFrame = -1;
     TEAMS[TEAM_PLAYER].zones = [];
     TEAMS[TEAM_AI].zones = [];
     
-    const sizeMult = parseInt(document.getElementById('map-size').value) || 2;
+    const sizeMult = parseInt(document.getElementById('map-size').value) || 1;
     const islSize = parseInt(document.getElementById('island-size').value) || 50;
     currentMapType = document.getElementById('map-type').value;
 
@@ -2270,6 +2277,8 @@ function startGame() {
     TEAMS[TEAM_PLAYER].zones = [];
     TEAMS[TEAM_AI].zones = [];
     gameTime = 0;
+    radarDetectionBlips = [];
+    lastRadarPingFrame = -1;
     gameOver = false;
     hideEndOverlay();
     gamePaused = false;
@@ -3326,6 +3335,8 @@ function draw() {
     }
      drawArsenalDatalinkOverlay(ctx);
 
+
+    drawArsenalDatalinkOverlay(ctx);
 
     islands.forEach(i => { i.draw(ctx); i.buildings.forEach(b => b.draw(ctx)); });
     entities.filter(e => e.data.type === 'ship').forEach(e => e.draw(ctx));
