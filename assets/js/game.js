@@ -54,6 +54,7 @@ let constructionContext = { yardId: null, selectedBuildType: null };
 
 const DATALINK_RANGE = 260;
 const RADAR_PING_INTERVAL_FRAMES = 120;
+const RADAR_PING_FLASH_FRAMES = 18;
 let radarDetectionBlips = [];
 let lastRadarPingFrame = -1;
 
@@ -71,10 +72,13 @@ function getTargetRcs(target) {
     return 1;
 }
 
+function isAirborneRadarTarget(target) {
+    return target instanceof Unit && (target.data.type === 'air' || target.data.type === 'heli');
+}
+
 function canDetectAirTarget(source, target) {
-    if (!(source instanceof Unit) || !(target instanceof Unit)) return false;
+    if (!(source instanceof Unit) || !isAirborneRadarTarget(target)) return false;
     if (target.team === source.team || target.dead) return false;
-    if (target.data.type !== 'air') return false;
     const radarRange = getUnitRadarRange(source);
     if (radarRange <= 0) return false;
     return dist(source, target) <= radarRange * getTargetRcs(target);
@@ -95,38 +99,69 @@ function hasRadarTrackForAirTarget(source, target) {
 }
 
 function canRadarDetectTarget(source, target) {
-    if (!(source instanceof Unit) || !(target instanceof Unit)) return false;
-    if (source.dead || target.dead || source.team === target.team) return false;
+    if (!(source instanceof Unit) || !isAirborneRadarTarget(target)) return false;
+    if (source.dead || target.dead || source.team === target.team || !target.visible) return false;
     const radarRange = getUnitRadarRange(source);
     if (radarRange <= 0) return false;
-    const effectiveRange = target.data.type === 'air' ? radarRange * getTargetRcs(target) : radarRange;
-    return dist(source, target) <= effectiveRange;
+    return dist(source, target) <= radarRange * getTargetRcs(target);
+}
+
+function updateRadarDetectionPings() {
+    if (gameTime === lastRadarPingFrame) return;
+    if (lastRadarPingFrame >= 0 && gameTime - lastRadarPingFrame < RADAR_PING_INTERVAL_FRAMES) return;
+    lastRadarPingFrame = gameTime;
+    radarDetectionBlips = [];
+
+    const radarUnits = entities.filter(e => e instanceof Unit && !e.dead && e.team === TEAM_PLAYER && getUnitRadarRange(e) > 0);
+    const hostileAirborne = entities.filter(e => isAirborneRadarTarget(e) && !e.dead && e.team !== TEAM_PLAYER && e.visible);
+    radarUnits.forEach(source => {
+        hostileAirborne.forEach(target => {
+            if (!canRadarDetectTarget(source, target)) return;
+            const distanceToTarget = dist(source, target);
+            radarDetectionBlips.push({
+                sx: source.x,
+                sy: source.y,
+                tx: target.x,
+                ty: target.y,
+                targetRadius: target.radius || 10,
+                distanceToTarget,
+                radarRange: getUnitRadarRange(source) * getTargetRcs(target),
+                createdAt: gameTime
+            });
+        });
+    });
 }
 
 function drawRadarDetectionWedges(ctx) {
-    const radarUnits = entities.filter(e => e instanceof Unit && !e.dead && e.team === TEAM_PLAYER && getUnitRadarRange(e) > 0);
-    const hostileUnits = entities.filter(e => e instanceof Unit && !e.dead && e.team !== TEAM_PLAYER && e.visible);
+    if (radarDetectionBlips.length === 0) return;
     ctx.save();
-    ctx.strokeStyle = 'rgba(255, 230, 80, 0.95)';
-    ctx.lineWidth = 1.25;
-    radarUnits.forEach(source => {
-        hostileUnits.forEach(target => {
-            if (!canRadarDetectTarget(source, target)) return;
-            const heading = angleTo(source, target);
-            const width = Math.max(4, Math.min(14, dist(source, target) * 0.045));
-            const baseX = source.x + Math.cos(heading) * (source.radius + 3);
-            const baseY = source.y + Math.sin(heading) * (source.radius + 3);
-            const leftX = baseX + Math.cos(heading + Math.PI * 0.5) * width;
-            const leftY = baseY + Math.sin(heading + Math.PI * 0.5) * width;
-            const rightX = baseX + Math.cos(heading - Math.PI * 0.5) * width;
-            const rightY = baseY + Math.sin(heading - Math.PI * 0.5) * width;
-            ctx.beginPath();
-            ctx.moveTo(leftX, leftY);
-            ctx.lineTo(target.x, target.y);
-            ctx.lineTo(rightX, rightY);
-            ctx.closePath();
-            ctx.stroke();
-        });
+    ctx.globalCompositeOperation = 'lighter';
+    radarDetectionBlips.forEach(blip => {
+        const age = Math.max(0, gameTime - blip.createdAt);
+        const flash = age < RADAR_PING_FLASH_FRAMES ? 1 - (age / RADAR_PING_FLASH_FRAMES) : 0;
+        const alpha = 0.045 + flash * 0.12;
+        const heading = Math.atan2(blip.ty - blip.sy, blip.tx - blip.sx);
+        const overshoot = Math.max(blip.targetRadius * 2.6, Math.min(70, blip.distanceToTarget * 0.18));
+        const farDistance = blip.distanceToTarget + overshoot;
+        const farX = blip.sx + Math.cos(heading) * farDistance;
+        const farY = blip.sy + Math.sin(heading) * farDistance;
+        const halfWidth = Math.max(blip.targetRadius * 1.45, Math.min(32, farDistance * 0.055));
+        const sideX = Math.cos(heading + Math.PI * 0.5);
+        const sideY = Math.sin(heading + Math.PI * 0.5);
+        const gradient = ctx.createLinearGradient(blip.sx, blip.sy, farX, farY);
+        const targetStop = Math.max(0.15, Math.min(0.9, blip.distanceToTarget / Math.max(1, farDistance)));
+        gradient.addColorStop(0, 'rgba(255, 235, 90, 0)');
+        gradient.addColorStop(Math.max(0.05, targetStop * 0.68), `rgba(255, 235, 90, ${alpha * 0.35})`);
+        gradient.addColorStop(targetStop, `rgba(255, 235, 90, ${alpha})`);
+        gradient.addColorStop(1, 'rgba(255, 235, 90, 0)');
+
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.moveTo(blip.sx, blip.sy);
+        ctx.lineTo(farX + sideX * halfWidth, farY + sideY * halfWidth);
+        ctx.lineTo(farX - sideX * halfWidth, farY - sideY * halfWidth);
+        ctx.closePath();
+        ctx.fill();
     });
     ctx.restore();
 }
@@ -1667,9 +1702,9 @@ class Unit extends Entity {
              const radarRange = getUnitRadarRange(this);
             if (radarRange > 0) {
                 ctx.save();
-                ctx.strokeStyle = 'rgba(255, 230, 80, 0.95)';
-                ctx.lineWidth = 1;
-                ctx.setLineDash([3, 5]);
+                ctx.strokeStyle = 'rgba(255, 230, 80, 0.8)';
+                ctx.lineWidth = 0.5;
+                ctx.setLineDash([]);
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, radarRange, 0, Math.PI * 2);
                 ctx.stroke();
@@ -1853,23 +1888,29 @@ class Bullet extends Projectile {
         const speed = Math.max(1, projectileSpeed || 8);
         this.vx = Math.cos(a + (Math.random()-0.5)*spread) * speed * SPEED_SCALE;
         this.vy = Math.sin(a + (Math.random()-0.5)*spread) * speed * SPEED_SCALE;
-        this.timer = Math.ceil((Math.max(1, maxRange || 160) / speed) / SPEED_SCALE);
         this.isRail = isRail;
+        this.maxRange = Math.max(1, maxRange || 160);
+        this.rangeBuffer = this.isRail ? Math.max(80, this.maxRange * 0.25) : Math.max(Math.hypot(this.vx, this.vy), 1);
+        this.distanceTraveled = 0;
+        this.timer = Math.ceil((this.maxRange + this.rangeBuffer) / Math.max(0.001, speed * SPEED_SCALE));
         this.interceptsMunitions = interceptsMunitions;
     }
     update() {
         const prev = { x: this.x, y: this.y };
         this.x += this.vx; this.y += this.vy;
+        this.distanceTraveled += dist(prev, this);
         entities.forEach(e => {
             if (this.dead || e.team === this.team || e.dead) return;
-            if (distPointToSegment(e, prev, this) < e.radius) {
+            const hitRadius = this.isRail ? Math.max(e.radius, 16) : e.radius;
+            if (distPointToSegment(e, prev, this) < hitRadius) {
                 e.takeDamage(this.damage); this.dead = true; addParticle(this.x, this.y, 'spark');
             }
         });
         islands.forEach(i => {
             i.buildings.forEach(b => {
                 if (this.dead || b.team === this.team || b.dead) return;
-                if (distPointToSegment(b, prev, this) < 10) {
+                const hitRadius = this.isRail ? Math.max(b.radius || 10, 16) : (b.radius || 10);
+                if (distPointToSegment(b, prev, this) < hitRadius) {
                     b.takeDamage(this.damage);
                     this.dead = true;
                     addParticle(this.x, this.y, 'spark');
@@ -1886,7 +1927,8 @@ class Bullet extends Projectile {
                 }
             });
         }
-        this.timer--; if (this.timer <= 0) this.dead = true;
+        this.timer--;
+        if (this.timer <= 0 || this.distanceTraveled > this.maxRange + this.rangeBuffer) this.dead = true;
     }
     draw(ctx) {
         if (this.isRail) {
@@ -3390,6 +3432,7 @@ function loop() {
         entities.forEach(e => e.update());
         islands.forEach(i => i.buildings.forEach(b => b.update()));
         projectiles.forEach(p => p.update());
+        updateRadarDetectionPings();
         updateParticles();
         for (let i = entities.length - 1; i >= 0; i--) { if (entities[i].dead) entities.splice(i, 1); }
         for (let i = projectiles.length - 1; i >= 0; i--) { if (projectiles[i].dead) projectiles.splice(i, 1); }
