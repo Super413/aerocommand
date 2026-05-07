@@ -19,6 +19,7 @@ let zoneEditMode = false;
 let currentZoneType = null;
 let zoneDragStart = null;
 let currentMapType = 'ARCHIPELAGO';
+let currentAiDifficulty = 'NORMAL';
 
 function isLandMap() { return currentMapType === 'LAND'; }
 function isCombinedMap() { return currentMapType === 'COMBINED'; }
@@ -57,6 +58,57 @@ const RADAR_PING_INTERVAL_FRAMES = 120;
 const RADAR_PING_FLASH_FRAMES = 18;
 let radarDetectionBlips = [];
 let lastRadarPingFrame = -1;
+
+const AI_DIFFICULTY_PROFILES = {
+    EASY: {
+        playerStartingMoney: 3000,
+        aiStartingMoney: 1500,
+        researchChance: 0.45,
+        buildChance: 0.55,
+        attackChance: 0.5,
+        neutralAggression: 0.82,
+        baseAggression: 0.25,
+        threatReactionChance: 0.45,
+        limits: { ground: 1, aa: 2, fighter: 2, strike: 1, sead: 0, heavyAir: 0, awacs: 0, destroyer: 1, landingShip: 1, frigate: 0, ssbn: 0, arsenal: 0, offensive: 2, heliChance: 0.08 }
+    },
+    NORMAL: {
+        playerStartingMoney: 2000,
+        aiStartingMoney: 2000,
+        researchChance: 1,
+        buildChance: 1,
+        attackChance: 1,
+        neutralAggression: 0.65,
+        baseAggression: 0.5,
+        threatReactionChance: 0.75,
+        limits: { ground: 2, aa: 3, fighter: 3, strike: 3, sead: 1, heavyAir: 1, awacs: 1, destroyer: 2, landingShip: 1, frigate: 1, ssbn: 1, arsenal: 1, offensive: 3, heliChance: 0.22 }
+    },
+    HARD: {
+        playerStartingMoney: 1800,
+        aiStartingMoney: 2600,
+        researchChance: 1.35,
+        buildChance: 1.2,
+        attackChance: 1.25,
+        neutralAggression: 0.5,
+        baseAggression: 0.72,
+        threatReactionChance: 0.9,
+        limits: { ground: 3, aa: 4, fighter: 4, strike: 4, sead: 2, heavyAir: 2, awacs: 1, destroyer: 3, landingShip: 2, frigate: 2, ssbn: 1, arsenal: 1, offensive: 5, heliChance: 0.34 }
+    },
+    EXPERT: {
+        playerStartingMoney: 1500,
+        aiStartingMoney: 3200,
+        researchChance: 1.8,
+        buildChance: 1.45,
+        attackChance: 1.55,
+        neutralAggression: 0.35,
+        baseAggression: 0.9,
+        threatReactionChance: 1,
+        limits: { ground: 4, aa: 5, fighter: 5, strike: 5, sead: 2, heavyAir: 2, awacs: 2, destroyer: 3, landingShip: 2, frigate: 2, ssbn: 2, arsenal: 2, offensive: 6, heliChance: 0.45 }
+    }
+};
+
+function getAiDifficultyProfile() {
+    return AI_DIFFICULTY_PROFILES[currentAiDifficulty] || AI_DIFFICULTY_PROFILES.NORMAL;
+}
 
 function getUnitRadarRange(unit) {
     if (!(unit instanceof Unit) || unit.dead) return 0;
@@ -2579,6 +2631,9 @@ function generateMap() {
 
 function startGame() {
     const mode = document.getElementById('mode-select').value;
+    const difficultySelect = document.getElementById('difficulty-select');
+    currentAiDifficulty = difficultySelect ? difficultySelect.value : 'NORMAL';
+    const aiProfile = getAiDifficultyProfile();
     isSpectator = (mode === 'spectator');
     multiplayerMode = mode === 'multiplayer-host' ? 'HOST' : (mode === 'multiplayer-join' ? 'JOIN' : 'OFF');
     multiplayerSessionCode = '';
@@ -2594,8 +2649,8 @@ function startGame() {
         multiplayerSessionCode = normalizedCode;
     }
 
-    TEAMS[TEAM_PLAYER].money = 2000;
-    TEAMS[TEAM_AI].money = 2000;
+    TEAMS[TEAM_PLAYER].money = isSpectator ? aiProfile.aiStartingMoney : aiProfile.playerStartingMoney;
+    TEAMS[TEAM_AI].money = aiProfile.aiStartingMoney;
     TEAMS[TEAM_PLAYER].tech = new Set([...DEFAULT_UNLOCKS]);
     TEAMS[TEAM_AI].tech = new Set([...DEFAULT_UNLOCKS]);
     TEAMS[TEAM_PLAYER].zones = [];
@@ -3171,136 +3226,216 @@ function spawnUnit(team, typeKey, specificSpawner = null) {
 // --- AI Controller ---
 let aiTimer = 0;
 
-function updateTeamAI(team) {
-    const isTutorialEnemy = tutorialMode && tutorialState && team === TEAM_AI && !isSpectator;
-    const aiBuildChance = isTutorialEnemy ? 0.3 : 1;
-    const aiAttackChance = isTutorialEnemy ? 0.2 : 1;
-    const aiResearchChance = isTutorialEnemy ? 0.15 : 1;
-    if (TEAMS[team].money > 3000 && Math.random() < 0.05 * aiResearchChance) {
-        let available = [];
-        Object.values(TECH_TREE).flat().forEach(t => {
-            if (!isUnlocked(team, t.id)) {
-                if (!t.req || isUnlocked(team, t.req)) available.push(t);
-            }
-        });
-        if (available.length > 0) {
-            const target = available[Math.floor(Math.random() * available.length)];
-            if (TEAMS[team].money >= target.cost) {
-                TEAMS[team].money -= target.cost;
-                TEAMS[team].tech.add(target.id);
-                autoOptimizeTeamLoadouts(team);
-                if (team === TEAM_PLAYER && isSpectator) {
-                    addParticle(camera.x + width/2, camera.y + height/2, 'text', `AI RESEARCHED: ${target.id}`);
-                    if (document.getElementById('research-modal').style.display === 'flex') openResearch();
-                }
-            }
-        }
-    }
+function getAiControlledUnits(team) {
+    return entities.filter(e => e.team === team && !e.dead);
+}
 
-    const myUnits = entities.filter(e => e.team === team);
+function countAiUnits(myUnits, typeKey) {
+    return myUnits.filter(u => u.typeKey === typeKey).length;
+}
+
+function canAiRadarDetectThreat(source, target) {
+    if (!(source instanceof Unit) || !(target instanceof Unit)) return false;
+    if (source.dead || target.dead || source.team === target.team || !target.visible) return false;
+    const radarRange = getUnitRadarRange(source);
+    if (radarRange <= 0) return false;
+    if (isAirborneRadarTarget(target)) return canRadarDetectTarget(source, target);
+    if (target.data.type === 'ship') return dist(source, target) <= radarRange * 0.85;
+    return false;
+}
+
+function getRadarDetectedThreat(team, profile, preferredTypes = null) {
+    if (Math.random() > profile.threatReactionChance) return null;
+    const radarUnits = entities.filter(e => e instanceof Unit && !e.dead && e.team === team && getUnitRadarRange(e) > 0);
+    if (radarUnits.length === 0) return null;
+
+    const threats = entities.filter(e => e instanceof Unit && !e.dead && e.visible && e.team !== team && (e.data.type === 'air' || e.data.type === 'heli' || e.data.type === 'ship'));
+    let best = null;
+    let bestScore = -Infinity;
+    threats.forEach(threat => {
+        if (preferredTypes && !preferredTypes.includes(threat.data.type)) return;
+        const detectingRadar = radarUnits.find(source => canAiRadarDetectThreat(source, threat));
+        if (!detectingRadar) return;
+        const typeBias = (threat.data.type === 'air' || threat.data.type === 'heli') ? 80 : 55;
+        const distanceBias = Math.max(0, getUnitRadarRange(detectingRadar) * getTargetRcs(threat) - dist(detectingRadar, threat)) * 0.04;
+        const score = typeBias + distanceBias + getAiTargetPriority(threat);
+        if (score > bestScore) { bestScore = score; best = threat; }
+    });
+    return best;
+}
+
+function chooseAiResearch(team, profile) {
+    if (TEAMS[team].money <= 3000 || Math.random() >= 0.05 * profile.researchChance) return null;
+    const available = [];
+    Object.values(TECH_TREE).flat().forEach(t => {
+        if (!isUnlocked(team, t.id) && (!t.req || isUnlocked(team, t.req))) available.push(t);
+    });
+    if (available.length === 0) return null;
+    const target = available[Math.floor(Math.random() * available.length)];
+    if (TEAMS[team].money < target.cost) return null;
+
+    TEAMS[team].money -= target.cost;
+    TEAMS[team].tech.add(target.id);
+    autoOptimizeTeamLoadouts(team);
+    if (team === TEAM_PLAYER && isSpectator) {
+        addParticle(camera.x + width/2, camera.y + height/2, 'text', `AI RESEARCHED: ${target.id}`);
+        if (document.getElementById('research-modal').style.display === 'flex') openResearch();
+    }
+    return target;
+}
+
+function chooseAiBuild(team, profile, myUnits) {
+    if (Math.random() >= profile.buildChance) return null;
+
     const enemyIslands = islands.filter(i => i.owner !== team);
     const hasTransport = myUnits.some(u => u.typeKey === 'TRANSPORT');
-    const offensiveCount = myUnits.filter(u => ['FIGHTER', 'STRIKE', 'SEAD_FIGHTER', 'BOMBER', 'AC130', 'CONVOY'].includes(u.typeKey)).length;
-    
-    let toBuild = null;
-    if (supportsGroundUnits() && enemyIslands.length > 0 && myUnits.filter(u => u.typeKey === 'CONVOY').length < 2) toBuild = 'CONVOY';
-    else if (enemyIslands.length > 0 && !hasTransport && supportsNavalUnits() && !isNavalBattleMap()) toBuild = 'TRANSPORT';
-    else if (myUnits.filter(u => u.typeKey === 'TANK').length < 2 && supportsGroundUnits()) toBuild = 'TANK';
-    else if (myUnits.filter(u => u.typeKey === 'IFV').length < 2 && supportsGroundUnits()) toBuild = 'IFV';
-    else if (myUnits.filter(u => u.typeKey === 'APC').length < 1 && supportsGroundUnits()) toBuild = 'APC';
-    else if (myUnits.filter(u => u.typeKey === 'IR_APC').length < 3) toBuild = 'IR_APC';
-    else if (myUnits.filter(u => u.typeKey === 'AAA_BATTERY').length < 2) toBuild = 'AAA_BATTERY';
-    else if (supportsGroundUnits() && myUnits.filter(u => u.typeKey === 'CONVOY').length < 1) toBuild = 'CONVOY';
-    else if (myUnits.filter(u => u.typeKey === 'FIGHTER').length < 3) toBuild = 'FIGHTER';
-    else if (myUnits.filter(u => u.typeKey === 'SEAD_FIGHTER').length < 1) toBuild = 'SEAD_FIGHTER';
-    else if (myUnits.filter(u => u.typeKey === 'STRIKE').length < 3) toBuild = 'STRIKE';
-    else if (myUnits.filter(u => u.typeKey === 'AC130').length < 1) toBuild = 'AC130';
-    else if (myUnits.filter(u => u.typeKey === 'BOMBER').length < 1) toBuild = 'BOMBER';
-    else if (myUnits.filter(u => u.typeKey === 'AWACS').length < 1) toBuild = 'AWACS';
-    else if (myUnits.filter(u => u.typeKey === 'DESTROYER').length < 2 && canBuildNavalUnits()) toBuild = 'DESTROYER';
-    else if (myUnits.filter(u => u.typeKey === 'LANDING_SHIP').length < 1 && canBuildNavalUnits()) toBuild = 'LANDING_SHIP';
-    else if (myUnits.filter(u => u.typeKey === 'HUNTER_FRIGATE').length < 1 && canBuildNavalUnits()) toBuild = 'HUNTER_FRIGATE';
-    else if (myUnits.filter(u => u.typeKey === 'SSBN').length < 1 && canBuildNavalUnits()) toBuild = 'SSBN';
-    else if (canBuildNavalUnits() && isUnlocked(team, 'HYPERSONIC_ASHM') && myUnits.filter(u => u.typeKey === 'ARSENAL_CRUISER').length < 1) toBuild = 'ARSENAL_CRUISER';
-    else if (offensiveCount < 3) toBuild = supportsGroundUnits() ? 'CONVOY' : 'STRIKE';
-    else if (Math.random() > 0.78 && offensiveCount >= 4) toBuild = 'ATTACK_HELI';
+    const limits = profile.limits;
+    const offensiveTypes = ['FIGHTER', 'STRIKE', 'SEAD_FIGHTER', 'BOMBER', 'AC130', 'CONVOY', 'ATTACK_HELI', 'HUNTER_FRIGATE', 'ARSENAL_CRUISER'];
+    const offensiveCount = myUnits.filter(u => offensiveTypes.includes(u.typeKey)).length;
+    const radarThreat = getRadarDetectedThreat(team, profile);
 
-    if (Math.random() < aiBuildChance && toBuild && (!UNIT_TYPES[toBuild].type.includes('ship') || canBuildNavalUnits())) {
-         spawnUnit(team, toBuild);
+    let toBuild = null;
+    if (radarThreat && (radarThreat.data.type === 'air' || radarThreat.data.type === 'heli')) {
+        if (countAiUnits(myUnits, 'FIGHTER') < limits.fighter) toBuild = 'FIGHTER';
+        else if (countAiUnits(myUnits, 'IR_APC') < limits.aa && supportsGroundUnits()) toBuild = 'IR_APC';
+        else if (countAiUnits(myUnits, 'DESTROYER') < limits.destroyer && canBuildNavalUnits()) toBuild = 'DESTROYER';
+    } else if (radarThreat && radarThreat.data.type === 'ship') {
+        if (canBuildNavalUnits() && isUnlocked(team, 'HYPERSONIC_ASHM') && countAiUnits(myUnits, 'ARSENAL_CRUISER') < limits.arsenal) toBuild = 'ARSENAL_CRUISER';
+        else if (countAiUnits(myUnits, 'STRIKE') < limits.strike) toBuild = 'STRIKE';
+        else if (canBuildNavalUnits() && countAiUnits(myUnits, 'HUNTER_FRIGATE') < limits.frigate) toBuild = 'HUNTER_FRIGATE';
     }
 
+    if (!toBuild && supportsGroundUnits() && enemyIslands.length > 0 && countAiUnits(myUnits, 'CONVOY') < limits.ground) toBuild = 'CONVOY';
+    else if (!toBuild && enemyIslands.length > 0 && !hasTransport && supportsNavalUnits() && !isNavalBattleMap()) toBuild = 'TRANSPORT';
+    else if (!toBuild && countAiUnits(myUnits, 'TANK') < limits.ground && supportsGroundUnits()) toBuild = 'TANK';
+    else if (!toBuild && countAiUnits(myUnits, 'IFV') < limits.ground && supportsGroundUnits()) toBuild = 'IFV';
+    else if (!toBuild && countAiUnits(myUnits, 'APC') < Math.max(1, Math.ceil(limits.ground / 2)) && supportsGroundUnits()) toBuild = 'APC';
+    else if (!toBuild && countAiUnits(myUnits, 'IR_APC') < limits.aa) toBuild = 'IR_APC';
+    else if (!toBuild && countAiUnits(myUnits, 'AAA_BATTERY') < Math.max(1, limits.aa - 1)) toBuild = 'AAA_BATTERY';
+    else if (!toBuild && supportsGroundUnits() && countAiUnits(myUnits, 'CONVOY') < Math.max(1, limits.ground)) toBuild = 'CONVOY';
+    else if (!toBuild && countAiUnits(myUnits, 'FIGHTER') < limits.fighter) toBuild = 'FIGHTER';
+    else if (!toBuild && countAiUnits(myUnits, 'SEAD_FIGHTER') < limits.sead) toBuild = 'SEAD_FIGHTER';
+    else if (!toBuild && countAiUnits(myUnits, 'STRIKE') < limits.strike) toBuild = 'STRIKE';
+    else if (!toBuild && countAiUnits(myUnits, 'AC130') < limits.heavyAir) toBuild = 'AC130';
+    else if (!toBuild && countAiUnits(myUnits, 'BOMBER') < limits.heavyAir) toBuild = 'BOMBER';
+    else if (!toBuild && countAiUnits(myUnits, 'AWACS') < limits.awacs) toBuild = 'AWACS';
+    else if (!toBuild && countAiUnits(myUnits, 'DESTROYER') < limits.destroyer && canBuildNavalUnits()) toBuild = 'DESTROYER';
+    else if (!toBuild && countAiUnits(myUnits, 'LANDING_SHIP') < limits.landingShip && canBuildNavalUnits()) toBuild = 'LANDING_SHIP';
+    else if (!toBuild && countAiUnits(myUnits, 'HUNTER_FRIGATE') < limits.frigate && canBuildNavalUnits()) toBuild = 'HUNTER_FRIGATE';
+    else if (!toBuild && countAiUnits(myUnits, 'SSBN') < limits.ssbn && canBuildNavalUnits()) toBuild = 'SSBN';
+    else if (!toBuild && canBuildNavalUnits() && isUnlocked(team, 'HYPERSONIC_ASHM') && countAiUnits(myUnits, 'ARSENAL_CRUISER') < limits.arsenal) toBuild = 'ARSENAL_CRUISER';
+    else if (!toBuild && offensiveCount < limits.offensive) toBuild = supportsGroundUnits() ? 'CONVOY' : 'STRIKE';
+    else if (!toBuild && Math.random() < limits.heliChance && offensiveCount >= Math.max(2, limits.offensive - 1)) toBuild = 'ATTACK_HELI';
+
+    if (toBuild && (!UNIT_TYPES[toBuild].type.includes('ship') || canBuildNavalUnits())) return toBuild;
+    return null;
+}
+
+function chooseAiObjective(unit, team, profile, requiresGroundReach = false) {
+    const canReach = island => !requiresGroundReach || canGroundUnitReachIsland(unit, island);
+    const neutralTargets = islands.filter(i => i.owner === TEAM_NEUTRAL && canReach(i));
+    const enemyTargets = islands.filter(i => i.owner !== TEAM_NEUTRAL && i.owner !== team && canReach(i));
+    const neutralFirst = Math.random() < profile.neutralAggression;
+    const baseAllowed = Math.random() < profile.baseAggression;
+
+    if (neutralFirst && neutralTargets.length > 0) return neutralTargets[Math.floor(Math.random() * neutralTargets.length)];
+    if (baseAllowed && enemyTargets.length > 0) return enemyTargets[Math.floor(Math.random() * enemyTargets.length)];
+    if (neutralTargets.length > 0) return neutralTargets[Math.floor(Math.random() * neutralTargets.length)];
+    if (enemyTargets.length > 0) return enemyTargets[Math.floor(Math.random() * enemyTargets.length)];
+    return null;
+}
+
+function assignAiOrders(team, profile, myUnits) {
+    const radarAirThreat = getRadarDetectedThreat(team, profile, ['air', 'heli']);
+    const radarNavalThreat = getRadarDetectedThreat(team, profile, ['ship']);
+
     myUnits.forEach(u => {
-        if (u.state === 'IDLE' && u.visible) {
-            // Zone Logic for AI?
-            // AI doesn't use drawn zones, it uses implicit logic. 
-            // We could let Spectator AI use player zones if we wanted.
-            
-            const deployWeapon = u.weapons.find(w => w.def.type === 'DEPLOY' && w.ammo > 0);
-            if (u.typeKey === 'TRANSPORT' && deployWeapon) {
-                if (deployWeapon.def.deployType === 'UNIT') {
-                    let target = islands.find(i => i.owner === TEAM_NEUTRAL);
-                    if (!target) target = islands.find(i => i.owner !== team);
-                    if (target) { u.targetPos = target; u.hasCommand = true; }
-                } 
-                else {
-                    const target = islands.find(i => i.owner === team && i.buildings.length < 4);
-                    if (target) { u.targetPos = target; u.hasCommand = true; }
-                }
-            } else if (u.typeKey === 'APC' && deployWeapon) {
-                let target = islands.find(i => i.owner === TEAM_NEUTRAL && canGroundUnitReachIsland(u, i));
-                if (!target) target = islands.find(i => i.owner !== team && canGroundUnitReachIsland(u, i));
-                if (target) {
-                    u.targetPos = { x: target.x, y: target.y };
-                    u.hasCommand = true;
-                }
-            } else if (u.typeKey === 'LANDING_SHIP' && deployWeapon) {
-                let target = islands.find(i => i.owner === TEAM_NEUTRAL);
-                if (!target) target = islands.find(i => i.owner !== team);
-                if (target) u.setTransportAssaultMission(target, { x: target.x, y: target.y });
-            } else if (u.typeKey === 'CONVOY') {
-                let target = islands.find(i => i.owner === TEAM_NEUTRAL && canGroundUnitReachIsland(u, i));
-                if (!target) target = islands.find(i => i.owner !== team && canGroundUnitReachIsland(u, i));
-                if (target) {
-                    u.targetPos = { x: target.x, y: target.y };
-                    u.targetUnit = null;
-                    u.hasCommand = true;
-                    u.state = 'MOVE';
-                }
-            } else if ((u.data.role === 'AA' || u.data.role === 'Multi') && Math.random() < aiAttackChance) {
-                 const preferred = chooseBestAiTarget(u, team);
-                 if (preferred) u.targetUnit = preferred;
-            } else if (u.typeKey === 'IR_APC' || u.typeKey === 'AAA_BATTERY') {
-                const ownedIslands = islands.filter(i => i.owner === team);
-                const defendIsland = ownedIslands.find(i => dist(u, i) > i.radius * 0.8) || ownedIslands.find(i => i.isMainBase) || ownedIslands[0];
-                if (defendIsland) {
-                    const dx = (Math.random() - 0.5) * defendIsland.radius * 0.6;
-                    const dy = (Math.random() - 0.5) * defendIsland.radius * 0.6;
-                    u.targetPos = { x: defendIsland.x + dx, y: defendIsland.y + dy };
-                    u.hasCommand = true;
-                }
-            } else if ((u.typeKey === 'HUNTER_FRIGATE' || u.typeKey === 'ARSENAL_CRUISER' || u.typeKey === 'BOMBER' || u.typeKey === 'STRIKE') && Math.random() < aiAttackChance) {
-                const suppressionTarget = chooseBestAiTarget(u, team);
-                if (suppressionTarget) {
-                    u.targetUnit = suppressionTarget;
-                    u.hasCommand = true;
-                }
-            } else if (u.typeKey === 'CARRIER') {
-                if (!u.hasCommand) {
-                    const target = islands.find(i => i.owner === team && Math.hypot(i.x - u.x, i.y - u.y) > 100);
-                    if (target) { u.targetPos = target; u.hasCommand = true; }
-                }
-            } else if (u.typeKey === 'DESTROYER') {
-                const carrier = myUnits.find(c => c.typeKey === 'CARRIER');
-                if (carrier && dist(u, carrier) > 150) {
-                    u.targetPos = carrier;
-                    u.hasCommand = true;
-                } else if (!carrier) {
-                    const base = islands.find(i => i.owner === team && i.isMainBase);
-                    if (base && dist(u, base) > 200) { u.targetPos = base; u.hasCommand = true; }
-                }
+        if (u.state !== 'IDLE' || !u.visible) return;
+
+        const deployWeapon = u.weapons.find(w => w.def.type === 'DEPLOY' && w.ammo > 0);
+        if (radarAirThreat && (u.data.role === 'AA' || u.data.role === 'Multi' || u.typeKey === 'DESTROYER') && Math.random() < profile.threatReactionChance) {
+            u.targetUnit = radarAirThreat;
+            u.hasCommand = true;
+        } else if (radarNavalThreat && ['STRIKE', 'BOMBER', 'HUNTER_FRIGATE', 'ARSENAL_CRUISER', 'SSBN'].includes(u.typeKey) && Math.random() < profile.threatReactionChance) {
+            u.targetUnit = radarNavalThreat;
+            u.hasCommand = true;
+        } else if (u.typeKey === 'TRANSPORT' && deployWeapon) {
+            if (deployWeapon.def.deployType === 'UNIT') {
+                const target = chooseAiObjective(u, team, profile);
+                if (target) { u.targetPos = target; u.hasCommand = true; }
+            } else {
+                const target = islands.find(i => i.owner === team && i.buildings.length < 4);
+                if (target) { u.targetPos = target; u.hasCommand = true; }
+            }
+        } else if (u.typeKey === 'APC' && deployWeapon) {
+            const target = chooseAiObjective(u, team, profile, true);
+            if (target) {
+                u.targetPos = { x: target.x, y: target.y };
+                u.hasCommand = true;
+            }
+        } else if (u.typeKey === 'LANDING_SHIP' && deployWeapon) {
+            const target = chooseAiObjective(u, team, profile);
+            if (target) u.setTransportAssaultMission(target, { x: target.x, y: target.y });
+        } else if (u.typeKey === 'CONVOY') {
+            const target = chooseAiObjective(u, team, profile, true);
+            if (target) {
+                u.targetPos = { x: target.x, y: target.y };
+                u.targetUnit = null;
+                u.hasCommand = true;
+                u.state = 'MOVE';
+            }
+        } else if ((u.data.role === 'AA' || u.data.role === 'Multi') && Math.random() < profile.attackChance) {
+            const preferred = chooseBestAiTarget(u, team);
+            if (preferred) u.targetUnit = preferred;
+        } else if (u.typeKey === 'IR_APC' || u.typeKey === 'AAA_BATTERY') {
+            const ownedIslands = islands.filter(i => i.owner === team);
+            const defendIsland = ownedIslands.find(i => dist(u, i) > i.radius * 0.8) || ownedIslands.find(i => i.isMainBase) || ownedIslands[0];
+            if (defendIsland) {
+                const dx = (Math.random() - 0.5) * defendIsland.radius * 0.6;
+                const dy = (Math.random() - 0.5) * defendIsland.radius * 0.6;
+                u.targetPos = { x: defendIsland.x + dx, y: defendIsland.y + dy };
+                u.hasCommand = true;
+            }
+        } else if ((u.typeKey === 'HUNTER_FRIGATE' || u.typeKey === 'ARSENAL_CRUISER' || u.typeKey === 'BOMBER' || u.typeKey === 'STRIKE') && Math.random() < profile.attackChance) {
+            const suppressionTarget = chooseBestAiTarget(u, team);
+            if (suppressionTarget) {
+                u.targetUnit = suppressionTarget;
+                u.hasCommand = true;
+            }
+        } else if (u.typeKey === 'CARRIER') {
+            if (!u.hasCommand) {
+                const target = islands.find(i => i.owner === team && Math.hypot(i.x - u.x, i.y - u.y) > 100);
+                if (target) { u.targetPos = target; u.hasCommand = true; }
+            }
+        } else if (u.typeKey === 'DESTROYER') {
+            const carrier = myUnits.find(c => c.typeKey === 'CARRIER');
+            if (carrier && dist(u, carrier) > 150) {
+                u.targetPos = carrier;
+                u.hasCommand = true;
+            } else if (!carrier) {
+                const base = islands.find(i => i.owner === team && i.isMainBase);
+                if (base && dist(u, base) > 200) { u.targetPos = base; u.hasCommand = true; }
             }
         }
     });
+}
+
+function updateTeamAI(team) {
+    const profile = { ...getAiDifficultyProfile() };
+    profile.limits = { ...profile.limits };
+    const isTutorialEnemy = tutorialMode && tutorialState && team === TEAM_AI && !isSpectator;
+    if (isTutorialEnemy) {
+        profile.buildChance *= 0.3;
+        profile.attackChance *= 0.2;
+        profile.researchChance *= 0.15;
+        profile.threatReactionChance *= 0.35;
+    }
+
+    chooseAiResearch(team, profile);
+    const myUnits = getAiControlledUnits(team);
+    const toBuild = chooseAiBuild(team, profile, myUnits);
+    if (toBuild) spawnUnit(team, toBuild);
+    assignAiOrders(team, profile, myUnits);
 }
 
 // --- Loop & Camera ---
