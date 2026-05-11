@@ -103,6 +103,20 @@ const AI_DIFFICULTY_PROFILES = {
         baseAggression: 0.9,
         threatReactionChance: 1,
         limits: { ground: 4, aa: 5, fighter: 5, strike: 5, sead: 2, heavyAir: 2, awacs: 2, destroyer: 3, landingShip: 2, frigate: 2, ssbn: 2, arsenal: 2, offensive: 6, heliChance: 0.45 }
+    },
+    COMMANDER_EXPERIMENTAL: {
+        playerStartingMoney: 1500,
+        aiStartingMoney: 3200,
+        researchChance: 1.7,
+        buildChance: 1.35,
+        attackChance: 1.45,
+        neutralAggression: 0.42,
+        baseAggression: 0.85,
+        threatReactionChance: 1,
+        commanderEnabled: true,
+        plannerCandidateCount: 4,
+        plannerReconsiderFrames: 4,
+        limits: { ground: 4, aa: 5, fighter: 5, strike: 5, sead: 2, heavyAir: 2, awacs: 2, destroyer: 3, landingShip: 2, frigate: 2, ssbn: 2, arsenal: 2, offensive: 6, heliChance: 0.45 }
     }
 };
 
@@ -2656,6 +2670,7 @@ function startGame() {
     TEAMS[TEAM_PLAYER].zones = [];
     TEAMS[TEAM_AI].zones = [];
     gameTime = 0;
+    resetAiCommanderStates();
     radarDetectionBlips = [];
     lastRadarPingFrame = -1;
     gameOver = false;
@@ -3420,6 +3435,282 @@ function assignAiOrders(team, profile, myUnits) {
     });
 }
 
+
+const aiCommanderStates = new Map();
+let aiCommanderDebugEnabled = false;
+const AI_COMMANDER_TOP_LEVEL_GOAL = 'DEFEAT_PLAYER';
+const AI_COMMANDER_GOALS = [
+    'DEFEND_BASE',
+    'BREAK_AIR_DEFENSE',
+    'EXPAND_ECONOMY',
+    'ASSEMBLE_INVASION_FORCE',
+    'HUNT_CARRIER',
+    'RUSH_MAIN_BASE'
+];
+
+function seededCommanderRandom(state) {
+    state.seed = (1664525 * state.seed + 1013904223) >>> 0;
+    return state.seed / 4294967296;
+}
+
+function weightedCommanderPick(items, state) {
+    const total = items.reduce((sum, item) => sum + Math.max(0.01, item.weight ?? item.score ?? 1), 0);
+    let roll = seededCommanderRandom(state) * total;
+    for (const item of items) {
+        roll -= Math.max(0.01, item.weight ?? item.score ?? 1);
+        if (roll <= 0) return item;
+    }
+    return items[items.length - 1] || null;
+}
+
+function getAiCommanderState(team) {
+    if (!aiCommanderStates.has(team)) {
+        aiCommanderStates.set(team, {
+            team,
+            topLevelGoal: AI_COMMANDER_TOP_LEVEL_GOAL,
+            currentGoal: null,
+            activePlan: null,
+            activeOperations: [],
+            candidatePlans: [],
+            recentFailures: [],
+            threatObservations: [],
+            reservations: new Map(),
+            ticksUntilReplan: 0,
+            seed: (((Date.now() & 0xfffffff) ^ ((team + 1) * 2654435761)) >>> 0),
+            personality: null,
+            debug: { lastReason: 'boot', lastAction: 'none', snapshot: null }
+        });
+    }
+    const state = aiCommanderStates.get(team);
+    if (!state.personality) {
+        state.personality = {
+            aggression: 0.65 + seededCommanderRandom(state) * 0.35,
+            economyBias: 0.35 + seededCommanderRandom(state) * 0.4,
+            defenseBias: 0.35 + seededCommanderRandom(state) * 0.35,
+            navalBias: 0.35 + seededCommanderRandom(state) * 0.4,
+            jitter: 0.75 + seededCommanderRandom(state) * 0.5
+        };
+    }
+    return state;
+}
+
+function resetAiCommanderStates() {
+    aiCommanderStates.clear();
+}
+
+function releaseCommanderReservations(state) {
+    const aliveIds = new Set(entities.filter(e => e instanceof Unit && !e.dead && e.team === state.team).map(e => e.id));
+    for (const [unitId, opId] of state.reservations.entries()) {
+        const unit = entities.find(e => e.id === unitId);
+        if (!aliveIds.has(unitId) || !unit || unit.state === 'IDLE') state.reservations.delete(unitId);
+        else if (!state.activeOperations.some(op => op.id === opId)) state.reservations.delete(unitId);
+    }
+    state.activeOperations = state.activeOperations.filter(op => gameTime - op.startedAt < 1800 && op.reservedIds.some(id => state.reservations.get(id) === op.id));
+}
+
+function reserveCommanderUnits(state, units, opId) {
+    units.forEach(u => state.reservations.set(u.id, opId));
+    const op = state.activeOperations.find(active => active.id === opId) || state.activePlan;
+    if (op) op.reservedIds = [...new Set([...(op.reservedIds || []), ...units.map(u => u.id)])];
+}
+
+function getFreeCommanderUnits(state, myUnits, predicate) {
+    return myUnits.filter(u => !state.reservations.has(u.id) && u.state === 'IDLE' && u.visible && (!predicate || predicate(u)));
+}
+
+function evaluateCommanderWorld(team, profile, myUnits) {
+    const enemyTeam = team === TEAM_AI ? TEAM_PLAYER : TEAM_AI;
+    const enemyUnits = entities.filter(e => e instanceof Unit && e.team === enemyTeam && !e.dead && e.visible);
+    const friendlyIslands = islands.filter(i => i.owner === team);
+    const neutralIslands = islands.filter(i => i.owner === TEAM_NEUTRAL);
+    const enemyIslands = islands.filter(i => i.owner === enemyTeam);
+    const friendlyBase = islands.find(i => i.owner === team && i.isMainBase) || friendlyIslands[0];
+    const enemyBase = islands.find(i => i.owner === enemyTeam && i.isMainBase) || enemyIslands[0];
+    const enemyCarrier = enemyUnits.find(u => u.typeKey === 'CARRIER');
+    const ownValue = myUnits.reduce((sum, u) => sum + (u.data.cost || 100), 0) + friendlyIslands.length * 650 + TEAMS[team].money * 0.25;
+    const enemyValue = enemyUnits.reduce((sum, u) => sum + (u.data.cost || 100), 0) + enemyIslands.length * 650 + TEAMS[enemyTeam].money * 0.25;
+    const baseThreats = friendlyBase ? enemyUnits.filter(u => dist(u, friendlyBase) < 520) : [];
+    const enemyAirDefense = [];
+    enemyIslands.forEach(i => i.buildings.forEach(b => {
+        if (!b.dead && (b.type === 'SAM_SITE' || b.type.includes('SPAA') || b.type.includes('MANPADS'))) enemyAirDefense.push(b);
+    }));
+    enemyUnits.forEach(u => { if (u.data.role === 'AA' || u.data.role === 'Multi' || u.typeKey === 'DESTROYER') enemyAirDefense.push(u); });
+    const vulnerableIslands = islands.filter(i => i.owner !== team).sort((a, b) => {
+        const baseA = friendlyBase ? dist(friendlyBase, a) : 0;
+        const baseB = friendlyBase ? dist(friendlyBase, b) : 0;
+        const defenseA = iDefenseScore(a, enemyAirDefense);
+        const defenseB = iDefenseScore(b, enemyAirDefense);
+        return (baseA + defenseA * 4) - (baseB + defenseB * 4);
+    });
+    const counts = {
+        fighter: countAiUnits(myUnits, 'FIGHTER'), strike: countAiUnits(myUnits, 'STRIKE'), sead: countAiUnits(myUnits, 'SEAD_FIGHTER'),
+        transport: countAiUnits(myUnits, 'TRANSPORT') + countAiUnits(myUnits, 'LANDING_SHIP'), convoy: countAiUnits(myUnits, 'CONVOY'),
+        aa: countAiUnits(myUnits, 'IR_APC') + countAiUnits(myUnits, 'AAA_BATTERY') + countAiUnits(myUnits, 'DESTROYER'),
+        naval: myUnits.filter(u => u.data.type === 'ship').length
+    };
+    return { enemyTeam, myUnits, enemyUnits, friendlyIslands, neutralIslands, enemyIslands, friendlyBase, enemyBase, enemyCarrier, baseThreats, enemyAirDefense, vulnerableIslands, counts, scoreRatio: ownValue / Math.max(1, enemyValue), money: TEAMS[team].money, profile };
+}
+
+function iDefenseScore(island, defenses) {
+    return defenses.filter(d => dist(d, island) < (d instanceof Building ? 480 : 650)).length;
+}
+
+function scoreCommanderGoals(state, snapshot) {
+    const p = state.personality;
+    const goals = [];
+    goals.push({ goal: 'DEFEND_BASE', score: 20 + snapshot.baseThreats.length * 95 + (snapshot.counts.aa < 2 ? 25 : 0) + p.defenseBias * 30 });
+    goals.push({ goal: 'BREAK_AIR_DEFENSE', score: 25 + snapshot.enemyAirDefense.length * 18 + (snapshot.counts.sead > 0 ? 25 : -10) });
+    goals.push({ goal: 'EXPAND_ECONOMY', score: 35 + snapshot.neutralIslands.length * 28 + p.economyBias * 35 - snapshot.enemyIslands.length * 4 });
+    goals.push({ goal: 'ASSEMBLE_INVASION_FORCE', score: 35 + (snapshot.counts.transport === 0 ? 45 : 10) + (snapshot.counts.strike < 2 ? 20 : 0) });
+    goals.push({ goal: 'HUNT_CARRIER', score: snapshot.enemyCarrier ? 70 + snapshot.counts.strike * 12 + p.navalBias * 25 : 5 });
+    goals.push({ goal: 'RUSH_MAIN_BASE', score: 25 + p.aggression * 50 + (snapshot.scoreRatio > 1.15 ? 45 : -20) + (snapshot.enemyBase ? 15 : -100) });
+    state.recentFailures.slice(-5).forEach(f => {
+        const entry = goals.find(g => g.goal === f.goal);
+        if (entry) entry.score -= 18;
+    });
+    return goals.filter(g => AI_COMMANDER_GOALS.includes(g.goal)).map(g => ({ ...g, score: Math.max(1, g.score) }));
+}
+
+function buildCommanderBehaviorLibrary(state, snapshot, myUnits, profile) {
+    const targetIsland = snapshot.vulnerableIslands[0] || snapshot.enemyBase;
+    const airDefenseTarget = snapshot.enemyAirDefense.sort((a, b) => getAiTargetPriority(b) - getAiTargetPriority(a))[0];
+    const closestThreat = snapshot.baseThreats.sort((a, b) => dist(a, snapshot.friendlyBase || a) - dist(b, snapshot.friendlyBase || b))[0];
+    return {
+        build: typeKey => ({ name: `build:${typeKey}`, execute: () => commanderBuildUnit(state, typeKey, profile) }),
+        research: () => ({ name: 'research', execute: () => !!chooseAiResearch(state.team, profile) }),
+        defendBase: () => ({ name: 'defend-base', execute: () => commanderAssignDefense(state, snapshot, myUnits, closestThreat) }),
+        strikeTarget: target => ({ name: 'strike-target', execute: () => commanderAssignStrike(state, snapshot, myUnits, target) }),
+        sead: target => ({ name: 'sead', execute: () => commanderAssignSead(state, snapshot, myUnits, target) }),
+        invade: island => ({ name: 'invade', execute: () => commanderAssignInvasion(state, snapshot, myUnits, island) }),
+        huntCarrier: () => ({ name: 'hunt-carrier', execute: () => commanderAssignStrike(state, snapshot, myUnits, snapshot.enemyCarrier) }),
+        patrolDefense: () => ({ name: 'patrol-defense', execute: () => commanderAssignPatrol(state, snapshot, myUnits) }),
+        targetIsland,
+        airDefenseTarget
+    };
+}
+
+function generateCommanderPlans(state, snapshot, myUnits, profile) {
+    const lib = buildCommanderBehaviorLibrary(state, snapshot, myUnits, profile);
+    const plans = [];
+    const add = (goal, score, behaviors, reason) => plans.push({ id: `op-${gameTime}-${Math.floor(seededCommanderRandom(state) * 999999)}`, topLevelGoal: AI_COMMANDER_TOP_LEVEL_GOAL, goal, score, behaviors: behaviors.filter(Boolean), reservedIds: [], startedAt: gameTime, reason });
+    add('DEFEND_BASE', 75 + snapshot.baseThreats.length * 80, [lib.defendBase(), lib.build(snapshot.counts.aa < 3 ? 'IR_APC' : 'FIGHTER'), lib.patrolDefense()], 'base threat response');
+    add('BREAK_AIR_DEFENSE', 55 + snapshot.enemyAirDefense.length * 25, [lib.sead(lib.airDefenseTarget), lib.build('SEAD_FIGHTER'), lib.strikeTarget(lib.airDefenseTarget)], 'clear SAM/SPAA before offense');
+    add('EXPAND_ECONOMY', 50 + snapshot.neutralIslands.length * 35, [lib.build(supportsGroundUnits() ? 'CONVOY' : 'TRANSPORT'), lib.invade(lib.targetIsland), lib.research()], 'capture income');
+    add('ASSEMBLE_INVASION_FORCE', 62 + snapshot.counts.transport * 12 + snapshot.counts.strike * 8, [lib.build(snapshot.counts.transport === 0 ? 'TRANSPORT' : 'STRIKE'), lib.invade(lib.targetIsland), lib.strikeTarget(lib.targetIsland)], 'combined assault package');
+    add('HUNT_CARRIER', snapshot.enemyCarrier ? 95 : 5, [lib.build(canBuildNavalUnits() ? 'HUNTER_FRIGATE' : 'STRIKE'), lib.huntCarrier()], 'remove carrier threat');
+    add('RUSH_MAIN_BASE', snapshot.enemyBase ? 70 + state.personality.aggression * 45 : 1, [lib.sead(lib.airDefenseTarget), lib.strikeTarget(snapshot.enemyBase), lib.invade(snapshot.enemyBase)], 'direct defeat-player push');
+    const goalWeights = scoreCommanderGoals(state, snapshot);
+    plans.forEach(plan => {
+        const goalWeight = goalWeights.find(g => g.goal === plan.goal)?.score || 1;
+        plan.score = Math.max(1, plan.score + goalWeight * 0.65 + (seededCommanderRandom(state) - 0.5) * 35 * state.personality.jitter);
+    });
+    return plans.filter(p => p.behaviors.length > 0).sort((a, b) => b.score - a.score).slice(0, profile.plannerCandidateCount || 4);
+}
+
+function commanderBuildUnit(state, typeKey, profile) {
+    if (!typeKey || !UNIT_TYPES[typeKey]) return false;
+    const before = entities.length;
+    spawnUnit(state.team, typeKey);
+    const built = entities.length > before;
+    if (built) state.debug.lastAction = `build ${typeKey}`;
+    return built;
+}
+
+function commanderAssignDefense(state, snapshot, myUnits, threat) {
+    const defenders = getFreeCommanderUnits(state, myUnits, u => u.data.role === 'AA' || u.data.role === 'Multi' || u.typeKey === 'DESTROYER' || u.typeKey === 'FIGHTER').slice(0, 3);
+    if (defenders.length === 0) return false;
+    const target = threat || getRadarDetectedThreat(state.team, snapshot.profile) || snapshot.baseThreats[0];
+    defenders.forEach(u => {
+        if (target) u.targetUnit = target;
+        else if (snapshot.friendlyBase) u.targetPos = { x: snapshot.friendlyBase.x + (seededCommanderRandom(state) - 0.5) * 180, y: snapshot.friendlyBase.y + (seededCommanderRandom(state) - 0.5) * 180 };
+        u.hasCommand = true;
+    });
+    reserveCommanderUnits(state, defenders, state.activePlan?.id || 'defense');
+    state.debug.lastAction = `defend with ${defenders.length}`;
+    return true;
+}
+
+function commanderAssignStrike(state, snapshot, myUnits, target) {
+    if (!target) return false;
+    const strikers = getFreeCommanderUnits(state, myUnits, u => ['STRIKE', 'BOMBER', 'AC130', 'HUNTER_FRIGATE', 'ARSENAL_CRUISER', 'SSBN'].includes(u.typeKey)).slice(0, 3);
+    if (strikers.length === 0) return false;
+    strikers.forEach(u => { u.targetUnit = target instanceof Unit || target instanceof Building ? target : null; u.targetPos = target instanceof Island ? { x: target.x, y: target.y } : null; u.hasCommand = true; });
+    reserveCommanderUnits(state, strikers, state.activePlan?.id || 'strike');
+    state.debug.lastAction = `strike ${target.typeKey || target.type || 'island'}`;
+    return true;
+}
+
+function commanderAssignSead(state, snapshot, myUnits, target) {
+    if (!target) return false;
+    const sead = getFreeCommanderUnits(state, myUnits, u => ['SEAD_FIGHTER', 'STRIKE', 'BOMBER'].includes(u.typeKey)).slice(0, 2);
+    if (sead.length === 0) return false;
+    sead.forEach(u => { u.targetUnit = target; u.hasCommand = true; });
+    reserveCommanderUnits(state, sead, state.activePlan?.id || 'sead');
+    state.threatObservations.push({ frame: gameTime, kind: 'air-defense', x: target.x, y: target.y });
+    state.debug.lastAction = `SEAD ${target.typeKey || target.type}`;
+    return true;
+}
+
+function commanderAssignInvasion(state, snapshot, myUnits, island) {
+    if (!island) return false;
+    const transports = getFreeCommanderUnits(state, myUnits, u => ['TRANSPORT', 'LANDING_SHIP', 'CONVOY', 'APC'].includes(u.typeKey)).slice(0, 2);
+    if (transports.length === 0) return false;
+    transports.forEach(u => {
+        const deployWeapon = u.weapons.find(w => w.def.type === 'DEPLOY' && w.ammo > 0);
+        if (u.typeKey === 'LANDING_SHIP' && deployWeapon) u.setTransportAssaultMission(island, { x: island.x, y: island.y });
+        else { u.targetPos = { x: island.x, y: island.y }; u.targetUnit = null; u.hasCommand = true; if (u.typeKey === 'CONVOY') u.state = 'MOVE'; }
+    });
+    reserveCommanderUnits(state, transports, state.activePlan?.id || 'invasion');
+    state.debug.lastAction = `invade island ${Math.round(island.x)},${Math.round(island.y)}`;
+    return true;
+}
+
+function commanderAssignPatrol(state, snapshot, myUnits) {
+    const patrolUnits = getFreeCommanderUnits(state, myUnits, u => ['FIGHTER', 'DESTROYER', 'IR_APC', 'AAA_BATTERY'].includes(u.typeKey)).slice(0, 2);
+    if (patrolUnits.length === 0 || !snapshot.friendlyBase) return false;
+    patrolUnits.forEach(u => { u.targetPos = { x: snapshot.friendlyBase.x + (seededCommanderRandom(state) - 0.5) * 260, y: snapshot.friendlyBase.y + (seededCommanderRandom(state) - 0.5) * 260 }; u.hasCommand = true; });
+    reserveCommanderUnits(state, patrolUnits, state.activePlan?.id || 'patrol');
+    state.debug.lastAction = `patrol ${patrolUnits.length}`;
+    return true;
+}
+
+function executeCommanderPlan(state, snapshot, myUnits, profile) {
+    if (!state.activePlan || state.ticksUntilReplan <= 0 || snapshot.baseThreats.length > 2) {
+        state.candidatePlans = generateCommanderPlans(state, snapshot, myUnits, profile);
+        const goalScores = scoreCommanderGoals(state, snapshot);
+        const selectedGoal = weightedCommanderPick(goalScores.map(g => ({ ...g, weight: g.score })), state);
+        const candidatePool = state.candidatePlans.filter(p => !selectedGoal || p.goal === selectedGoal.goal);
+        state.activePlan = weightedCommanderPick((candidatePool.length ? candidatePool : state.candidatePlans).map(p => ({ ...p, weight: p.score })), state);
+        state.currentGoal = state.activePlan?.goal || selectedGoal?.goal || null;
+        state.ticksUntilReplan = (profile.plannerReconsiderFrames || 4) + Math.floor(seededCommanderRandom(state) * 3);
+        state.debug.lastReason = state.activePlan?.reason || 'no candidate';
+    }
+    if (!state.activePlan) return false;
+    state.ticksUntilReplan--;
+    state.activeOperations.push(state.activePlan);
+    let executed = false;
+    for (const behavior of state.activePlan.behaviors.slice(0, 3)) {
+        if (behavior.execute()) { executed = true; break; }
+    }
+    if (!executed) {
+        state.recentFailures.push({ frame: gameTime, goal: state.activePlan.goal, reason: 'no executable behavior' });
+        state.recentFailures = state.recentFailures.slice(-8);
+        state.ticksUntilReplan = 0;
+    }
+    return executed;
+}
+
+function updateCommanderAI(team, profile, myUnits) {
+    const state = getAiCommanderState(team);
+    releaseCommanderReservations(state);
+    const snapshot = evaluateCommanderWorld(team, profile, myUnits);
+    state.debug.snapshot = snapshot;
+    if (snapshot.baseThreats.length > 0) state.threatObservations.push({ frame: gameTime, kind: 'base-threat', count: snapshot.baseThreats.length });
+    state.threatObservations = state.threatObservations.filter(obs => gameTime - obs.frame < 1800).slice(-20);
+    const executed = executeCommanderPlan(state, snapshot, myUnits, profile);
+    return executed;
+}
+
 function updateTeamAI(team) {
     const profile = { ...getAiDifficultyProfile() };
     profile.limits = { ...profile.limits };
@@ -3433,6 +3724,8 @@ function updateTeamAI(team) {
 
     chooseAiResearch(team, profile);
     const myUnits = getAiControlledUnits(team);
+    if (profile.commanderEnabled && updateCommanderAI(team, profile, myUnits)) return;
+
     const toBuild = chooseAiBuild(team, profile, myUnits);
     if (toBuild) spawnUnit(team, toBuild);
     assignAiOrders(team, profile, myUnits);
@@ -3441,6 +3734,10 @@ function updateTeamAI(team) {
 // --- Loop & Camera ---
 window.addEventListener('keydown', e => {
     inputKeys[e.key] = true;
+    if (e.key === 'F9') {
+        aiCommanderDebugEnabled = !aiCommanderDebugEnabled;
+        addParticle(camera.x + width / 2, camera.y + 60, 'text', aiCommanderDebugEnabled ? 'COMMANDER DEBUG ON' : 'COMMANDER DEBUG OFF');
+    }
     if (e.key === 'Escape' && manualStrikeMode) {
         manualStrikeMode = false;
         manualStrikePlan = null;
@@ -3747,6 +4044,47 @@ function endGame(msg) {
     overlaySubmsg.innerText = `${modeText} • Return to main menu to host/join a new mission.`;
 }
 
+
+function drawCommanderDebugOverlay(ctx) {
+    if (!aiCommanderDebugEnabled || currentAiDifficulty !== 'COMMANDER_EXPERIMENTAL') return;
+    const state = aiCommanderStates.get(TEAM_AI);
+    if (!state) return;
+    const plan = state.activePlan;
+    const snap = state.debug.snapshot;
+    ctx.save();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.68)';
+    ctx.fillRect(12, 12, 360, 126);
+    ctx.fillStyle = '#9ff';
+    ctx.font = '12px monospace';
+    const lines = [
+        `Commander: ${state.topLevelGoal} / ${state.currentGoal || 'none'}`,
+        `Plan: ${plan ? plan.goal + ' (' + Math.round(plan.score) + ')' : 'none'}`,
+        `Reason: ${state.debug.lastReason}`,
+        `Action: ${state.debug.lastAction}`,
+        `Reservations: ${state.reservations.size}  Failures: ${state.recentFailures.length}`,
+        snap ? `World: ratio ${snap.scoreRatio.toFixed(2)} threats ${snap.baseThreats.length} SAMs ${snap.enemyAirDefense.length}` : 'World: pending'
+    ];
+    lines.forEach((line, idx) => ctx.fillText(line, 22, 34 + idx * 18));
+    if (snap) {
+        ctx.translate(-camera.x, -camera.y);
+        ctx.strokeStyle = 'rgba(0, 255, 255, 0.55)';
+        ctx.setLineDash([8, 6]);
+        if (snap.enemyBase) {
+            ctx.beginPath();
+            ctx.arc(snap.enemyBase.x, snap.enemyBase.y, snap.enemyBase.radius + 18, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        state.threatObservations.forEach(obs => {
+            if (obs.x == null || obs.y == null) return;
+            ctx.strokeStyle = obs.kind === 'air-defense' ? 'rgba(255, 180, 0, 0.7)' : 'rgba(255, 0, 0, 0.7)';
+            ctx.beginPath();
+            ctx.arc(obs.x, obs.y, 34, 0, Math.PI * 2);
+            ctx.stroke();
+        });
+    }
+    ctx.restore();
+}
+
 function draw() {
     if (isLandMap()) ctx.fillStyle = '#3a5f3a';
     else ctx.fillStyle = '#2b6da5'; 
@@ -3821,6 +4159,7 @@ function draw() {
     drawParticles(ctx);
     
     ctx.restore();
+    drawCommanderDebugOverlay(ctx);
 }
 
 window.onresize = () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; };
