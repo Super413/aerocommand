@@ -166,6 +166,7 @@
             <button class="btn-toggle" onclick="openResearch()">Research</button>
             <button id="btn-manual-strike" class="btn-toggle" onclick="openManualStrikeDialog()">Manual Strike</button>
             <button id="btn-zones" class="btn-toggle" onclick="toggleZones()">Zones</button>
+            <button id="commander-debug-button" class="btn-debug-mini" onclick="toggleCommanderDebug()" title="Show commander AI debug">AI</button>
         </div>
         <div class="panel" id="zone-panel">
             <div class="btn-zone" onclick="setZoneMode('CAP')" id="btn-zone-cap" style="color:#4488FF; border-color:#4488FF">CAP</div>
@@ -175,7 +176,7 @@
         </div>
         <div class="panel" id="build-panel"></div>
     </div>
-    <div id="selection-sidebar" class="collapsed">
+    <div id="selection-sidebar">
         <button id="selection-sidebar-toggle" onclick="toggleSelectionSidebar()">◀</button>
         <div id="selection-sidebar-content">
             <div class="selection-image-block">

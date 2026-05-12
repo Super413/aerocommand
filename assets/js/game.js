@@ -34,7 +34,7 @@ let tutorialState = null;
 let tutorialUi = { overlay: null, message: null, highlight: null };
 let multiplayerMode = 'OFF';
 let multiplayerSessionCode = '';
-let selectionSidebarCollapsed = true;
+let selectionSidebarCollapsed = false;
 let encyclopediaState = { category: 'ground', index: 0, entries: null };
 let encyclopediaDescriptions = { units: {}, structures: {}, munitions: {} };
 let encyclopediaDescriptionsLoaded = false;
@@ -114,7 +114,7 @@ const AI_DIFFICULTY_PROFILES = {
         baseAggression: 0.85,
         threatReactionChance: 1,
         commanderEnabled: true,
-        plannerCandidateCount: 4,
+        plannerCandidateCount: 6,
         plannerReconsiderFrames: 4,
         limits: { ground: 4, aa: 5, fighter: 5, strike: 5, sead: 2, heavyAir: 2, awacs: 2, destroyer: 3, landingShip: 2, frigate: 2, ssbn: 2, arsenal: 2, offensive: 6, heliChance: 0.45 }
     }
@@ -2671,6 +2671,8 @@ function startGame() {
     TEAMS[TEAM_AI].zones = [];
     gameTime = 0;
     resetAiCommanderStates();
+    aiCommanderDebugEnabled = false;
+    document.getElementById('commander-debug-button')?.classList.remove('active');
     radarDetectionBlips = [];
     lastRadarPingFrame = -1;
     gameOver = false;
@@ -3130,8 +3132,8 @@ function createUI() {
         // Hide naval units on Land maps
         if (!supportsNavalUnits() && data.type === 'ship') return;
         if (isNavalBattleMap() && data.type === 'ship') return;
-        // Hide land-heavy units on Sea maps
-        if (!supportsGroundUnits() && ['APC', 'IFV', 'TANK', 'CONVOY'].includes(key)) return;
+        // Hide ground units on sea-only maps.
+        if (!supportsGroundUnits() && data.type === 'ground') return;
 
         const btn = document.createElement('div');
         btn.className = 'btn-build';
@@ -3169,8 +3171,10 @@ function createUI() {
                     if (sel.team === TEAM_PLAYER && !sel.dead) {
                         if (data.type === 'ship') {
                             // Ships use main base island for now
-                        } else if (sel.type === 'AIRPORT' || sel.typeKey === 'CARRIER') {
+                        } else if (canSpawnerCreateUnit(sel, TEAM_PLAYER, data.type)) {
                             spawner = sel;
+                        } else if (sel.typeKey === 'CARRIER') {
+                            return;
                         }
                     }
                 }
@@ -3182,21 +3186,46 @@ function createUI() {
     });
 }
 
+function canSpawnerCreateUnit(spawner, team, unitType) {
+    if (!spawner || spawner.dead || spawner.team !== team) return false;
+    if (unitType === 'ship') return false;
+    if (spawner.typeKey === 'CARRIER') return unitType === 'air' || unitType === 'heli';
+    return spawner.type === 'AIRPORT';
+}
+
+function getAiUnitSpawners(team, typeKey) {
+    const unitType = UNIT_TYPES[typeKey].type;
+    if (unitType === 'ship') return [];
+
+    const spawners = [];
+    islands.forEach(i => {
+        if (i.owner !== team) return;
+        const airport = i.buildings.find(b => b.type === 'AIRPORT' && !b.dead);
+        if (airport) spawners.push(airport);
+    });
+
+    if (unitType === 'air' || unitType === 'heli') {
+        entities.forEach(e => {
+            if (canSpawnerCreateUnit(e, team, unitType)) spawners.push(e);
+        });
+    }
+    return spawners;
+}
+
 function spawnUnit(team, typeKey, specificSpawner = null) {
     if (isNavalBattleMap() && UNIT_TYPES[typeKey].type === 'ship') return;
+    const unitType = UNIT_TYPES[typeKey].type;
     const cost = UNIT_TYPES[typeKey].cost;
     if (TEAMS[team].money < cost) return;
 
     let spawnPoint = null;
     
-    if (specificSpawner && !specificSpawner.dead && specificSpawner.team === team) {
+    if (specificSpawner) {
+        if (!canSpawnerCreateUnit(specificSpawner, team, unitType)) return;
         spawnPoint = specificSpawner;
     } else {
-        const spawners = [];
-        if (UNIT_TYPES[typeKey].type !== 'ship') {
-            islands.forEach(i => { if (i.owner === team) spawners.push(i.buildings.find(b => b.type === 'AIRPORT')); });
-            entities.forEach(e => { if (e.team === team && e.typeKey === 'CARRIER') spawners.push(e); });
-        } else {
+        const spawners = getAiUnitSpawners(team, typeKey);
+        if (unitType === 'ship') {
             const base = islands.find(i => i.owner === team && i.isMainBase);
             if (base) spawnPoint = {x: base.x + (team===TEAM_PLAYER ? 80 : -80), y: base.y + 50};
         }
@@ -3445,6 +3474,9 @@ const AI_COMMANDER_GOALS = [
     'EXPAND_ECONOMY',
     'ASSEMBLE_INVASION_FORCE',
     'HUNT_CARRIER',
+    'SECURE_AIR_SUPERIORITY',
+    'DISRUPT_ECONOMY',
+    'NAVAL_SCREEN',
     'RUSH_MAIN_BASE'
 ];
 
@@ -3473,6 +3505,7 @@ function getAiCommanderState(team) {
             activeOperations: [],
             candidatePlans: [],
             recentFailures: [],
+            planHistory: [],
             threatObservations: [],
             reservations: new Map(),
             ticksUntilReplan: 0,
@@ -3530,9 +3563,15 @@ function evaluateCommanderWorld(team, profile, myUnits) {
     const ownValue = myUnits.reduce((sum, u) => sum + (u.data.cost || 100), 0) + friendlyIslands.length * 650 + TEAMS[team].money * 0.25;
     const enemyValue = enemyUnits.reduce((sum, u) => sum + (u.data.cost || 100), 0) + enemyIslands.length * 650 + TEAMS[enemyTeam].money * 0.25;
     const baseThreats = friendlyBase ? enemyUnits.filter(u => dist(u, friendlyBase) < 520) : [];
+    const enemyAirThreats = enemyUnits.filter(u => u.data.type === 'air' || u.data.type === 'heli');
+    const enemyNavalThreats = enemyUnits.filter(u => u.data.type === 'ship');
+    const enemyGroundThreats = enemyUnits.filter(u => u.data.type === 'ground');
     const enemyAirDefense = [];
+    const enemyEconomyTargets = [];
     enemyIslands.forEach(i => i.buildings.forEach(b => {
-        if (!b.dead && (b.type === 'SAM_SITE' || b.type.includes('SPAA') || b.type.includes('MANPADS'))) enemyAirDefense.push(b);
+        if (b.dead) return;
+        if (b.type === 'SAM_SITE' || b.type.includes('SPAA') || b.type.includes('MANPADS')) enemyAirDefense.push(b);
+        if (['AIRPORT', 'PORT', 'CONSTRUCTION_YARD'].includes(b.type)) enemyEconomyTargets.push(b);
     }));
     enemyUnits.forEach(u => { if (u.data.role === 'AA' || u.data.role === 'Multi' || u.typeKey === 'DESTROYER') enemyAirDefense.push(u); });
     const vulnerableIslands = islands.filter(i => i.owner !== team).sort((a, b) => {
@@ -3546,9 +3585,10 @@ function evaluateCommanderWorld(team, profile, myUnits) {
         fighter: countAiUnits(myUnits, 'FIGHTER'), strike: countAiUnits(myUnits, 'STRIKE'), sead: countAiUnits(myUnits, 'SEAD_FIGHTER'),
         transport: countAiUnits(myUnits, 'TRANSPORT') + countAiUnits(myUnits, 'LANDING_SHIP'), convoy: countAiUnits(myUnits, 'CONVOY'),
         aa: countAiUnits(myUnits, 'IR_APC') + countAiUnits(myUnits, 'AAA_BATTERY') + countAiUnits(myUnits, 'DESTROYER'),
+        awacs: countAiUnits(myUnits, 'AWACS'),
         naval: myUnits.filter(u => u.data.type === 'ship').length
     };
-    return { enemyTeam, myUnits, enemyUnits, friendlyIslands, neutralIslands, enemyIslands, friendlyBase, enemyBase, enemyCarrier, baseThreats, enemyAirDefense, vulnerableIslands, counts, scoreRatio: ownValue / Math.max(1, enemyValue), money: TEAMS[team].money, profile };
+    return { enemyTeam, myUnits, enemyUnits, friendlyIslands, neutralIslands, enemyIslands, friendlyBase, enemyBase, enemyCarrier, baseThreats, enemyAirThreats, enemyNavalThreats, enemyGroundThreats, enemyAirDefense, enemyEconomyTargets, vulnerableIslands, counts, scoreRatio: ownValue / Math.max(1, enemyValue), money: TEAMS[team].money, profile };
 }
 
 function iDefenseScore(island, defenses) {
@@ -3563,6 +3603,9 @@ function scoreCommanderGoals(state, snapshot) {
     goals.push({ goal: 'EXPAND_ECONOMY', score: 35 + snapshot.neutralIslands.length * 28 + p.economyBias * 35 - snapshot.enemyIslands.length * 4 });
     goals.push({ goal: 'ASSEMBLE_INVASION_FORCE', score: 35 + (snapshot.counts.transport === 0 ? 45 : 10) + (snapshot.counts.strike < 2 ? 20 : 0) });
     goals.push({ goal: 'HUNT_CARRIER', score: snapshot.enemyCarrier ? 70 + snapshot.counts.strike * 12 + p.navalBias * 25 : 5 });
+    goals.push({ goal: 'SECURE_AIR_SUPERIORITY', score: 28 + snapshot.enemyAirThreats.length * 26 + (snapshot.counts.fighter < snapshot.enemyAirThreats.length ? 35 : 0) + (snapshot.counts.awacs === 0 ? 10 : 0) });
+    goals.push({ goal: 'DISRUPT_ECONOMY', score: 22 + snapshot.enemyEconomyTargets.length * 15 + p.aggression * 25 + (snapshot.scoreRatio < 0.95 ? 22 : 0) });
+    goals.push({ goal: 'NAVAL_SCREEN', score: 18 + snapshot.enemyNavalThreats.length * 28 + (snapshot.counts.naval < 2 && canBuildNavalUnits() ? 25 : 0) + p.navalBias * 25 });
     goals.push({ goal: 'RUSH_MAIN_BASE', score: 25 + p.aggression * 50 + (snapshot.scoreRatio > 1.15 ? 45 : -20) + (snapshot.enemyBase ? 15 : -100) });
     state.recentFailures.slice(-5).forEach(f => {
         const entry = goals.find(g => g.goal === f.goal);
@@ -3575,6 +3618,9 @@ function buildCommanderBehaviorLibrary(state, snapshot, myUnits, profile) {
     const targetIsland = snapshot.vulnerableIslands[0] || snapshot.enemyBase;
     const airDefenseTarget = snapshot.enemyAirDefense.sort((a, b) => getAiTargetPriority(b) - getAiTargetPriority(a))[0];
     const closestThreat = snapshot.baseThreats.sort((a, b) => dist(a, snapshot.friendlyBase || a) - dist(b, snapshot.friendlyBase || b))[0];
+    const airThreatTarget = snapshot.enemyAirThreats.sort((a, b) => getAiTargetPriority(b) - getAiTargetPriority(a))[0];
+    const navalThreatTarget = snapshot.enemyNavalThreats.sort((a, b) => getAiTargetPriority(b) - getAiTargetPriority(a))[0];
+    const economyTarget = snapshot.enemyEconomyTargets.sort((a, b) => getAiTargetPriority(b) - getAiTargetPriority(a))[0];
     return {
         build: typeKey => ({ name: `build:${typeKey}`, execute: () => commanderBuildUnit(state, typeKey, profile) }),
         research: () => ({ name: 'research', execute: () => !!chooseAiResearch(state.team, profile) }),
@@ -3583,9 +3629,14 @@ function buildCommanderBehaviorLibrary(state, snapshot, myUnits, profile) {
         sead: target => ({ name: 'sead', execute: () => commanderAssignSead(state, snapshot, myUnits, target) }),
         invade: island => ({ name: 'invade', execute: () => commanderAssignInvasion(state, snapshot, myUnits, island) }),
         huntCarrier: () => ({ name: 'hunt-carrier', execute: () => commanderAssignStrike(state, snapshot, myUnits, snapshot.enemyCarrier) }),
+        airSuperiority: target => ({ name: 'air-superiority', execute: () => commanderAssignAirSuperiority(state, snapshot, myUnits, target) }),
+        navalScreen: target => ({ name: 'naval-screen', execute: () => commanderAssignNavalScreen(state, snapshot, myUnits, target) }),
         patrolDefense: () => ({ name: 'patrol-defense', execute: () => commanderAssignPatrol(state, snapshot, myUnits) }),
         targetIsland,
-        airDefenseTarget
+        airDefenseTarget,
+        airThreatTarget,
+        navalThreatTarget,
+        economyTarget
     };
 }
 
@@ -3598,6 +3649,9 @@ function generateCommanderPlans(state, snapshot, myUnits, profile) {
     add('EXPAND_ECONOMY', 50 + snapshot.neutralIslands.length * 35, [lib.build(supportsGroundUnits() ? 'CONVOY' : 'TRANSPORT'), lib.invade(lib.targetIsland), lib.research()], 'capture income');
     add('ASSEMBLE_INVASION_FORCE', 62 + snapshot.counts.transport * 12 + snapshot.counts.strike * 8, [lib.build(snapshot.counts.transport === 0 ? 'TRANSPORT' : 'STRIKE'), lib.invade(lib.targetIsland), lib.strikeTarget(lib.targetIsland)], 'combined assault package');
     add('HUNT_CARRIER', snapshot.enemyCarrier ? 95 : 5, [lib.build(canBuildNavalUnits() ? 'HUNTER_FRIGATE' : 'STRIKE'), lib.huntCarrier()], 'remove carrier threat');
+    add('SECURE_AIR_SUPERIORITY', 45 + snapshot.enemyAirThreats.length * 30, [lib.build(snapshot.counts.fighter < 3 ? 'FIGHTER' : 'AWACS'), lib.airSuperiority(lib.airThreatTarget), lib.patrolDefense()], 'win the air picture');
+    add('DISRUPT_ECONOMY', 45 + snapshot.enemyEconomyTargets.length * 20, [lib.sead(lib.airDefenseTarget), lib.build(snapshot.counts.strike < 2 ? 'STRIKE' : 'BOMBER'), lib.strikeTarget(lib.economyTarget || lib.targetIsland)], 'raid enemy production and income');
+    add('NAVAL_SCREEN', 38 + snapshot.enemyNavalThreats.length * 34, [lib.build(canBuildNavalUnits() ? (snapshot.counts.naval < 2 ? 'DESTROYER' : 'HUNTER_FRIGATE') : 'STRIKE'), lib.navalScreen(lib.navalThreatTarget), lib.patrolDefense()], 'screen fleet and base approaches');
     add('RUSH_MAIN_BASE', snapshot.enemyBase ? 70 + state.personality.aggression * 45 : 1, [lib.sead(lib.airDefenseTarget), lib.strikeTarget(snapshot.enemyBase), lib.invade(snapshot.enemyBase)], 'direct defeat-player push');
     const goalWeights = scoreCommanderGoals(state, snapshot);
     plans.forEach(plan => {
@@ -3651,6 +3705,33 @@ function commanderAssignSead(state, snapshot, myUnits, target) {
     return true;
 }
 
+function commanderAssignAirSuperiority(state, snapshot, myUnits, target) {
+    const fighters = getFreeCommanderUnits(state, myUnits, u => ['FIGHTER', 'AWACS'].includes(u.typeKey) || u.data.role === 'AA').slice(0, 4);
+    if (fighters.length === 0) return false;
+    fighters.forEach(u => {
+        if (target && u.typeKey !== 'AWACS') u.targetUnit = target;
+        else if (snapshot.enemyBase) u.targetPos = { x: snapshot.enemyBase.x + (seededCommanderRandom(state) - 0.5) * 320, y: snapshot.enemyBase.y + (seededCommanderRandom(state) - 0.5) * 320 };
+        u.hasCommand = true;
+    });
+    reserveCommanderUnits(state, fighters, state.activePlan?.id || 'air-superiority');
+    state.debug.lastAction = `air superiority ${fighters.length}`;
+    return true;
+}
+
+function commanderAssignNavalScreen(state, snapshot, myUnits, target) {
+    const ships = getFreeCommanderUnits(state, myUnits, u => ['DESTROYER', 'HUNTER_FRIGATE', 'ARSENAL_CRUISER', 'SSBN'].includes(u.typeKey)).slice(0, 3);
+    if (ships.length === 0) return false;
+    const anchor = snapshot.friendlyBase || snapshot.enemyBase;
+    ships.forEach(u => {
+        if (target) u.targetUnit = target;
+        else if (anchor) u.targetPos = { x: anchor.x + (seededCommanderRandom(state) - 0.5) * 420, y: anchor.y + (seededCommanderRandom(state) - 0.5) * 420 };
+        u.hasCommand = true;
+    });
+    reserveCommanderUnits(state, ships, state.activePlan?.id || 'naval-screen');
+    state.debug.lastAction = `naval screen ${ships.length}`;
+    return true;
+}
+
 function commanderAssignInvasion(state, snapshot, myUnits, island) {
     if (!island) return false;
     const transports = getFreeCommanderUnits(state, myUnits, u => ['TRANSPORT', 'LANDING_SHIP', 'CONVOY', 'APC'].includes(u.typeKey)).slice(0, 2);
@@ -3682,6 +3763,10 @@ function executeCommanderPlan(state, snapshot, myUnits, profile) {
         const candidatePool = state.candidatePlans.filter(p => !selectedGoal || p.goal === selectedGoal.goal);
         state.activePlan = weightedCommanderPick((candidatePool.length ? candidatePool : state.candidatePlans).map(p => ({ ...p, weight: p.score })), state);
         state.currentGoal = state.activePlan?.goal || selectedGoal?.goal || null;
+        if (state.activePlan) {
+            state.planHistory.push({ frame: gameTime, goal: state.activePlan.goal, reason: state.activePlan.reason });
+            state.planHistory = state.planHistory.slice(-10);
+        }
         state.ticksUntilReplan = (profile.plannerReconsiderFrames || 4) + Math.floor(seededCommanderRandom(state) * 3);
         state.debug.lastReason = state.activePlan?.reason || 'no candidate';
     }
@@ -3734,10 +3819,6 @@ function updateTeamAI(team) {
 // --- Loop & Camera ---
 window.addEventListener('keydown', e => {
     inputKeys[e.key] = true;
-    if (e.key === 'F9') {
-        aiCommanderDebugEnabled = !aiCommanderDebugEnabled;
-        addParticle(camera.x + width / 2, camera.y + 60, 'text', aiCommanderDebugEnabled ? 'COMMANDER DEBUG ON' : 'COMMANDER DEBUG OFF');
-    }
     if (e.key === 'Escape' && manualStrikeMode) {
         manualStrikeMode = false;
         manualStrikePlan = null;
@@ -4045,6 +4126,16 @@ function endGame(msg) {
 }
 
 
+function toggleCommanderDebug() {
+    aiCommanderDebugEnabled = !aiCommanderDebugEnabled;
+    const button = document.getElementById('commander-debug-button');
+    if (button) {
+        button.classList.toggle('active', aiCommanderDebugEnabled);
+        button.title = aiCommanderDebugEnabled ? 'Hide commander AI debug' : 'Show commander AI debug';
+    }
+    addParticle(camera.x + width / 2, camera.y + 60, 'text', aiCommanderDebugEnabled ? 'COMMANDER DEBUG ON' : 'COMMANDER DEBUG OFF');
+}
+
 function drawCommanderDebugOverlay(ctx) {
     if (!aiCommanderDebugEnabled || currentAiDifficulty !== 'COMMANDER_EXPERIMENTAL') return;
     const state = aiCommanderStates.get(TEAM_AI);
@@ -4053,7 +4144,7 @@ function drawCommanderDebugOverlay(ctx) {
     const snap = state.debug.snapshot;
     ctx.save();
     ctx.fillStyle = 'rgba(0, 0, 0, 0.68)';
-    ctx.fillRect(12, 12, 360, 126);
+    ctx.fillRect(12, 12, 430, 146);
     ctx.fillStyle = '#9ff';
     ctx.font = '12px monospace';
     const lines = [
@@ -4062,7 +4153,8 @@ function drawCommanderDebugOverlay(ctx) {
         `Reason: ${state.debug.lastReason}`,
         `Action: ${state.debug.lastAction}`,
         `Reservations: ${state.reservations.size}  Failures: ${state.recentFailures.length}`,
-        snap ? `World: ratio ${snap.scoreRatio.toFixed(2)} threats ${snap.baseThreats.length} SAMs ${snap.enemyAirDefense.length}` : 'World: pending'
+        `History: ${state.planHistory.slice(-3).map(h => h.goal.replace(/_/g, '-')).join(' > ') || 'none'}`,
+        snap ? `World: ratio ${snap.scoreRatio.toFixed(2)} threats ${snap.baseThreats.length} air ${snap.enemyAirThreats.length} sea ${snap.enemyNavalThreats.length} SAMs ${snap.enemyAirDefense.length}` : 'World: pending'
     ];
     lines.forEach((line, idx) => ctx.fillText(line, 22, 34 + idx * 18));
     if (snap) {

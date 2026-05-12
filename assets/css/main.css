@@ -122,6 +122,25 @@ canvas {
 #selection-sidebar-info .line { display: flex; justify-content: space-between; gap: 8px; margin: 3px 0; }
 #selection-sidebar-info .line b { color: #fff; }
 
+.btn-debug-mini {
+    align-self: flex-end;
+    width: 28px;
+    min-height: 22px;
+    padding: 2px 4px;
+    border: 1px solid #3f5f7a;
+    border-radius: 3px;
+    background: #142333;
+    color: #8fb8dd;
+    font-size: 10px;
+    line-height: 14px;
+    cursor: pointer;
+}
+.btn-debug-mini.active {
+    background: #1d4b5d;
+    color: #d7fbff;
+    border-color: #6bd3ff;
+}
+
 .btn-toggle {
     background: #333;
     border: 1px solid #555;

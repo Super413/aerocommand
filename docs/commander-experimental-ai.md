@@ -1,6 +1,6 @@
 # Commander Experimental AI validation notes
 
-The **Commander Experimental** difficulty routes AI teams through a persistent commander planner before falling back to the legacy AI. The top-level commander goal is always `DEFEAT_PLAYER`; the selected subgoal, plan, reservations, and world snapshot can be viewed in-game with `F9` while the experimental difficulty is active.
+The **Commander Experimental** difficulty routes AI teams through a persistent commander planner before falling back to the legacy AI. The top-level commander goal is always `DEFEAT_PLAYER`; the selected subgoal, plan, reservations, and world snapshot can be viewed in-game with the tiny **AI** debug button while the experimental difficulty is active.
 
 ## Manual validation scenarios
 
@@ -10,7 +10,7 @@ The **Commander Experimental** difficulty routes AI teams through a persistent c
 
 2. **Commander plan variety**
    - Start three `Commander Experimental` matches on the same map settings.
-   - Open debug with `F9` and confirm games diverge by personality/seeded weighted selection: selected subgoals should vary among economy expansion, invasion assembly, SEAD, carrier hunting, and base rush depending on world state.
+   - Open debug with the tiny **AI** debug button and confirm games diverge by personality/seeded weighted selection: selected subgoals should vary among economy expansion, invasion assembly, SEAD, carrier hunting, air superiority, economy disruption, naval screening, and base rush depending on world state.
 
 3. **Defense interruption**
    - Send player air or naval units toward the AI main base.
@@ -31,3 +31,7 @@ The **Commander Experimental** difficulty routes AI teams through a persistent c
 7. **Spectator symmetry**
    - Start Spectator mode with `Commander Experimental`.
    - Confirm both teams can run the commander path and the debug overlay remains focused on the red AI state for readability.
+
+8. **Carrier spawn guard**
+   - Select a player carrier, then click ground-unit build buttons on maps where they are available.
+   - Confirm ground units do not spawn on the carrier, while air and helicopter units can still use it as a spawner.
