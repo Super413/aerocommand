@@ -35,3 +35,11 @@ The **Commander Experimental** difficulty routes AI teams through a persistent c
 8. **Carrier spawn guard**
    - Select a player carrier, then click ground-unit build buttons on maps where they are available.
    - Confirm ground units do not spawn on the carrier, while air and helicopter units can still use it as a spawner.
+
+9. **Concurrent operation persistence**
+   - Let the commander start a long-running objective such as `HUNT_CARRIER`, then pressure the AI base with aircraft.
+   - Confirm debug shows multiple active goals over time and the prior carrier/naval operation resumes after the defense response instead of being forgotten.
+
+10. **Team loadout isolation**
+   - Change a player loadout, then let the AI research/auto-optimize or run Commander Experimental.
+   - Confirm AI loadout changes do not alter the player's configured template, and player loadout changes do not alter AI templates.
