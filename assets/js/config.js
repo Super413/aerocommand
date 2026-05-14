@@ -16,7 +16,7 @@ const WEAPONS = {
     VULCAN: { name: '20mm Vulcan', type: 'GUN', damage: 8, cooldown: 2, speed: 12, range: 80, targets: ['air','heli','ground', 'ship', 'structure'], icon: '🌭' },
     CANNON_127MM: { name: '127mm Cannon', type: 'GUN', damage: 40, cooldown: 60, speed: 10, range: 200, targets: ['ground', 'ship', 'structure'], icon: '💣', navalOmni: true, salvoCount: 3, salvoDelay: 4 },
     RAILGUN: { name: 'Railcannon', type: 'GUN', damage: 260, cooldown: 36, speed: 100, range: 420, targets: ['ground','ship','structure'], icon: '⚡' },
-    CIWS: { name: 'Phalanx CIWS', type: 'GUN', damage: 15, cooldown: 42, speed: 18, range: 145, targets: ['air','heli', 'cruise', 'munition'], icon: '🛡️', navalOmni: true, salvoCount: 4, salvoDelay: 1, leadMultiplier: 1.35, burstShots: 12, burstInterval: 1.2, spread: 0.045, interceptsMunitions: true },
+    CIWS: { name: 'Phalanx CIWS', type: 'GUN', damage: 15, cooldown: 42, speed: 18, range: 145, targets: ['air','heli', 'cruise', 'munition'], icon: '🛡️', navalOmni: true, salvoCount: 4, salvoDelay: 1, leadMultiplier: 1.35, burstShots: 40, burstInterval: 1.2, spread: 0.45, interceptsMunitions: true },
     RIFLE: { name: 'Assault Rifle', type: 'SARMS', damage: 0.5, cooldown: 30, speed: 8, range: 100, targets: ['ground'], icon: '🔫', salvoCount: 4, salvoDelay:3, leadMultiplier: 1, burstShots: 4, burstInterval: 1.5, spread: 0.07, interceptsMunitions: false },
     ROCKET_HYDRA: { name: 'Hydra 70', type: 'ROCKET', damage: 15, cooldown: 5, speed: 6, range: 160, targets: ['ground', 'ship', 'structure'], burst: 3, ammo: 3, icon: '🎇' },
     ROCKET_DAGR: { name: 'DAGR', type: 'ROCKET', damage: 25, cooldown: 5, speed: 7, range: 200, targets: ['ground', 'ship', 'structure'], burst: 1, guided: true, ammo: 2, icon: '🎯' },
@@ -160,18 +160,18 @@ const UNIT_TYPES = {
         { name: 'Wing 2', types: ['DEPLOY'], equipped: 'CONVOY_SLOT_APC', x: -10, y: 10, allowedWeapons: ['CONVOY_SLOT_TANK', 'CONVOY_SLOT_IFV', 'CONVOY_SLOT_APC', 'CONVOY_SLOT_AAA', 'CONVOY_SLOT_SOLDIERS'] },
         { name: 'Rear', types: ['DEPLOY'], equipped: 'CONVOY_SLOT_AAA', x: 10, y: 10, allowedWeapons: ['CONVOY_SLOT_TANK', 'CONVOY_SLOT_IFV', 'CONVOY_SLOT_APC', 'CONVOY_SLOT_AAA', 'CONVOY_SLOT_SOLDIERS'] }
     ] },
-    CARRIER: { name: 'Carrier', type: 'ship', role: 'Base', cost: 2500, hp: 2000, speed: 0.6, turn: 0.04, fuel: 0, ammo: 999, icon: '🚢', commandAuraRadius: 220, commandTurnBoost: 1.2, commandCooldownBoost: 1.15, hardpoints: [
+    CARRIER: { name: 'Carrier', type: 'ship', role: 'Base', cost: 9000, hp: 2000, speed: 0.6, turn: 0.04, fuel: 0, ammo: 999, icon: '🚢', commandAuraRadius: 220, commandTurnBoost: 1.2, commandCooldownBoost: 1.15, hardpoints: [
         { name: 'Bow AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: -50, allowedWeapons: ['GUN_BASIC', 'CIWS'] },
         { name: 'Stern AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: 80, allowedWeapons: ['GUN_BASIC', 'CIWS'] },
         { name: 'Mid AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 40, y: 20, allowedWeapons: ['GUN_BASIC', 'CIWS'] }
     ] },
-    DESTROYER: { name: 'Destroyer', type: 'ship', role: 'Escort', cost: 1500, hp: 1200, speed: 0.8, turn: 0.05, fuel: 9999, ammo: 1, icon: '🛳️', hardpoints: [
+    DESTROYER: { name: 'Destroyer', type: 'ship', role: 'Escort', cost: 2000, hp: 1200, speed: 0.8, turn: 0.05, fuel: 9999, ammo: 1, icon: '🛳️', hardpoints: [
         { name: 'Main Gun', types: ['GUN'], equipped: 'CANNON_127MM', x: 0, y: -40, allowedWeapons: ['CANNON_127MM', 'RAILGUN'] },
         { name: 'VLS 1', types: ['AAM_HEAVY', 'CRUISE', 'AGM', 'HYPERSONIC'], equipped: 'EMPTY', x: 0, y: -10, ammoByWeapon: { AMRAAM: 16, LRAAM: 12, TOMAHAWK: 8, MAVERICK: 16, HELLFIRE: 16, ARAD: 6, HYPERSONIC_ASHM: 2 } },
         { name: 'VLS 2', types: ['AAM_HEAVY', 'CRUISE', 'AGM', 'HYPERSONIC'], equipped: 'EMPTY', x: 0, y: 10, ammoByWeapon: { AMRAAM: 16, LRAAM: 12, TOMAHAWK: 8, MAVERICK: 16, HELLFIRE: 16, ARAD: 6, HYPERSONIC_ASHM: 2 } },
         { name: 'Aft AA', types: ['GUN'], equipped: 'GUN_BASIC', x: 0, y: 50, allowedWeapons: ['GUN_BASIC', 'CIWS'] }
     ] },
-    ARSENAL_CRUISER: { name: 'Arsenal Cruiser', type: 'ship', role: 'Missile Command', cost: 3200, hp: 1700, speed: 0.65, turn: 0.04, fuel: 9999, ammo: 1, icon: '🚢🚀', hardpoints: [
+    ARSENAL_CRUISER: { name: 'Arsenal Cruiser', type: 'ship', role: 'Missile Command', cost: 4000, hp: 1700, speed: 0.65, turn: 0.04, fuel: 9999, ammo: 1, icon: '🚢🚀', hardpoints: [
         { name: 'Main Gun', types: ['GUN'], equipped: 'CANNON_127MM', x: 0, y: -40, allowedWeapons: ['CANNON_127MM', 'RAILGUN'] },
         { name: 'CIWS Bow', types: ['GUN'], equipped: 'CIWS', x: 0, y: -18, allowedWeapons: ['GUN_BASIC', 'CIWS'] },
         { name: 'VLS Heavy 1', types: ['CRUISE', 'AGM', 'AAM_HEAVY', 'HYPERSONIC', 'TBM' ], equipped: 'TOMAHAWK', x: -8, y: 2, ammoByWeapon: { TOMAHAWK: 6, AMRAAM: 12, LRAAM: 10, MAVERICK: 10, HELLFIRE: 10, HYPERSONIC_ASHM: 4, PILE_DRIVER: 1 } },
@@ -185,7 +185,7 @@ const UNIT_TYPES = {
         { name: 'Troop Bay', types: ['DEPLOY'], equipped: 'DEPLOY_AAA_BATTERY', x: 8, y: 12, ammoByWeapon: { DEPLOY_IR_APC: 2, DEPLOY_AAA_BATTERY: 2, SF_DEPLOY: 2 } },
         { name: 'Aft CIWS', types: ['GUN'], equipped: 'CIWS', x: 0, y: 45, allowedWeapons: ['GUN_BASIC', 'CIWS'] }
     ] },
-    HUNTER_FRIGATE: { name: 'Hunter Frigate', type: 'ship', role: 'SEAD/Interdiction', cost: 2400, hp: 1400, speed: 0.85, turn: 0.06, fuel: 9999, ammo: 1, icon: '⚓🎯', commandAuraRadius: 170, commandTurnBoost: 1.15, commandCooldownBoost: 1.1, hardpoints: [
+    HUNTER_FRIGATE: { name: 'Hunter Frigate', type: 'ship', role: 'SEAD/Interdiction', cost: 1500, hp: 1400, speed: 0.85, turn: 0.06, fuel: 9999, ammo: 1, icon: '⚓🎯', commandAuraRadius: 170, commandTurnBoost: 1.15, commandCooldownBoost: 1.1, hardpoints: [
         { name: 'Main Gun', types: ['GUN'], equipped: 'CANNON_127MM', x: 0, y: -35, allowedWeapons: ['CANNON_127MM', 'RAILGUN'] },
         { name: 'SEAD Rack', types: ['AGM', 'AAM_HEAVY'], equipped: 'ARAD', x: -8, y: 4, ammoByWeapon: { ARAD: 6, AMRAAM: 8, LRAAM: 6, MAVERICK: 8 } },
         { name: 'Strike Rack', types: ['AGM', 'CRUISE', 'AAM_HEAVY'], equipped: 'MAVERICK', x: 8, y: 8, ammoByWeapon: { ARAD: 4, AMRAAM: 8, LRAAM: 6, MAVERICK: 10, TOMAHAWK: 4 } },
