@@ -14,6 +14,8 @@ const WEAPONS = {
     EMPTY: { name: 'Empty', type: 'none', icon: '🚫' },
     GUN_BASIC: { name: '.50 Cal MG', type: 'GUN', damage: 2, cooldown: 2, speed: 12, range: 80, targets: ['air','heli','ground', 'ship', 'structure'], icon: '🔫', navalOmni: true, salvoCount: 2, salvoDelay: 2 }, 
     VULCAN: { name: '20mm Vulcan', type: 'GUN', damage: 8, cooldown: 2, speed: 12, range: 80, targets: ['air','heli','ground', 'ship', 'structure'], icon: '🌭' },
+    AC130_25MM: { name: '25mm Gatling', type: 'GUN', damage: 10, cooldown: 3, speed: 16, range: 165, targets: ['air','heli','ground', 'ship', 'structure'], icon: '🔫', burstShots: 3, burstInterval: 1, spread: 0.035, leadMultiplier: 1.1 },
+    AC130_40MM: { name: '40mm Bofors', type: 'GUN', damage: 24, cooldown: 12, speed: 14, range: 190, targets: ['ground', 'ship', 'structure'], icon: '💥', burstShots: 2, burstInterval: 3, spread: 0.025 },
     CANNON_127MM: { name: '127mm Cannon', type: 'GUN', damage: 40, cooldown: 60, speed: 10, range: 200, targets: ['ground', 'ship', 'structure'], icon: '💣', navalOmni: true, salvoCount: 3, salvoDelay: 4 },
     RAILGUN: { name: 'Railcannon', type: 'GUN', damage: 260, cooldown: 36, speed: 100, range: 420, targets: ['ground','ship','structure'], icon: '⚡' },
     CIWS: { name: 'Phalanx CIWS', type: 'GUN', damage: 5, cooldown: 42, speed: 18, range: 145, targets: ['air','heli', 'cruise', 'munition'], icon: '🛡️', navalOmni: true, salvoCount: 4, salvoDelay: 1, leadMultiplier: 1.35, burstShots: 75, burstInterval: 1, spread: 0.15, interceptsMunitions: true },
@@ -54,7 +56,7 @@ const TECH_UPGRADES = { FLARES: { name: 'Flares' }, CHAFF: { name: 'Chaff' }, DE
 
 const TECH_TREE = {
     "Logistics": [ { id: "SF_DEPLOY", cost: 0, req: null }, { id: "DEPLOY_SPAA", cost: 500, req: "SF_DEPLOY" }, { id: "DEPLOY_COASTAL", cost: 800, req: "SF_DEPLOY" }, { id: "DEPLOY_MANPADS", cost: 1500, req: "DEPLOY_SPAA" }, { id: "DEPLOY_ASHM", cost: 2000, req: "DEPLOY_COASTAL" } ],
-    "Guns": [ { id: "VULCAN", cost: 500, req: null }, { id: "CIWS", cost: 800, req: "VULCAN" }, { id: "RAILGUN", cost: 2000, req: "CIWS" } ],
+    "Guns": [ { id: "VULCAN", cost: 500, req: null }, { id: "AC130_25MM", cost: 650, req: "VULCAN" }, { id: "AC130_40MM", cost: 850, req: "AC130_25MM" }, { id: "CIWS", cost: 800, req: "VULCAN" }, { id: "RAILGUN", cost: 2000, req: "CIWS" } ],
     "Bombs": [ { id: "BOMB_GUIDED", cost: 600, req: null }, { id: "BOMB_CLUSTER", cost: 1200, req: "BOMB_GUIDED" }, { id: "BOMB_SDB", cost: 2000, req: "BOMB_CLUSTER" } ],
     "Rockets": [ { id: "ROCKET_DAGR", cost: 600, req: null }, { id: "ROCKET_DU", cost: 1500, req: "ROCKET_DAGR" } ],
     "Air Missiles": [ { id: "SIDEWINDER", cost: 1000, req: null }, { id: "AMRAAM", cost: 1500, req: "SIDEWINDER" }, { id: "LRAAM", cost: 2200, req: "AMRAAM" } ],
@@ -64,7 +66,7 @@ const TECH_TREE = {
 };
 
 // Initial unlocks per team
-const DEFAULT_UNLOCKS = ['EMPTY', 'GUN_BASIC', 'RIFLE', 'ROCKET_HYDRA', 'BOMB_IRON', 'SF_DEPLOY', 'CANNON_127MM', 'DEPLOY_SOLDIER_SQUAD', 'CONVOY_SLOT_TANK', 'CONVOY_SLOT_IFV', 'CONVOY_SLOT_APC', 'CONVOY_SLOT_AAA', 'CONVOY_SLOT_SOLDIERS'];
+const DEFAULT_UNLOCKS = ['EMPTY', 'GUN_BASIC', 'RIFLE', 'ROCKET_HYDRA', 'BOMB_IRON', 'SF_DEPLOY', 'CANNON_127MM', 'AC130_25MM', 'AC130_40MM', 'DEPLOY_SOLDIER_SQUAD', 'CONVOY_SLOT_TANK', 'CONVOY_SLOT_IFV', 'CONVOY_SLOT_APC', 'CONVOY_SLOT_AAA', 'CONVOY_SLOT_SOLDIERS'];
 
 // State per team (Ensuring robust init)
 const TEAMS = {
@@ -102,8 +104,8 @@ const UNIT_TYPES = {
     ] },
     AC130: { name: 'AC-130 Spectre', type: 'air', role: 'Gunship', cost: 2200, hp: 520, speed: 1.35, turn: 0.03, fuel: 3200, ammo: 1, icon: '🛩️🔫', radarRange: 240, rcs: 1.8, hardpoints: [
         { name: 'Howitzer', types: ['GUN'], equipped: 'CANNON_127MM', x: -12, y: 0, allowedWeapons: ['CANNON_127MM', 'RAILGUN'] },
-        { name: '40MM Slot', types: ['GUN'], equipped: 'GUN_BASIC', x: -30, y: -10, allowedWeapons: ['GUN_BASIC', 'VULCAN'] },
-        { name: 'Small Arms Slot', types: ['GUN'], equipped: 'GUN_BASIC', x: -30, y: 10, allowedWeapons: ['GUN_BASIC'] }
+        { name: '40MM Slot', types: ['GUN'], equipped: 'AC130_40MM', x: -30, y: -10, allowedWeapons: ['GUN_BASIC', 'VULCAN', 'AC130_40MM'] },
+        { name: 'Gatling Slot', types: ['GUN'], equipped: 'AC130_25MM', x: -30, y: 10, allowedWeapons: ['GUN_BASIC', 'VULCAN', 'AC130_25MM'] }
     ] },
     SEAD_FIGHTER: { name: 'F-35G Shrike', type: 'air', role: 'SEAD', cost: 1400, hp: 220, speed: 2.7, turn: 0.055, fuel: 2200, ammo: 1, icon: '🦅📡', radarRange: 300, rcs: 0.65, hardpoints: [
         { name: 'Gun', types: ['GUN'], equipped: 'VULCAN', x: 0, y: -85, allowedWeapons: ['GUN_BASIC', 'VULCAN'] },

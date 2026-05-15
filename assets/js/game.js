@@ -958,7 +958,7 @@ class Building extends Entity {
         if (!this.stats.range || !this.stats.damage || !this.stats.reload) return;
         if (this.cooldown > 0) this.cooldown -= SPEED_SCALE;
         let validTypes = (this.type.includes('COASTAL') || this.type.includes('ASHM')) ? ['ship'] : ['air', 'heli', 'cruise'];
-        if (this.team === TEAM_NEUTRAL) return; 
+        if (this.team === TEAM_NEUTRAL) return;
         
         let target = null;
         
@@ -1141,7 +1141,10 @@ class Unit extends Entity {
         this.targetPos = { x: x, y: y }; this.targetUnit = null; this.state = 'IDLE'; this.rtb = false; 
         this.transportMission = null;
         this.orbitAngle = Math.random() * Math.PI * 2;
-        this.orbitDir = Math.random() < 0.5 ? 1 : -1;
+        // AC-130 guns are modeled on the left side of the aircraft, so keep
+        // its orbit clockwise around targets instead of randomly choosing the
+        // side that may put the target outside its gun arc.
+        this.orbitDir = typeKey === 'AC130' ? -1 : (Math.random() < 0.5 ? 1 : -1);
         this.turnBoost = 1;
         this.cooldownBoost = 1;
         this.pathNodes = null;
@@ -1304,7 +1307,7 @@ class Unit extends Entity {
             }
             if (this.typeKey === 'HYPERSONIC_ASHM_UNIT' && gameTime % 6 === 0) addParticle(this.x, this.y, 'smoke_light');
             if (this.typeKey === 'CRUISE_MISSILE_UNIT' && gameTime % 8 === 0) addParticle(this.x, this.y, 'smoke_light');
-            return; 
+            return;
         }
 
         if (this.data.type === 'air' || this.data.type === 'heli') {
@@ -1348,7 +1351,7 @@ class Unit extends Entity {
                 this.x += Math.cos(this.angle) * 40; this.y += Math.sin(this.angle) * 40;
                 this.takeoffTimer = 120; 
             }
-            return; 
+            return;
         }
         this.visible = true;
 
@@ -1503,9 +1506,13 @@ class Unit extends Entity {
             if (this.base) moveTarget = this.base;
         } else if (this.targetUnit && !this.targetUnit.dead && this.data.type !== 'ship') {
             if (this.typeKey === 'AC130') {
-                const gunRanges = this.weapons.filter(w => w.def.type === 'GUN').map(w => w.def.range || 300);
-                const minRange = gunRanges.length ? Math.min(...gunRanges) : 150;
-                const orbitRadius = Math.max(90, Math.min(minRange * 0.72, 170));
+                this.orbitDir = -1;
+                const gunRanges = this.weapons
+                    .filter(w => w.def.type === 'GUN' && !w.def.passive)
+                    .map(w => w.def.range || 300);
+                const shortestGunRange = gunRanges.length ? Math.min(...gunRanges) : 180;
+                const longestGunRange = gunRanges.length ? Math.max(...gunRanges) : 220;
+                const orbitRadius = Math.max(150, Math.min(shortestGunRange * 0.9, longestGunRange * 0.78, 260));
                 const toTargetAngle = angleTo(this.targetUnit, this);
                 const desiredOrbitAngle = toTargetAngle + (Math.PI / 2) * this.orbitDir;
                 let orbitDiff = desiredOrbitAngle - this.orbitAngle;
@@ -1627,19 +1634,22 @@ class Unit extends Entity {
         if (this.rtb && distToTarget < 30 && this.base) { this.state = 'LANDED'; return; }
 
         if (this.targetUnit && !this.targetUnit.dead && !this.rtb) {
-            const d = dist(this, this.targetUnit);
-            const angleToT = angleTo(this, this.targetUnit);
-            let aimDiff = angleToT - this.angle;
-            while (aimDiff < -Math.PI) aimDiff += Math.PI * 2; while (aimDiff > Math.PI) aimDiff -= Math.PI * 2;
             this.weapons.forEach(w => {
+                const primaryTargetInRange = this.targetUnit && dist(this, this.targetUnit) <= w.def.range && isValidTarget(this.targetUnit, w.def.targets);
+                const weaponTarget = primaryTargetInRange ? this.targetUnit : findTarget(this, w.def.range, w.def.targets);
+                if (!weaponTarget) return;
+                const d = dist(this, weaponTarget);
+                const angleToT = angleTo(this, weaponTarget);
+                let aimDiff = angleToT - this.angle;
+                while (aimDiff < -Math.PI) aimDiff += Math.PI * 2; while (aimDiff > Math.PI) aimDiff -= Math.PI * 2;
                 if (w.ammo > 0 && w.cooldown <= 0 && w.burstCount === 0 && d <= w.def.range && !w.def.passive) {
                     if (this.takeoffTimer > 0) return;
                     if (w.def.type !== 'GUN' && this.fireTimer > 0) return;
-                    if (this.targetUnit && this.targetUnit.typeKey === 'PILE_DRIVER_TBM_UNIT' && w.name !== 'AIM-174B') return;
+                    if (weaponTarget && weaponTarget.typeKey === 'PILE_DRIVER_TBM_UNIT' && w.def.name !== 'AIM-174B') return;
 
                     let tolerance = w.def.type === 'GUN' ? 0.3 : 0.8;
-                    if (w.def.priorityTag && this.targetUnit.type !== w.def.priorityTag) return; 
-                    if ((w.def.name === 'AIM-120' || w.def.name === 'AIM-174B') && !hasRadarTrackForAirTarget(this, this.targetUnit)) return;
+                    if (w.def.priorityTag && weaponTarget.type !== w.def.priorityTag) return;
+                    if ((w.def.name === 'AIM-120' || w.def.name === 'AIM-174B') && !hasRadarTrackForAirTarget(this, weaponTarget)) return;
 
 
                     const omnidirectional = this.data.type === 'ship' && w.def.navalOmni;
@@ -1649,15 +1659,15 @@ class Unit extends Entity {
                         let sideDiff = angleToT - leftBearing;
                         while (sideDiff < -Math.PI) sideDiff += Math.PI * 2;
                         while (sideDiff > Math.PI) sideDiff -= Math.PI * 2;
-                        const ac130Arc = w.def.range >= 180 ? 1.2 : 1.35;
+                        const ac130Arc = 1.55;
                         firingArcOk = Math.abs(sideDiff) < ac130Arc;
                     }
                     if (firingArcOk) {
-                        if (isValidTarget(this.targetUnit, w.def.targets)) {
+                        if (isValidTarget(weaponTarget, w.def.targets)) {
                             if (w.def.guided && w.def.type === 'BOMB') {
-                                this.fireWeapon(w, this.targetUnit);
+                                this.fireWeapon(w, weaponTarget);
                             } else {
-                                this.fireWeapon(w, this.targetUnit);
+                                this.fireWeapon(w, weaponTarget);
                             }
                             if (w.def.type !== 'GUN') this.fireTimer = 15;
                         }
@@ -3168,7 +3178,7 @@ function createUI() {
     panel.innerHTML = '';
     
     Object.keys(UNIT_TYPES).forEach(key => {
-        if (['SF', 'SOLDIER_SQUAD', 'SQUAD_AT', 'SQUAD_AA', 'SQUAD_ASSISTANT', 'CRUISE_MISSILE_UNIT', 'HYPERSONIC_ASHM_UNIT', 'PILE_DRIVER_TBM_UNIT'].includes(key)) return; 
+        if (['SF', 'SOLDIER_SQUAD', 'SQUAD_AT', 'SQUAD_AA', 'SQUAD_ASSISTANT', 'CRUISE_MISSILE_UNIT', 'HYPERSONIC_ASHM_UNIT', 'PILE_DRIVER_TBM_UNIT'].includes(key)) return;
         const data = UNIT_TYPES[key];
         
         // Hide naval units on Land maps
@@ -3976,7 +3986,7 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => inputKeys[e.key] = false);
 
 canvas.addEventListener('mousedown', e => {
-    if (editMode || isSpectator || gamePaused || gameState !== 'GAME') return; 
+    if (editMode || isSpectator || gamePaused || gameState !== 'GAME') return;
     const rect = canvas.getBoundingClientRect(); 
     mouse.x = e.clientX - rect.left; mouse.y = e.clientY - rect.top;
     mouse.worldX = mouse.x + camera.x; mouse.worldY = mouse.y + camera.y;
@@ -4340,7 +4350,7 @@ function draw() {
 
     // Draw Zones
     [TEAM_PLAYER, TEAM_AI].forEach(t => {
-        if(t === TEAM_PLAYER && !zoneEditMode && !isSpectator) return; 
+        if(t === TEAM_PLAYER && !zoneEditMode && !isSpectator) return;
         TEAMS[t].zones.forEach(z => {
             if(z.type === 'CAP') ctx.fillStyle = 'rgba(0,100,255,0.2)';
             else if(z.type === 'CAS') ctx.fillStyle = 'rgba(0,255,100,0.2)';
